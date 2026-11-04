@@ -153,19 +153,38 @@ export function createPlayer(appearance: Appearance = defaultAppearance): Player
   return { root, body, legL, legR, armL, armR, head, materials };
 }
 
+/** Upper-body overrides used while fishing. */
+export interface PlayerPose {
+  /** 0 = arms swing freely, 1 = both arms held forward on the rod. */
+  armsForward: number;
+  /** Extra arm raise (radians) for the cast swing. */
+  armRaise: number;
+  /** Body lean in radians; negative leans back (reeling). */
+  lean: number;
+}
+
+export const neutralPose: PlayerPose = { armsForward: 0, armRaise: 0, lean: 0 };
+
+/** Where the right mitten sits in body space; the rod is attached here. */
+export const HAND_POSITION = { x: 0.36, y: 0.84, z: 0.42 } as const;
+
 /**
  * Walk/idle animation. `walk` is 0..1 (how fast relative to max), `phase` advances with distance walked.
  */
-export function animatePlayer(model: PlayerModel, walk: number, phase: number, time: number): void {
+export function animatePlayer(model: PlayerModel, walk: number, phase: number, time: number, pose: PlayerPose = neutralPose): void {
   const swing = Math.sin(phase) * 0.7 * walk;
+  const hold = pose.armsForward;
+  const forward = -1.05 - pose.armRaise;
   model.legL.rotation.x = swing;
   model.legR.rotation.x = -swing;
-  model.armL.rotation.x = -swing * 0.8;
-  model.armR.rotation.x = swing * 0.8;
+  model.armL.rotation.x = -swing * 0.8 * (1 - hold) + (forward + 0.2) * hold;
+  model.armR.rotation.x = swing * 0.8 * (1 - hold) + forward * hold;
+  model.armL.rotation.z = -0.12 + 0.35 * hold; // bring the left hand toward the rod
+  model.armR.rotation.z = 0.12 - 0.1 * hold;
 
   const bob = Math.abs(Math.sin(phase)) * 0.06 * walk;
   const breathe = Math.sin(time * 2.2) * 0.012 * (1 - walk);
   model.body.position.y = bob + breathe;
-  model.body.rotation.x = 0.08 * walk; // lean into the walk
+  model.body.rotation.x = 0.08 * walk + pose.lean; // lean into the walk / back while reeling
   model.head.rotation.z = Math.sin(phase) * 0.04 * walk;
 }

@@ -18,19 +18,46 @@ export const IceShore = {
   /** Where the player may walk. East/north edges stop at the water; west/south at the tree line. */
   walkBounds: { minX: -10.5, maxX: 10.3, minZ: -11.3, maxZ: 12 } satisfies RectArea,
   waterLevel: -0.45,
-  playerSpawn: { x: 0, z: 2 } satisfies Vec2,
+  playerSpawn: { x: 0, z: 0 } satisfies Vec2,
 
   igloo: { x: -4, z: -4, radius: 2.3, tunnelLength: 1.6, tunnelWidth: 1.5 },
 
+  /** Ice fishing holes. `unlock` names the unlock zone that reveals it (none = open from the start). */
+  holes: [
+    { id: 'hole1', x: 2, z: -5, unlock: null },
+    { id: 'hole2', x: 6, z: -5.5, unlock: 'hole2' },
+  ],
+
+  /** Sales counter. Player drops fish on the north side, customers queue on the south side. */
+  counter: {
+    x: 2,
+    z: 3.2,
+    width: 2.8,
+    depth: 0.9,
+    dropPoint: { x: 2, z: 2.0 },
+    servePoint: { x: 2, z: 4.6 },
+    queueSpacing: 1.1,
+    coinPile: { x: 4.4, z: 3.2 },
+  },
+
+  customers: {
+    spawn: { x: 9.5, z: 13.5 },
+    exit: { x: -6, z: 14 },
+    seed: 41,
+  },
+
+  /** Dashed frames you stand on to pay. Cost comes from Economy.unlocks. */
+  unlockZones: [{ id: 'hole2', x: 6, z: -5.5, size: 2.2, cost: 'secondHole' }],
+
   crates: [
-    { x: 4.2, z: 3.2, size: 1.1, stack: 2, rotation: 0.15 },
-    { x: 5.5, z: 3.0, size: 1.0, stack: 1, rotation: -0.1 },
+    { x: -7.6, z: 0.4, size: 1.1, stack: 2, rotation: 0.15 },
+    { x: -6.3, z: 0.7, size: 1.0, stack: 1, rotation: -0.1 },
   ],
 
   /** Trees inside the walkable area (they get colliders). */
   trees: [
     { x: -8.3, z: -9.2, scale: 1.1 },
-    { x: 8.2, z: 9.4, scale: 1.0 },
+    { x: 8.6, z: 8.2, scale: 1.0 },
     { x: -9.0, z: 3.0, scale: 0.9 },
     { x: 7.4, z: -2.5, scale: 0.8 },
   ],

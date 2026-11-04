@@ -162,3 +162,259 @@ body {
     0 0 14px color-mix(in srgb, var(--ice) 90%, transparent),
     0 2px 6px color-mix(in srgb, var(--ui-ink) 35%, transparent);
 }
+
+.hud-pill.bump {
+  animation: pill-bump 220ms ease-out;
+}
+
+@keyframes pill-bump {
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+.coin-icon.small {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 5px;
+  vertical-align: -2px;
+}
+
+/* ---------- World-anchored labels ---------- */
+.world-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.world-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+  font-weight: 800;
+  color: var(--snow);
+  white-space: nowrap;
+}
+
+.world-label.pop {
+  animation: label-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes label-pop {
+  from {
+    opacity: 0;
+    scale: 0.5;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+.stack-count,
+.fish-full,
+.fish-toast,
+.unlock-price,
+.fish-alert,
+.fish-card,
+.reel-gauge {
+  translate: -50% -100%;
+}
+
+.stack-count {
+  padding: 2px 9px;
+  border-radius: 10px;
+  font-size: 15px;
+  background: color-mix(in srgb, var(--ui-ink) 65%, transparent);
+}
+
+.stack-count.full {
+  background: var(--alert);
+}
+
+.fish-full {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 18px;
+  background: var(--alert);
+}
+
+.fish-toast {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 18px;
+  background: color-mix(in srgb, var(--ui-ink) 70%, transparent);
+}
+
+.fish-alert {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.alert-mark {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 34px;
+  line-height: 1;
+  color: var(--ui-ink);
+  background: var(--coin);
+  box-shadow: 0 0 0 4px var(--snow), 0 4px 14px color-mix(in srgb, var(--ui-ink) 40%, transparent);
+  animation: alert-shake 0.25s ease-in-out infinite;
+}
+
+.alert-tap {
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 15px;
+  background: color-mix(in srgb, var(--ui-ink) 70%, transparent);
+}
+
+@keyframes alert-shake {
+  0%,
+  100% {
+    rotate: -8deg;
+  }
+  50% {
+    rotate: 8deg;
+  }
+}
+
+.fish-card {
+  padding: 8px 14px;
+  border-radius: 14px;
+  text-align: center;
+  color: var(--ui-ink);
+  background: var(--snow);
+  border: 3px solid var(--rarity);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--ui-ink) 35%, transparent);
+}
+
+.card-name {
+  font-size: 17px;
+}
+
+.card-kg {
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.card-price::before {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 3px;
+  border-radius: 50%;
+  background: var(--coin);
+  vertical-align: -1px;
+}
+
+.card-rarity {
+  margin-top: 3px;
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--snow);
+  background: var(--rarity);
+  display: inline-block;
+}
+
+.unlock-price {
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 16px;
+  background: color-mix(in srgb, var(--ui-ink) 65%, transparent);
+  translate: -50% 0;
+}
+
+/* ---------- Reel gauge ---------- */
+.reel-gauge {
+  width: 150px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ui-ink) 72%, transparent);
+  translate: -50% -50%;
+}
+
+.gauge-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 6px;
+}
+
+.gauge-name {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.gauge-track {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--snow) 20%, transparent);
+}
+
+.gauge-progress {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: var(--coin);
+}
+
+.gauge-track.tension {
+  overflow: visible;
+  background: linear-gradient(
+    to right,
+    var(--tension-green) 0 var(--green-end),
+    var(--tension-yellow) var(--green-end) var(--red-start),
+    var(--tension-red) var(--red-start) 100%
+  );
+}
+
+.tension-marker {
+  position: absolute;
+  top: -4px;
+  width: 6px;
+  height: 20px;
+  margin-left: -3px;
+  border-radius: 3px;
+  background: var(--snow);
+  box-shadow: 0 0 0 2px var(--ui-ink);
+}
+
+.reel-gauge[data-zone='red'] .tension-marker {
+  animation: marker-shake 0.08s linear infinite;
+}
+
+.reel-gauge.warn {
+  box-shadow: 0 0 0 3px var(--tension-yellow);
+}
+
+.reel-gauge[data-zone='red'] {
+  box-shadow: 0 0 0 3px var(--tension-red);
+}
+
+@keyframes marker-shake {
+  50% {
+    translate: 2px 0;
+  }
+}
+
+.gauge-hint {
+  white-space: normal;
+  font-size: 12px;
+  text-align: center;
+  opacity: 0.9;
+}

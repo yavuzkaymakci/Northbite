@@ -13,7 +13,7 @@ Oyuncu balık tutar, satar, para kazanır ve yeni alanlar açar. Zamanla penguen
 - **Oturum hedefi:** 3–8 dakikalık kısa ve sık oturumlar
 
 ## 2. Çekirdek döngü
-1. Oyuncu **buz deliğinin** yanında durur, balıklar otomatik tutulur.
+1. Oyuncu **buz deliğinin** etkileşim halkasında durunca olta otomatik atılır. Balık vurunca kısa bir **balık tutma mini oyunu** oynanır (bkz. §2.1).
 2. Tutulan balıklar karakterin **sırtında üst üste yığılır** (taşıma kapasitesi kadar).
 3. Oyuncu **satış tezgâhına** yürür, yükü tezgâha bırakır.
 4. **Müşteriler** gelir, tezgâhtan balık alır ve yere **coin** bırakır.
@@ -21,7 +21,38 @@ Oyuncu balık tutar, satar, para kazanır ve yeni alanlar açar. Zamanla penguen
 6. Para, yerdeki **kilit alanlarına** harcanır: kesik çizgili çerçevenin üstünde durunca para akar, çerçeve dolunca yapı açılır.
 7. Yeni istasyonlar, işçiler ve yükseltmeler açıldıkça oyuncunun elle yaptığı işler otomatiğe döner. Oyuncu da daha büyük hedeflere yönelir.
 
-**Etkileşim kuralı:** Hiçbir istasyonda buton yoktur. İstasyonun etkileşim alanında durmak yeterlidir (türün standardı budur).
+**Etkileşim kuralı:** Hiçbir istasyonda buton yoktur. İstasyonun etkileşim alanında durmak yeterlidir (türün standardı budur). Balık tutmadaki tek istisna, vuruşta ekrana dokunmak ve sarmak için basılı tutmaktır.
+
+## 2.1 Balık tutma mini oyunu
+Mini oyunun his ayarları `src/settings.ts` (`FishingFeel`), balık verileri `src/content/fish.ts` içindedir.
+
+**Akış**
+1. **Olta atma:** Karakter buz deliğinin etkileşim halkasına girip ~0.3 sn durunca olta otomatik atılır (buton yok). Kol ve olta savrulur, misina yay çizer, şamandıra suya düşer, su halkası oluşur.
+2. **Bekleme:** Şamandıra suda hafifçe sallanır, karakter nefes alır. 1.5–4 sn sonra balık vurur.
+3. **Vuruş:** Şamandıra batar, su sıçrar, karakterin başında "!" çıkar, kısa titreşim olur. Oyuncunun ekrana dokunmak için **0.8 sn**'si var. Kaçırırsa balık gider, olta yeniden atılır.
+4. **Sarma:** Ekranda herhangi bir yere **basılı tutmak** makarayı sarar, bırakmak gevşetir.
+   - **İlerleme barı:** Basılı tutunca dolar, bırakınca yavaşça boşalır. Gerilim sarı bölgedeyken daha yavaş, kırmızıdayken çok yavaş dolar.
+   - **Gerilim göstergesi:** Basılı tutunca sakin suda yeşil bölgeye yerleşir, bırakınca düşer. Renk bölgeleri yeşil, sarı ve kırmızıdır. Yeşil bölgenin genişliği türe göre değişir.
+   - **Çekiş:** Balık periyodik olarak çekiştirir. Önce kısa bir uyarı gelir (olta ucu seğirir, su sıçrar), sonra gerilim ani yükselir, olta ucu eğilir ve balık suda çırpınır. Çekişte basılı tutmaya devam edersen gerilim kırmızıyı aşar.
+   - Gerilim tavanı aşarsa **misina kopar**, balık kaçar.
+   - İlerleme %100 olunca balık yakalanır.
+5. **Yakalama:** Balık sudan yay çizerek fırlar, karakterin önünde çırpınır. Üstünde kısa bir kart görünür: tür adı, kg ve nadirlik rengi. Sonra balık sırttaki yığına uçar. Belirgin bir titreşim olur.
+6. **Kaçış:** Misina kopma efekti ve "Kaçtı!" yazısı görünür. Ceza yoktur, olta yeniden atılır.
+7. **Yığın dolu:** Kapasite doluysa olta atılmaz; başın üstünde "Dolu!" görünür.
+8. **Joystick ile çakışma:** Vuruş ve sarma sırasında dokunuşlar joystick yerine sarmaya gider. Oyuncu parmağını 40 px'den fazla sürüklerse mini oyun iptal olur ve aynı dokunuş joystick'e devredilir (normal yürüyüşe dönülür). Etkileşim halkasından çıkmak veya yürümek de iptal eder.
+9. **Okunabilirlik:** Gerilim ve ilerleme göstergesi karakterin yanında, ekranın ortasına yakın durur; alt %30'da parmağın altında kalmaz.
+
+**Balık türleri**
+
+| Tür | Kg | Sarma | Çekiş | Başlangıç olasılığı |
+|---|---|---|---|---|
+| Kapelin (küçük) | 0.05–0.2 | ~1.25 sn | Neredeyse yok | %65 |
+| Kutup morinası (orta) | 0.5–2 | ~3 sn | Ara sıra, hafif | %28 |
+| Kutup alabalığı (büyük) | 2–6 | ~5 sn | Sık ve sert | %7 |
+| Grönland kalkanı (dev) | 8–20 | ~8 sn | Çok sert, düzensiz | Kilitli (ileride olta yükseltmesiyle) |
+
+- Tür içinde kg rastgeledir (küçükler daha sık). Büyük kg, sarma süresini ve çekiş gücünü en fazla %35 artırır.
+- **Satış fiyatı** = kg × kg başına fiyat (yuvarlanır, en az 1 coin).
 
 ## 3. Karakter oluşturma (ilk açılış)
 - **Ekran:** Ortada döner bir önizleme modeli, altta seçenek şeritleri bulunur.
@@ -95,10 +126,11 @@ Tüm değerler `src/content/economy.ts` dosyasında tutulur.
 
 | Değer | Başlangıç |
 |---|---|
-| Balık tutma süresi (oyuncu, delik başına) | 2.0 sn / balık |
+| Balık tutma | Mini oyun (§2.1); bir balık ortalama ~6 sn |
 | Oyuncu taşıma kapasitesi | 5 |
 | Oyuncu yürüme hızı | 4.0 birim/sn |
-| Çiğ balık satış fiyatı | 3 coin |
+| Çiğ balık satış fiyatı | kg × kg başına fiyat: kapelin 15, morina 3, alabalık 2.5, kalkan 2 coin/kg (ortalama ~3 coin/balık) |
+| Tezgâh kapasitesi | 12 balık |
 | Müşteri gelme aralığı | 3–5 sn, her müşteri 1–3 balık alır |
 | 2. buz deliği | 30 coin |
 | Tezgâh kapasite yükseltmesi | 50 coin |
@@ -161,8 +193,12 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - Pinch-zoom ve sayfa kayması yoktur.
 
 ### Demo 1 — Çekirdek döngü
-- Balık tutma, sırtta yığma, tezgâh, müşteriler, coin toplama, kilit alanı (2. delik)
-- **Kabul kriteri:** Hiç açıklama okumadan 1 dakika içinde ilk satış yapılabilir.
+- Balık tutma mini oyunu (§2.1), sırtta yığma, tezgâh, müşteriler, coin toplama, kilit alanı (2. delik)
+- **Kabul kriterleri:**
+  - Hiç açıklama okumadan 1 dakika içinde ilk satış yapılabilir.
+  - Kapelin neredeyse her denemede tutulur. Alabalık dikkat ister, ama çekişte bırakılırsa tutulur.
+  - Mini oyun sırasında joystick yanlışlıkla açılmaz; 40 px sürükleme mini oyunu temiz biçimde iptal eder.
+  - Telefonda 60 fps korunur.
 
 ### Demo 2 — Karakter ve kayıt
 - Karakter oluşturma ekranı, kaydetme ve yükleme, ana ekrana ekleme (PWA)
@@ -194,3 +230,12 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **Klavye:** Masaüstünde test için WASD / ok tuşları da karakteri yürütür.
 - **İkon:** Şimdilik yalnızca SVG ikon var. iOS ana ekran ikonu için PNG (180×180) ve Android için 192/512 PNG'ler Demo 2'de (PWA) eklenecek.
 - **Kayıt:** Demo 0'da yalnızca oyuncu konumu kaydediliyor (her 10 sn'de ve arka plana geçişte).
+
+### Demo 1 sırasında verilen geçici kararlar
+- **Rehber oku:** Açıklama metni olmadan döngünün anlaşılması için bir sonraki hedefin üstünde zıplayan sarı bir ok var (delik → tezgâh → coin yığını → karşılanabilir kilit alanı). Yığın dolunca her zaman tezgâhı gösterir.
+- **Müşteriler kaydedilmez:** Kuyruktaki müşteriler ve yoldaki balıkları yeniden açılışta sıfırlanır. Tezgâhtaki, sırttaki ve yerdeki coin yığını kaydedilir.
+- **Tezgâh kapasitesi:** 12 balık (iki kat). "Tezgâh kapasite yükseltmesi" Demo 4'e kaldı.
+- **Balık model boyutu:** Okunabilirlik için balıklar gerçek oranlarından büyük çiziliyor (`fish.ts` içindeki `length`).
+- **Alabalık süresi:** Saf sarma süresi 5 sn; çekişlerde bırakmakla birlikte toplam süre ~8–9 sn oluyor. Uzun gelirse `reelTime` düşürülebilir.
+- **Masaüstü:** Space tuşu ekrana basılı tutmaya karşılık gelir (vuruşta basmak = dokunmak).
+- **Titreşim:** iOS Safari `navigator.vibrate` desteklemiyor; iPhone'da titreşim native aşamada (Capacitor Haptics) gelecek.

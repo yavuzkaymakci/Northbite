@@ -30,4 +30,7 @@ lockBrowserGestures();
 
 const container = document.getElementById('app');
 if (!container) throw new Error('#app missing');
-new Game(container).start();
+const game = new Game(container);
+game.start();
+// Dev-only handle for debugging in the browser console. Stripped from production builds.
+if (import.meta.env.DEV) (window as unknown as { __game: Game }).__game = game;

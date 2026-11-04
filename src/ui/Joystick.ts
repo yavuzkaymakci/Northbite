@@ -3,6 +3,7 @@ import { JoystickSettings as S } from '../settings';
 /**
  * Floating joystick (GDD §4.1): appears where the finger lands in the bottom 70% of the screen.
  * Output is analog: 0 inside the dead zone, then ramps linearly to 1 at max drag.
+ * Pointer events are fed in by TouchRouter, which decides whether a touch belongs to the joystick or the mini-game.
  */
 export class Joystick {
   /** Screen-space direction scaled by strength. x = right, y = down. */
@@ -15,7 +16,7 @@ export class Joystick {
   private originY = 0;
   private hideTimer = 0;
 
-  constructor(private readonly surface: HTMLElement, overlay: HTMLElement) {
+  constructor(overlay: HTMLElement) {
     this.root = document.createElement('div');
     this.root.className = 'joystick';
     this.root.style.width = `${S.outerDiameter}px`;
@@ -30,51 +31,31 @@ export class Joystick {
 
     this.root.appendChild(this.knob);
     overlay.appendChild(this.root);
-
-    surface.addEventListener('pointerdown', this.onDown);
-    surface.addEventListener('pointermove', this.onMove);
-    surface.addEventListener('pointerup', this.onUp);
-    surface.addEventListener('pointercancel', this.onUp);
-    surface.addEventListener('lostpointercapture', this.onUp);
   }
 
-  /** Force-release, e.g. when the page goes to background. */
-  release(): void {
-    if (this.pointerId !== null && this.surface.hasPointerCapture(this.pointerId)) {
-      this.surface.releasePointerCapture(this.pointerId);
-    }
-    this.pointerId = null;
-    this.value.x = 0;
-    this.value.y = 0;
-    this.hide();
+  get activePointer(): number | null {
+    return this.pointerId;
   }
 
-  private onDown = (e: PointerEvent): void => {
-    if (this.pointerId !== null) return; // one finger drives the joystick
-    if (e.clientY < window.innerHeight * S.activeAreaFromTop) return;
-    e.preventDefault();
+  /** Starts the joystick if the touch is in the active area. Returns true if it took the pointer. */
+  tryBegin(id: number, x: number, y: number): boolean {
+    if (this.pointerId !== null) return false; // one finger drives the joystick
+    if (y < window.innerHeight * S.activeAreaFromTop) return false;
+    this.begin(id, x, y);
+    return true;
+  }
 
-    this.pointerId = e.pointerId;
-    this.surface.setPointerCapture(e.pointerId);
-    this.originX = e.clientX;
-    this.originY = e.clientY;
+  /** Takes over a touch that started elsewhere (e.g. a cancelled mini-game), centered where it began. */
+  adopt(id: number, originX: number, originY: number, x: number, y: number): void {
+    if (this.pointerId !== null) return;
+    this.begin(id, originX, originY);
+    this.move(id, x, y);
+  }
 
-    window.clearTimeout(this.hideTimer);
-    this.root.style.left = `${e.clientX}px`;
-    this.root.style.top = `${e.clientY}px`;
-    this.setKnob(0, 0);
-    // Restart the appear animation.
-    this.root.classList.remove('visible', 'hiding');
-    void this.root.offsetWidth;
-    this.root.classList.add('visible');
-  };
-
-  private onMove = (e: PointerEvent): void => {
-    if (e.pointerId !== this.pointerId) return;
-    e.preventDefault();
-
-    let dx = e.clientX - this.originX;
-    let dy = e.clientY - this.originY;
+  move(id: number, x: number, y: number): void {
+    if (id !== this.pointerId) return;
+    let dx = x - this.originX;
+    let dy = y - this.originY;
     const dist = Math.hypot(dx, dy);
     if (dist > S.maxDrag) {
       dx = (dx / dist) * S.maxDrag;
@@ -89,17 +70,37 @@ export class Joystick {
       return;
     }
     const strength = (t - S.deadZone) / (1 - S.deadZone);
-    this.value.x = (dx / Math.hypot(dx, dy)) * strength;
-    this.value.y = (dy / Math.hypot(dx, dy)) * strength;
-  };
+    const len = Math.hypot(dx, dy);
+    this.value.x = (dx / len) * strength;
+    this.value.y = (dy / len) * strength;
+  }
 
-  private onUp = (e: PointerEvent): void => {
-    if (e.pointerId !== this.pointerId) return;
+  end(id: number): void {
+    if (id !== this.pointerId) return;
+    this.release();
+  }
+
+  /** Force-release, e.g. when the page goes to background. */
+  release(): void {
     this.pointerId = null;
     this.value.x = 0;
     this.value.y = 0;
     this.hide();
-  };
+  }
+
+  private begin(id: number, x: number, y: number): void {
+    this.pointerId = id;
+    this.originX = x;
+    this.originY = y;
+    window.clearTimeout(this.hideTimer);
+    this.root.style.left = `${x}px`;
+    this.root.style.top = `${y}px`;
+    this.setKnob(0, 0);
+    // Restart the appear animation.
+    this.root.classList.remove('visible', 'hiding');
+    void this.root.offsetWidth;
+    this.root.classList.add('visible');
+  }
 
   private hide(): void {
     if (!this.root.classList.contains('visible')) return;

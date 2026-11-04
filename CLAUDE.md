@@ -25,7 +25,7 @@ src/
   entities/  Player, Worker, Customer, Station, Item
   systems/   Movement, CarryStack, Economy, Spawning, OfflineEarnings
   ui/        Joystick, HUD, CharacterCreator, UpgradePanel, Popups
-  content/   economy.ts, stations.ts, zones.ts, workers.ts, strings.ts
+  content/   economy.ts, fish.ts, stations.ts, zones.ts, workers.ts, strings.ts
   models/    kodla üretilen low-poly mesh fabrikaları
 public/      manifest.webmanifest, ikonlar, ileride glTF modeller
 docs/        GDD.md

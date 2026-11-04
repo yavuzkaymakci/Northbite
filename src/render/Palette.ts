@@ -33,6 +33,33 @@ export const Palette = {
   sun: 0xfff3e0,
   uiInk: 0x1d3a4d,
   white: 0xffffff,
+
+  // Fishing
+  holeWater: 0x1f5674,
+  fishingLine: 0x34434f,
+  rod: 0x6b4a33,
+  reel: 0x7d8a96,
+  bobberRed: 0xe2504c,
+  fishCapelin: 0x9fb8c8,
+  fishCod: 0x8f8b68,
+  fishChar: 0x4f7078,
+  fishHalibut: 0x6e5c4b,
+  fishBellyLight: 0xe8eef2,
+  fishBellyWarm: 0xf08a5d,
+  rarityCommon: 0x7f97aa,
+  rarityUncommon: 0x47b37a,
+  rarityRare: 0x3f8fd2,
+  rarityEpic: 0x9b6bff,
+  tensionGreen: 0x47b37a,
+  tensionYellow: 0xf2c94c,
+  tensionRed: 0xe2504c,
+  alert: 0xe2504c,
+
+  // Stall and unlocks
+  awning: 0xe2504c,
+  unlockDash: 0xf4f8fb,
+  unlockFill: 0xffd447,
+  guideArrow: 0xffd447,
 } as const;
 
 export type PaletteKey = keyof typeof Palette;

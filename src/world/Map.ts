@@ -1,8 +1,12 @@
 import * as THREE from 'three';
-import { WaterSettings } from '../settings';
+import { FishingFeel, UnlockFeel, WaterSettings } from '../settings';
 import { IceShore as Z, type RectArea } from '../content/zones';
 import { range, seededRandom } from '../core/Random';
+import { createCounter } from '../models/createCounter';
+import { createFlatRingGeometry, createIceHole } from '../models/createFishingProps';
 import { createIgloo, iglooTunnelStart } from '../models/createIgloo';
+import { Palette } from '../render/Palette';
+import type { FishingHole } from '../systems/Fishing';
 import { createPines } from '../models/createPines';
 import { createCrate, createFloes, createRocks, createSnowMounds } from '../models/createProps';
 import { createGround, createIcePatches, createShoreBlocks, createWater, type Water } from '../models/createTerrain';
@@ -31,6 +35,20 @@ interface Floe {
   phase: number;
 }
 
+interface HoleVisual {
+  hole: FishingHole;
+  group: THREE.Group;
+  ring: THREE.Mesh;
+  /** 0..1 bounce-in progress; 1 = settled. */
+  appear: number;
+}
+
+/** Overshooting ease for the unlock bounce. */
+function easeOutBack(t: number): number {
+  const c = 2.2;
+  return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
+}
+
 /** Zone 1 "Ice Shore" scene and its walkable area. */
 export class WorldMap implements Walkable {
   readonly group = new THREE.Group();
@@ -41,10 +59,37 @@ export class WorldMap implements Walkable {
   private readonly floes: Floe[] = [];
   private readonly floeMesh: THREE.InstancedMesh;
   private readonly tmp = new THREE.Matrix4();
+  private readonly holeVisuals: HoleVisual[] = [];
+  private readonly holeList: FishingHole[] = [];
+  private readonly ringMaterial = new THREE.MeshBasicMaterial({
+    color: Palette.shadowBlue,
+    transparent: true,
+    opacity: 0.55,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
 
-  constructor() {
+  constructor(unlocked: readonly string[]) {
     this.group.name = 'world';
     const g = Z.ground;
+
+    // Sales counter
+    const c = Z.counter;
+    const counter = createCounter(c.width, c.depth);
+    counter.position.set(c.x, 0, c.z);
+    this.group.add(counter);
+    this.colliders.push({
+      kind: 'rect',
+      minX: c.x - c.width / 2 - 0.06,
+      maxX: c.x + c.width / 2 + 0.06,
+      minZ: c.z - c.depth / 2 - 0.1,
+      maxZ: c.z + c.depth / 2 + 0.06,
+    });
+
+    // Fishing holes that are already open
+    for (const h of Z.holes) {
+      if (h.unlock === null || unlocked.includes(h.unlock)) this.openHole(h.id, false);
+    }
 
     // Ground, shore and water
     this.group.add(createGround(g, SHORE_INSET));
@@ -117,9 +162,13 @@ export class WorldMap implements Walkable {
     );
     const patchRand = seededRandom(Z.icePatches.seed);
     const ig2 = Z.igloo;
+    const clearOfStations = (x: number, z: number) =>
+      Math.hypot(x - ig2.x, z - ig2.z) > ig2.radius + 2 &&
+      Z.holes.every((h) => Math.hypot(x - h.x, z - h.z) > 2.6) &&
+      Math.hypot(x - c.x, z - c.z) > 3;
     this.group.add(
       createIcePatches(
-        scatter(patchRand, Z.walkBounds, Z.icePatches.count, (x, z) => Math.hypot(x - ig2.x, z - ig2.z) > ig2.radius + 2).map(
+        scatter(patchRand, Z.walkBounds, Z.icePatches.count, clearOfStations).map(
           (p) => ({ x: p.x, y: 0.005, z: p.z, scale: range(patchRand, 0.4, 1.0), sx: range(patchRand, 1, 1.6), sy: 1, rotY: patchRand() * 6 }),
         ),
       ),
@@ -130,8 +179,40 @@ export class WorldMap implements Walkable {
     this.group.add(this.floeMesh);
   }
 
-  update(_dt: number, time: number): void {
+  /** Fishing holes the player can use right now. */
+  get openHoles(): readonly FishingHole[] {
+    return this.holeList;
+  }
+
+  /** Adds a fishing hole (and its collider). `animate` plays the unlock bounce. */
+  openHole(id: string, animate: boolean): void {
+    const def = Z.holes.find((h) => h.id === id);
+    if (!def || this.holeList.some((h) => h.id === id)) return;
+    const hole: FishingHole = { id, x: def.x, z: def.z };
+    const group = createIceHole(FishingFeel.holeColliderRadius - 0.1);
+    group.position.set(def.x, 0, def.z);
+    const ring = new THREE.Mesh(
+      createFlatRingGeometry(FishingFeel.interactRadius, FishingFeel.interactRadius - 0.12, 40),
+      this.ringMaterial,
+    );
+    ring.position.set(def.x, 0.02, def.z);
+    this.group.add(group, ring);
+    this.holeList.push(hole);
+    this.holeVisuals.push({ hole, group, ring, appear: animate ? 0 : 1 });
+    if (animate) group.scale.setScalar(0.001);
+    this.colliders.push({ kind: 'circle', x: def.x, z: def.z, r: FishingFeel.holeColliderRadius });
+  }
+
+  update(dt: number, time: number): void {
     this.water.update(time);
+    this.ringMaterial.opacity = 0.4 + Math.sin(time * 3) * 0.15;
+    for (const v of this.holeVisuals) {
+      if (v.appear >= 1) continue;
+      v.appear = Math.min(v.appear + dt / UnlockFeel.bounceTime, 1);
+      const s = Math.max(easeOutBack(v.appear), 0.001);
+      v.group.scale.set(s, s, s);
+      v.ring.scale.set(s, 1, s);
+    }
     // Floes bob and rock gently on the waves.
     for (let i = 0; i < this.floes.length; i++) {
       const f = this.floes[i] as Floe;

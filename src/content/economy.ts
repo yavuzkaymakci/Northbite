@@ -1,13 +1,14 @@
-// Balance values (GDD §8). Starting numbers, to be tuned.
+// Balance values (GDD §8). Starting numbers, to be tuned. Fish prices live in content/fish.ts.
 
 export const Economy = {
   player: {
     walkSpeed: 4.0, // units / second
     carryCapacity: 5,
-    fishTime: 2.0, // seconds per fish, per hole
+  },
+  counter: {
+    capacity: 12,
   },
   fish: {
-    rawPrice: 3,
     smokedPrice: 8,
     smokeTime: 4,
   },
@@ -16,6 +17,7 @@ export const Economy = {
     spawnIntervalMax: 5,
     buyMin: 1,
     buyMax: 3,
+    maxQueue: 4,
   },
   unlocks: {
     secondHole: 30,

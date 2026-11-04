@@ -1,5 +1,9 @@
 import * as THREE from 'three';
-import { CreatorFeel, SaveSettings } from '../settings';
+import { CreatorFeel, DayFeel, SaveSettings } from '../settings';
+import { Atmosphere } from '../render/Atmosphere';
+import { DayCycle } from '../systems/DayCycle';
+import { Banner } from '../ui/Banner';
+import { DaySummary } from '../ui/DaySummary';
 import { defaultAppearance, type Appearance } from '../content/appearance';
 import { t } from '../content/strings';
 import { IceShore, TeaserWalls } from '../content/zones';
@@ -71,6 +75,11 @@ export class Game {
   private readonly creator: CharacterCreator;
   private readonly settings: SettingsPanel;
   private readonly intro: IntroSequence;
+  private readonly day: DayCycle;
+  private readonly atmosphere: Atmosphere;
+  private readonly banner: Banner;
+  private readonly summary: DaySummary;
+  private wasNight: boolean;
 
   private readonly stack: CarryStack;
   private readonly fishing: FishingSystem;
@@ -108,8 +117,10 @@ export class Game {
     this.fader.style.setProperty('--fade-ms', `${CreatorFeel.fadeMs}ms`);
     container.appendChild(this.fader);
 
-    addSkyAndFog(this.scene);
-    addLighting(this.scene);
+    const sky = addSkyAndFog(this.scene);
+    const lights = addLighting(this.scene);
+    this.banner = new Banner(overlay);
+    this.summary = new DaySummary(overlay);
 
     const save = this.store.load();
     this.state = save?.game ?? createGameState();
@@ -128,12 +139,26 @@ export class Game {
 
     this.snow = new Snowfall();
     this.intro = new IntroSequence(this.rig, this.snow, this.player, this.labels);
+    this.day = new DayCycle(s, () => DayFeel.dayLength[DayFeel.defaultLength]);
+    this.atmosphere = new Atmosphere(this.scene, this.rig.camera, lights, sky, this.world.waterMaterial, this.snow, this.day);
+    this.wasNight = this.day.isNight;
     this.scene.add(this.snow.mesh, this.fx.group, this.fishRenderer.group, this.coinRenderer.mesh);
 
     // Gameplay systems
     this.stack = new CarryStack(s, this.player, this.labels);
     const gauge = new ReelGauge(this.labels);
-    this.fishing = new FishingSystem(this.scene, () => this.world.openHoles, s, this.player, this.stack, this.fx, this.labels, gauge);
+    this.fishing = new FishingSystem(
+      this.scene,
+      () => this.world.openHoles,
+      s,
+      this.player,
+      this.stack,
+      this.fx,
+      this.labels,
+      gauge,
+      () => ({ night: this.day.isNight, aurora: this.day.auroraActive, rareBonus: this.day.rareFishBonus }),
+      () => this.banner.show(t('auroraBuff'), 'good'),
+    );
     this.router = new TouchRouter(this.renderer.canvas, this.joystick, this.fishing);
     this.selling = new Selling(s, this.player, this.stack, this.fx);
     this.net = new NetStation(this.scene, s, this.player, this.stack, this.fx, this.labels, this.world, this.appear);
@@ -142,7 +167,7 @@ export class Game {
     if (s.unlocked.includes('smokehouse')) this.smoker.build(false);
     this.workers = new Workers(this.scene, s, this.world, this.net, this.smoker, this.selling);
     this.coins = new CoinSystem(s, this.player);
-    this.customers = new Customers(this.scene, this.selling, this.coins);
+    this.customers = new Customers(this.scene, this.selling, this.coins, s, () => this.day.customerRate);
     this.unlocks = new Unlocks(this.scene, s, this.player, this.coins, this.labels, this.appear, (spot) => this.onUnlock(spot));
     this.regionOpening = new RegionOpening(this.world, this.rig, this.fx, this.player, this.unlocks, () => this.save());
     this.panel = new UpgradePanel(overlay, (id) => this.bench.buy(id));
@@ -271,9 +296,11 @@ export class Game {
     this.bench.update(dt);
     this.appear.update(dt);
 
+    this.updateDay(dt);
     this.intro.update(dt);
     if (this.regionOpening.active) this.regionOpening.update(dt);
     else this.rig.update(dt, this.player.state.x, this.player.state.z);
+    this.atmosphere.update(dt, elapsed);
     this.world.update(dt, elapsed);
     this.fx.update(dt);
     this.snow.update(dt, elapsed, this.rig.focusPoint);
@@ -302,6 +329,23 @@ export class Game {
       this.autosaveTimer = 0;
       this.save();
     }
+  }
+
+  /** Clock, day summary at dawn, storm and nightfall notices (GDD §12). */
+  private updateDay(dt: number): void {
+    const ev = this.day.update(dt);
+    if (ev.dayEnded) {
+      this.summary.show(ev.dayEnded.day, ev.dayEnded.totals, null);
+      this.save();
+    }
+    if (ev.stormWarning) this.banner.show(t('stormWarning'), 'warn', 6);
+    if (ev.stormEnded) this.banner.show(t('stormOver'), 'info');
+    const night = this.day.isNight;
+    if (night && !this.wasNight) this.banner.show(t('nightFalls'), 'info');
+    this.wasNight = night;
+    this.hud.setDay(this.day.day, night);
+    this.banner.update(dt);
+    this.summary.update(dt);
   }
 
   private onUnlock(spot: UnlockSpot): void {

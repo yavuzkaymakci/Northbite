@@ -1,7 +1,7 @@
 // Fish species (GDD §2.1). All fishing balance numbers live here.
 import type { PaletteKey } from '../render/Palette';
 
-export type FishId = 'capelin' | 'cod' | 'char' | 'halibut';
+export type FishId = 'capelin' | 'cod' | 'char' | 'halibut' | 'moonCod' | 'nightChar' | 'glowfish';
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic';
 
 export interface FishSpecies {
@@ -28,6 +28,10 @@ export interface FishSpecies {
   bellyColor: PaletteKey;
   /** Model length in world units at kgMax. */
   length: number;
+  /** Only bites at night, or only while the aurora shines (GDD §12). Absent = any time. */
+  when?: 'night' | 'aurora';
+  /** Catching one starts the aurora buff (sales +10% for a minute). */
+  auroraBuff?: boolean;
 }
 
 export const FishSpeciesList: readonly FishSpecies[] = [
@@ -106,6 +110,68 @@ export const FishSpeciesList: readonly FishSpecies[] = [
     color: 'fishHalibut',
     bellyColor: 'fishBellyLight',
     length: 1.3,
+  },
+  // Night fish: fight like cod / char, worth ~1.5× (GDD §12).
+  {
+    id: 'moonCod',
+    name: { tr: 'Ay morinası', en: 'Moon cod' },
+    kgMin: 0.5,
+    kgMax: 2,
+    pricePerKg: 4.5,
+    reelTime: 3,
+    tugIntervalMin: 1.6,
+    tugIntervalMax: 2.8,
+    tugStrength: 0.38,
+    tugIrregularity: 0.1,
+    greenZone: 0.65,
+    rarity: 'uncommon',
+    rarityWeight: 18,
+    baitLevel: 1,
+    color: 'fishMoonCod',
+    bellyColor: 'fishBellyLight',
+    length: 0.82,
+    when: 'night',
+  },
+  {
+    id: 'nightChar',
+    name: { tr: 'Gece alabalığı', en: 'Night char' },
+    kgMin: 2,
+    kgMax: 6,
+    pricePerKg: 3.75,
+    reelTime: 5,
+    tugIntervalMin: 1.1,
+    tugIntervalMax: 2,
+    tugStrength: 0.6,
+    tugIrregularity: 0.15,
+    greenZone: 0.55,
+    rarity: 'rare',
+    rarityWeight: 5,
+    baitLevel: 1,
+    color: 'fishNightChar',
+    bellyColor: 'fishBellyWarm',
+    length: 1.0,
+    when: 'night',
+  },
+  {
+    id: 'glowfish',
+    name: { tr: 'Işık balığı', en: 'Glowfish' },
+    kgMin: 0.2,
+    kgMax: 0.6,
+    pricePerKg: 20,
+    reelTime: 1.6,
+    tugIntervalMin: 2,
+    tugIntervalMax: 3.2,
+    tugStrength: 0.2,
+    tugIrregularity: 0.2,
+    greenZone: 0.7,
+    rarity: 'epic',
+    rarityWeight: 3,
+    baitLevel: 1,
+    color: 'fishGlow',
+    bellyColor: 'fishBellyLight',
+    length: 0.7,
+    when: 'aurora',
+    auroraBuff: true,
   },
 ];
 

@@ -78,6 +78,7 @@ export class Selling {
     list[i] = list[list.length - 1] as FishItem;
     list.pop();
     this.state.stats.sold++;
+    this.state.today.sold++;
     this.slotPosition(i, out);
     return item;
   }

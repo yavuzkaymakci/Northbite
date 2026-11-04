@@ -18,7 +18,8 @@ import type { CarryStack } from './CarryStack';
 import { rollFish, type HookedFish } from './FishRoll';
 import { arcPoint } from './Flights';
 import { ReelGame } from './ReelGame';
-import { fishingMods } from './Upgrades';
+import { fishingMods, type FishingEnv } from './Upgrades';
+import { TimeOfDay } from '../content/time';
 
 export interface FishingHole {
   id: string;
@@ -91,6 +92,9 @@ export class FishingSystem implements TouchClaimer {
     private readonly fx: Effects,
     private readonly labels: WorldLabels,
     private readonly gauge: ReelGauge,
+    /** Time of day and weather for the fish roll. */
+    private readonly env: () => FishingEnv,
+    private readonly onAuroraBuff: () => void,
   ) {
     this.bobber = createBobber();
     this.bobber.visible = false;
@@ -236,7 +240,7 @@ export class FishingSystem implements TouchClaimer {
   private startBite(): void {
     this.phase = 'bite';
     this.timer = F.hookWindow;
-    this.hooked = rollFish(Math.random, fishingMods(this.state));
+    this.hooked = rollFish(Math.random, fishingMods(this.state, this.env()));
     this.fx.splash(this.bobberPos.x, WATER_Y, this.bobberPos.z, 10, 1.7);
     this.fx.ripple(this.bobberPos.x, WATER_Y + 0.01, this.bobberPos.z, 0.7);
     this.labels.pop(this.alert);
@@ -247,7 +251,7 @@ export class FishingSystem implements TouchClaimer {
     if (this.phase !== 'bite' || !this.hooked) return;
     this.labels.show(this.alert, false);
     this.phase = 'reeling';
-    this.reel = new ReelGame(this.hooked, Math.random, fishingMods(this.state));
+    this.reel = new ReelGame(this.hooked, Math.random, fishingMods(this.state, this.env()));
     this.state.stats.reels++;
     this.gauge.open(this.hooked.species.greenZone, this.state.stats.reels <= F.reelHintCatches);
   }
@@ -295,6 +299,11 @@ export class FishingSystem implements TouchClaimer {
     // State changes now; the fish is hidden on the stack until its flight lands.
     this.state.carried.push(hooked.item);
     this.state.stats.caught++;
+    this.state.today.caught++;
+    if (hooked.species.auroraBuff) {
+      this.state.buffs.aurora = TimeOfDay.aurora.duration;
+      this.onAuroraBuff();
+    }
     this.stack.hiddenTop++;
     const firstOfKind = !this.state.seen.includes(hooked.item.species);
     if (firstOfKind) this.state.seen.push(hooked.item.species);

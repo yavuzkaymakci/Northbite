@@ -1117,3 +1117,99 @@ body {
   border-bottom: 0;
   border-top-color: var(--snow);
 }
+
+/* ---------- Day / weather UI (GDD 12) ---------- */
+.hud-day {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 66px);
+  left: calc(env(safe-area-inset-left) + 16px);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px 2px 5px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--snow);
+  background: color-mix(in srgb, var(--ui-ink) 45%, transparent);
+}
+
+.hud-day svg {
+  width: 18px;
+  height: 18px;
+  color: var(--coin);
+}
+
+.hud-day.night svg {
+  color: var(--moon);
+}
+
+.banner {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 100px);
+  left: 50%;
+  max-width: calc(100% - 32px);
+  width: max-content;
+  padding: 8px 16px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+  color: var(--snow);
+  background: color-mix(in srgb, var(--ui-ink) 78%, transparent);
+  opacity: 0;
+  transform: translate(-50%, -12px);
+  transition: opacity 250ms, transform 250ms;
+  pointer-events: none;
+}
+
+.banner.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.banner[data-tone='warn'] {
+  background: color-mix(in srgb, var(--alert) 88%, transparent);
+}
+
+.banner[data-tone='good'] {
+  color: var(--ui-ink);
+  background: color-mix(in srgb, var(--aurora-green) 90%, transparent);
+}
+
+.day-summary {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 140px);
+  left: 50%;
+  width: min(280px, calc(100% - 32px));
+  padding: 14px 16px;
+  border-radius: 18px;
+  color: var(--ui-ink);
+  background: var(--panel-bg);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--ui-ink) 35%, transparent);
+  opacity: 0;
+  transform: translate(-50%, -10px) scale(0.96);
+  transition: opacity 260ms, transform 260ms;
+  pointer-events: none;
+}
+
+.day-summary.show {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+  pointer-events: auto;
+}
+
+.ds-title {
+  font-size: 18px;
+  font-weight: 900;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.ds-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 3px 0;
+}

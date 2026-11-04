@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { Economy } from '../content/economy';
 import { IceShore } from '../content/zones';
 import { CustomerFeel } from '../settings';
-import type { FishItem } from '../core/GameState';
+import type { FishItem, GameState } from '../core/GameState';
+import { saleMultiplier } from './Upgrades';
 import { seededRandom } from '../core/Random';
 import { animateCustomer, createCustomer, type CustomerModel } from '../models/createCustomer';
 import type { FishRenderer } from '../render/FishRenderer';
@@ -52,11 +53,14 @@ export class Customers {
     private readonly scene: THREE.Scene,
     private readonly selling: Selling,
     private readonly coins: CoinSystem,
+    private readonly state: GameState,
+    /** Arrival rate multiplier (night, storm). */
+    private readonly rate: () => number,
   ) {}
 
   update(dt: number): void {
     const cfg = Economy.customers;
-    this.spawnTimer -= dt;
+    this.spawnTimer -= dt * this.rate();
     if (this.spawnTimer <= 0) {
       this.spawnTimer = cfg.spawnIntervalMin + Math.random() * (cfg.spawnIntervalMax - cfg.spawnIntervalMin);
       if (this.queue.length < cfg.maxQueue) this.spawn();
@@ -143,7 +147,9 @@ export class Customers {
   }
 
   private pay(c: Customer): void {
-    this.coins.payFrom(this.from.set(c.x, 1.1, c.z), c.bill);
+    const value = Math.round(c.bill * saleMultiplier(this.state));
+    this.state.today.coins += value;
+    this.coins.payFrom(this.from.set(c.x, 1.1, c.z), value);
     c.phase = 'leaving';
     this.queue.splice(this.queue.indexOf(c), 1);
     // Step aside first so the line behind is not walked through.

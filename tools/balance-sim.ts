@@ -14,7 +14,10 @@ import { smoke } from '../src/systems/Items';
 import { PathGraphNav } from '../src/systems/Pathfinding';
 import { ReelGame } from '../src/systems/ReelGame';
 import { NetLogic, SmokerLogic } from '../src/systems/StationLogic';
-import { carryCapacity, fishingMods, upgradeCost, type FishingMods } from '../src/systems/Upgrades';
+import { carryCapacity, fishingMods, saleMultiplier, upgradeCost, type FishingMods } from '../src/systems/Upgrades';
+import { DayCycle } from '../src/systems/DayCycle';
+import { DayFeel } from '../src/settings';
+import { scaledPrice } from '../src/content/tuning';
 import { WorkerBrain, type StoreId, type WorkContext, type WorkStore } from '../src/systems/WorkerBrain';
 
 declare const process: { argv: string[] };
@@ -124,9 +127,12 @@ class Sim {
   private readonly ctx: WorkContext;
   smokedSold = 0;
 
+  readonly day: DayCycle;
+
   constructor(readonly opts: Options) {
     this.rand = seededRandom(opts.seed);
     const s = this.state;
+    this.day = new DayCycle(s, () => DayFeel.dayLength.medium, this.rand);
     const store = (node: WorkStore['node'], o: Partial<WorkStore>): WorkStore => ({
       node,
       enabled: () => true,
@@ -157,7 +163,8 @@ class Sim {
   }
 
   get mods(): FishingMods {
-    return fishingMods(this.state);
+    const d = this.day;
+    return fishingMods(this.state, { night: d.isNight, aurora: d.auroraActive, rareBonus: d.rareFishBonus });
   }
 
   get capacity(): number {
@@ -169,6 +176,7 @@ class Sim {
     for (let left = sec; left > 1e-9; left -= DT) {
       const dt = Math.min(DT, left);
       this.t += dt;
+      this.day.update(dt);
       this.updateCustomers(dt);
       this.net?.update(dt);
       this.smoker?.update(dt);
@@ -178,7 +186,7 @@ class Sim {
 
   private updateCustomers(dt: number): void {
     const cfg = Economy.customers;
-    this.spawnTimer -= dt;
+    this.spawnTimer -= dt * this.day.customerRate;
     if (this.spawnTimer <= 0) {
       this.spawnTimer = cfg.spawnIntervalMin + this.rand() * (cfg.spawnIntervalMax - cfg.spawnIntervalMin);
       if (this.customers.length < cfg.maxQueue) {
@@ -196,8 +204,9 @@ class Sim {
     const c = this.customers[0];
     if (!c || this.t < c.arriveAt) return;
     if (c.got >= c.want) {
-      this.state.pile += c.bill;
-      this.result.earned += c.bill;
+      const value = Math.round(c.bill * saleMultiplier(this.state));
+      this.state.pile += value;
+      this.result.earned += value;
       this.customers.shift();
       for (const n of this.customers) n.arriveAt = Math.max(n.arriveAt, this.t + C.queueSpacing / CustomerFeel.walkSpeed);
       return;
@@ -232,7 +241,7 @@ class Sim {
     const out: Array<{ id: string; at: Vec2; cost: number; region: boolean }> = [];
     for (const r of Regions) {
       if (!isDone(s, r.id) && r.requires.every((q) => isDone(s, q))) {
-        out.push({ id: r.id, at: r.gate, cost: Economy.unlocks[r.cost], region: true });
+        out.push({ id: r.id, at: r.gate, cost: scaledPrice(Economy.unlocks[r.cost]), region: true });
       }
     }
     for (const z of UnlockZones) {
@@ -240,7 +249,7 @@ class Sim {
       const region = Regions.find((r) => r.unlockZones.includes(z.id));
       if (region && !isDone(s, region.id)) continue;
       if (!z.requires.every((q) => isDone(s, q))) continue;
-      out.push({ id: z.id, at: z, cost: Economy.unlocks[z.cost as UnlockCostKey], region: false });
+      out.push({ id: z.id, at: z, cost: scaledPrice(Economy.unlocks[z.cost as UnlockCostKey]), region: false });
     }
     return out.sort((a, b) => a.cost - b.cost);
   }
@@ -313,6 +322,7 @@ class Sim {
       if (r.item) {
         this.state.carried.push(r.item);
         this.state.stats.caught++;
+        if (FishById[r.item.species].auroraBuff) this.state.buffs.aurora = 60;
       }
     }
   }
@@ -514,7 +524,7 @@ function baitTable(): void {
   console.log('| Yem | Kapelin | Morina | Alabalık | Kalkan | Ort. çiğ değer | Ort. tütsü değeri |');
   console.log('|---|---|---|---|---|---|---|');
   for (let lv = 1; lv <= 5; lv++) {
-    const mods: FishingMods = { lineStrength: 1, reelSpeed: 1, bigFishWeight: UpgradeList[2]?.values[lv - 1] ?? 1, baitLevel: lv };
+    const mods: FishingMods = { lineStrength: 1, reelSpeed: 1, bigFishWeight: UpgradeList[2]?.values[lv - 1] ?? 1, baitLevel: lv, night: false, aurora: false };
     const counts: Record<string, number> = {};
     let raw = 0;
     let smoked = 0;
@@ -529,6 +539,27 @@ function baitTable(): void {
     console.log(
       `| Sv${lv} | %${pct('capelin')} | %${pct('cod')} | %${pct('char')} | ${halibut === 0 ? '0 (hiç)' : `%${pct('halibut')}`} | ${(raw / n).toFixed(2)} | ${(smoked / n).toFixed(2)} |`,
     );
+  }
+
+  // Night (GDD §12): night fish + aurora glowfish join the pool; a storm boosts rare fish.
+  console.log('\n## Gece ve fırtına — tür dağılımı (yem Sv1, 200 000 vuruş)');
+  console.log('| Durum | Kapelin | Morina | Alabalık | Ay morinası | Gece alabalığı | Işık balığı | Ort. çiğ değer |');
+  console.log('|---|---|---|---|---|---|---|---|');
+  const rows: Array<[string, FishingMods]> = [
+    ['Gündüz', { lineStrength: 1, reelSpeed: 1, bigFishWeight: 1, baitLevel: 1, night: false, aurora: false }],
+    ['Gece (aurora)', { lineStrength: 1, reelSpeed: 1, bigFishWeight: 1, baitLevel: 1, night: true, aurora: true }],
+    ['Gündüz fırtına', { lineStrength: 1, reelSpeed: 1, bigFishWeight: 1.5, baitLevel: 1, night: false, aurora: false }],
+  ];
+  for (const [label, mods] of rows) {
+    const counts: Record<string, number> = {};
+    let raw = 0;
+    for (let i = 0; i < n; i++) {
+      const f = rollFish(rand, mods).item;
+      counts[f.species] = (counts[f.species] ?? 0) + 1;
+      raw += f.price;
+    }
+    const pct = (id: string) => `%${(((counts[id] ?? 0) / n) * 100).toFixed(1)}`;
+    console.log(`| ${label} | ${['capelin', 'cod', 'char', 'moonCod', 'nightChar', 'glowfish'].map(pct).join(' | ')} | ${(raw / n).toFixed(2)} |`);
   }
 }
 

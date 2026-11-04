@@ -92,6 +92,7 @@ export class NetStation {
     if (!this.built || !this.net) return;
     const caught = this.logic.update(dt);
     if (caught) {
+      this.state.today.caught++;
       this.from.set(HOLE!.x, 0.1, HOLE!.z);
       this.slot(this.state.basket.length - 1, this.to);
       this.hops.add(this.from, this.to, 0.55, 1.1, caught);

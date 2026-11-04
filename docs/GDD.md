@@ -293,17 +293,100 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - Simülasyondaki açılış süreleri §8'deki hedeflere yakındır.
   - ~150 draw call bütçesi korunur; telefonda 60 fps hedeflenir.
 
-### Demo 4 — İlerleme
-- Çevrimdışı gelir ("sen yokken" penceresi), tezgâh kapasitesi ve penguen yükseltmeleri, ekonominin ince ayarı
+### Demo 4 — Kariyer genişlemesi (§12–§16)
+5 aşamada, her aşama ayrı commit:
+1. Zaman, gece/gündüz, hava (§12)
+2. Tehditler: kutup ayısı ve çığ (§13)
+3. İglo, uyku ve yapı setleri (§14)
+4. Araziler, hikâye ve yeni gelir kolları (§15, §16)
+5. Cila ve bütünleştirme: rehber ok, save v4, ayarlar, "Yeni tür!" düzeltmesi
+- **Kabul kriterleri:**
+  - 8 dk'lık gün döngüsü sorunsuz akar. Gece/gündüz geçişi yumuşaktır, kuzey ışıkları gece görünür, fps düşmez.
+  - Gece balıkları yalnızca gece çıkar; fırtına ve aurora buff'ı çalışır.
+  - Ayı uyarısı net okunur, ilk seferde öğretici ipucu vardır. Aktif korkutma, meşale, ateş çukuru, kule ve yem tuzağı çalışır. Hiçbir senaryoda kalıcı kayıp yoktur.
+  - Çığ uyarısı, kar yığını, temizleme ve çit çalışır; sandık ödülü gelir.
+  - Uyku buff'ı çalışır, iglo seviyeleri görsel olarak değişir.
+  - Buz Mağarası ve Kaplıca Kampı tam bir döngü oluşturur (üretim → işleme → satış); balıktan bağımsız gelir vardır.
+  - 6 günlük sayfası bulunabilir, Günlük sayfası çalışır.
+  - `threatScale = 0` ile oyun tehditsiz oynanır.
+  - Save v3 → v4 göçü çalışır; eski kayıtlar bozulmaz.
+  - ~150 draw call bütçesi korunur; telefonda 60 fps hedeflenir. typecheck, build ve sim hatasızdır.
 
-### Demo 5 — Cila
-- Ses, titreşim, efektler, kamera gezdirme, iskele bölgesinin ilk hali
+### Demo 5 — Çevrimdışı gelir ve yükseltmeler
+- Çevrimdışı gelir ("sen yokken" penceresi, §8), tezgâh kapasitesi ve penguen yükseltmeleri, ekonominin ince ayarı
 
-### Demo 6 — Native
+### Demo 6 — Ses ve cila
+- Ses (§10), titreşim, efekt cilası, PWA ikonları
+
+### Demo 7 — İskele
+- Ahşap İskele bölgesi ("Yakında" duvarının arkası): tekne, açık su, büyük balıklar, fok işçi
+
+### Demo 8 — Yayın
 - Capacitor ile Android APK
 - iOS (Mac + Xcode gerekir; TestFlight için Apple Developer üyeliği gerekir)
 
-## 12. Açık sorular
+## 12. Zaman ve hava
+- **Oyun saati:** 1 gün = 8 dk gerçek süre (`settings.ts`, ayarlardan kısa/orta/uzun). Dilimler: sabah, gündüz, akşam, gece. Zaman yalnızca oyun ekranı aktifken akar (arka planda ve karakter ekranında durur; çevrimdışı hesap yok).
+- **Işık:** Hemisphere ve directional ışığın rengi/yoğunluğu, sis ve gökyüzü rengi zamana göre yumuşakça geçer. Gece lacivert-mordur, ay ışığı vardır. Gökyüzünde kuzey ışıkları dalgalanır (şerit mesh + additive materyal). İglo, kulübe ve tütsühane pencerelerinden gece sıcak ışık sızar. Geçişler yalnızca renk/uniform günceller, yeni materyal üretmez.
+- **HUD:** Küçük güneş/ay ikonu ve altında "Gün N".
+- **Gün özeti:** Sabaha geçerken "Gün N özeti" kartı: kazanılan coin, tutulan balık, satılan ürün, uyku bonusu. 4 sn sonra ya da dokununca kapanır, oyunu durdurmaz.
+- **Gece etkileri** (`content/time.ts`):
+  - Müşteri gelme sıklığı %60'a düşer.
+  - Gece balıkları: "Ay morinası" (orta, parlak mavi) ve "Gece alabalığı" (büyük, mor). Yalnızca gece vurur, fiyatları gündüz eşdeğerinin ~1.5 katıdır, çekiş ve zorlukları eşdeğer türlerle aynıdır.
+  - Kuzey ışıkları varken küçük bir "Işık balığı" şansı: yakalanırsa 1 dk boyunca satışlar +%10 (aurora buff'ı).
+- **Kar fırtınası:** Gün başına ~%15 şans, 60–90 sn. Sis yoğunlaşır, kar yönü değişir, müşteri %30 azalır, nadir balık şansı +%50. Önce "Fırtına yaklaşıyor" şeridi, bitince bildirim.
+
+## 13. Tehditler
+**Ortak kurallar:** Tehditler cezalandırmaz, heyecan katar; kalıcı kayıp yoktur. İlk tehdit oyunun ilk 15 dk'sından ve tütsühane açılışından önce gelmez. Sinematikler (kamera turu, giriş sahnesi) sırasında tetiklenmez. `threatScale = 0` her şeyi kapatır; ayarlarda "Tehditler: Açık/Kapalı" anahtarı vardır.
+
+**Kutup ayısı**
+- **Uyarı:** 12 sn önce (gece 8 sn) ekran kenarında yön gösteren kırmızı ok, "Kutup ayısı yaklaşıyor!" şeridi, hafif düşük titreşim. Ayının geldiği yönde buzda ayak izleri belirir. İlk ayı öğreticidir: 20 sn uyarı ve "Yaklaş ve basılı tut!" ipucu.
+- **Ayı:** Büyük low-poly krem rengi ayı, ağır yürüyüş, koklama. En çok "kokan" hedefe gider: sepet > tezgâh > tütsühane çıkış rafı > penguen (en çok balık olan).
+- **Sonuç (hafif):** Sepet/tezgâh/raftaki balıkların yarısını alıp kaçar. Penguen ayıdan korkar, 45 sn kulübede saklanır. Oyuncunun sırtına dokunmaz. Bir sepet dolusu balıkta zarar en fazla ~40 coin'dir.
+- **Aktif engelleme:** Ayıya 3 birim yaklaşıp basılı tutunca "Korkut": ayı arka ayaklarına kalkar, 1.5 sn dolum. Tamamlanınca ayı çekilir, yere ödül düşer (biraz coin, bazen "ayı tüyü"). Parmağı kaldırmak iptal eder. Meşale tezgâhından alınan 3 kullanımlık meşaleyle yalnızca yaklaşmak yeter (0.5 sn).
+- **Pasif engelleme:** Ateş çukuru (12 birim yarıçapta ayı şansı −%40, uyarı +5 sn, en fazla 3). Gözetleme kulesi (uyarı +10 sn, menzildeki ayıyı işaretler ve aydınlatır). Yem tuzağı (bir çiğ balık bırakılır, ayı 8 sn oyalanır).
+- Kaçan ayı iz bırakarak denize yürür.
+- **Sıklık** (`content/threats.ts`): gündüz ~12 dk'da bir, gece ~7 dk'da bir.
+
+**Çığ**
+- Haritanın kenarındaki yamaç alanında tetiklenir (~15 dk'da bir).
+- **Uyarı:** 6 sn önce yer sarsılır, kamera titrer, yamaçtan kar akar, "Çığ!" şeridi çıkar, etkilenecek koridorun zemini kırmızı-şeffaf çizgili olur.
+- Çığ koridoru çarpışmalı kar yığınlarıyla kapatır. Üstünde ~2 sn durmak (kürek) yığını temizler; penguenler de temizler (en düşük öncelik). Temizlenmezse 90 sn'de erir. Yarısında "gömülü sandık" çıkar (coin ya da dekorasyon). Alandaki oyuncu en yakın güvenli noktaya hafifçe itilir.
+- **Kar çiti:** Çitli koridorda uyarı gelir ama koridor kapanmaz.
+
+## 14. İglo ve uyku
+- **İglo seviyeleri** (kilit alanıyla, `content/igloo.ts`):
+  1. Basit iglo, kürk yatak (kalite 1)
+  2. Ahşap çerçeveli iglo ve soba (kalite 2)
+  3. Geniş iglo, halı, lamba (kalite 3)
+  4. Konak iglo, şömine, cam çatı (kalite 4)
+  Her seviye iglonun dışını da büyütür ve aydınlatır.
+- **Uyku:** Gece iglo yatağında 1.5 sn durunca "Uyu": ekran kararır, zaman sabaha atlar, ayı/çığ riski sıfırlanır. Sabah, o gün boyunca geçerli "İyi dinlenmiş" buff'ı:
+
+| Yatak | Satış değeri | Sarma hızı | Taşıma | Nadir balık |
+|---|---|---|---|---|
+| 1 | +%3 | – | – | – |
+| 2 | +%6 | +%5 | – | – |
+| 3 | +%9 | +%8 | +1 | – |
+| 4 | +%12 | +%12 | +2 | +%10 |
+
+  Uyku zorunlu değildir, yalnızca ödüldür; uyumamanın cezası yoktur. Bonus gün özetinde görünür.
+- **Yapılar** (kilit alanıyla, `content/buildings.ts`): ateş çukuru, gözetleme kulesi, kar çiti, meşale tezgâhı; dekorasyon (bayrak direği, fener direkleri, kızak, balık kurutma askısı) "huzur" puanı verir. Hepsi kodla üretilir, ışıklı olanlar gece parlar, bounce ve kar tozuyla yükselir.
+
+## 15. Araziler ve hikâye
+- **Arazi:** Tapu ile alınır: kilit alanı + hikâye ön koşulu. Her arazinin adı, amacı ve kendi mekaniği vardır.
+  1. **Buz Mağarası** (yamaç tarafı): kazma fiili. Parlayan kristal damarının üstünde 2 sn basılı tutunca buz kristali çıkar, damar ~60 sn'de dolar. Kristal, mağara girişindeki "Kristal tezgâhı"nda "Buz heykelciği"ne işlenir ve Koleksiyoncu NPC'sine satılır. Koyu mavi-mor, titreşen ışıklı; ayı gelmez.
+  2. **Kaplıca Kampı** (kuzeydoğu): misafir ağırlama. Turistler çadır ve yemek ister. Tütsülenmiş balıktan "Balık tabağı" yapılır ve turistlere satılır; çadır kirası da gelir. Huzur puanı turist gelişini ve bahşişi artırır. Yeni işçi: kamp görevlisi.
+- **"Yakında" iskele duvarı** durmaya devam eder (Demo 7).
+- **Hikâye:** Eski bir liman kaptanının günlük sayfaları dünyaya dağılmıştır. Bu demoda 6 sayfa: 3'ü ana hedeflerden, 3'ü keşiften (çığ sandığı, ayı ödülü, gizli kayalık). Sayfa = kısa günlük metni (tr/en) + tapu ya da küçük ödül. İlk sayfa tütsühane açılınca gelir ve Buz Mağarası'nı ima eder. HUD'dan açılan "Günlük" sayfası bulunanları gösterir, kalanlar gri "???". Hikâye rehber okun yerine geçmez, onu tamamlar. Hayalî kuzey kasabası; gerçek yerli halklar stereotip biçimde kullanılmaz.
+
+## 16. Yeni gelir kolları
+- Değer zinciri: balık → tütsülenmiş balık (2.5×) → Balık tabağı (kamp, ~4×) ve buz heykelciği (mağara, ~6× ama yavaş). Üçü birbirini tamamlar; oyuncu tek gelire bağlı kalmaz.
+- Açılış hedefleri: iglo 2 ~8 dk, ateş çukuru ~13 dk, Buz Mağarası ~22 dk, Kaplıca ~30 dk.
+- **Ayar çarpanları:** `priceScale` (tüm açılış ve yükseltme fiyatları) ve `threatScale` (0 = tehdit yok, varsayılan 1) `src/content/tuning.ts` içinde.
+- Simülasyon gece/gündüzü, uyku buff'ını ve tehditleri de modeller; ayı kaybı ve engelleme oranı (aktif ve ilgisiz oyuncu) ile uyku buff'ının gelir etkisini (en fazla ~%12) raporlar.
+
+## 17. Açık sorular
 - Test için kullanılacak telefon: iPhone mu, Android mi? (Web demolarında fark yok, native aşamada önemli)
 - Gelir modelinin kesinleşmesi
 - Müzik ve ses kaynakları (ücretsiz paket mi, satın alma mı)

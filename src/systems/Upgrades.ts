@@ -1,3 +1,5 @@
+import { TimeOfDay } from '../content/time';
+import { scaledPrice } from '../content/tuning';
 import { UpgradeById, UpgradeCostGrowth, UpgradeMaxLevel, type UpgradeId } from '../content/upgrades';
 import type { GameState } from '../core/GameState';
 
@@ -10,7 +12,7 @@ export function upgradeValue(id: UpgradeId, level: number): number {
 /** Price of the next level, or null at max level. */
 export function upgradeCost(id: UpgradeId, level: number): number | null {
   if (level >= UpgradeMaxLevel) return null;
-  return Math.round(UpgradeById[id].baseCost * Math.pow(UpgradeCostGrowth, level - 1));
+  return scaledPrice(UpgradeById[id].baseCost * Math.pow(UpgradeCostGrowth, level - 1));
 }
 
 /** Modifiers the fishing mini-game reads from the upgrade levels. */
@@ -23,18 +25,39 @@ export interface FishingMods {
   bigFishWeight: number;
   /** Current bait level; species with a higher `baitLevel` never bite. */
   baitLevel: number;
+  /** Night fish can bite. */
+  night: boolean;
+  /** Aurora-only fish can bite. */
+  aurora: boolean;
 }
 
-export const NO_MODS: FishingMods = { lineStrength: 1, reelSpeed: 1, bigFishWeight: 1, baitLevel: 1 };
+/** Time and weather the fishing roll depends on (GDD §12). */
+export interface FishingEnv {
+  night: boolean;
+  aurora: boolean;
+  /** Extra weight multiplier for non-common species (storm). */
+  rareBonus: number;
+}
 
-export function fishingMods(state: GameState): FishingMods {
+export const DAY_ENV: FishingEnv = { night: false, aurora: false, rareBonus: 1 };
+
+export const NO_MODS: FishingMods = { lineStrength: 1, reelSpeed: 1, bigFishWeight: 1, baitLevel: 1, night: false, aurora: false };
+
+export function fishingMods(state: GameState, env: FishingEnv = DAY_ENV): FishingMods {
   const u = state.upgrades;
   return {
     lineStrength: upgradeValue('line', u.line),
     reelSpeed: upgradeValue('reel', u.reel),
-    bigFishWeight: upgradeValue('bait', u.bait),
+    bigFishWeight: upgradeValue('bait', u.bait) * env.rareBonus,
     baitLevel: u.bait,
+    night: env.night,
+    aurora: env.aurora,
   };
+}
+
+/** Sale value multiplier from timed buffs (aurora). */
+export function saleMultiplier(state: GameState): number {
+  return 1 + (state.buffs.aurora > 0 ? TimeOfDay.aurora.saleBonus : 0);
 }
 
 export function carryCapacity(state: GameState): number {

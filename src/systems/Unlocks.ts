@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Economy } from '../content/economy';
 import { unlockName } from '../content/strings';
+import { scaledPrice } from '../content/tuning';
 import { Regions, UnlockZones, type RegionDef, type UnlockZoneDef } from '../content/zones';
 import { HapticsSettings, UnlockFeel } from '../settings';
 import { isDone, type GameState } from '../core/GameState';
@@ -36,12 +37,12 @@ interface Shown {
 function allSpots(): UnlockSpot[] {
   const spots: UnlockSpot[] = [];
   for (const r of Regions) {
-    spots.push({ id: r.id, ...r.gate, cost: Economy.unlocks[r.cost], requires: r.requires, zone: null, region: r });
+    spots.push({ id: r.id, ...r.gate, cost: scaledPrice(Economy.unlocks[r.cost]), requires: r.requires, zone: null, region: r });
   }
   for (const z of UnlockZones) {
     const inRegion = Regions.find((r) => r.unlockZones.includes(z.id));
     const requires = inRegion ? [...z.requires, inRegion.id] : z.requires;
-    spots.push({ id: z.id, x: z.x, z: z.z, size: z.size, cost: Economy.unlocks[z.cost], requires, zone: z, region: null });
+    spots.push({ id: z.id, x: z.x, z: z.z, size: z.size, cost: scaledPrice(Economy.unlocks[z.cost]), requires, zone: z, region: null });
   }
   return spots;
 }

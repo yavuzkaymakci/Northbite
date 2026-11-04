@@ -1,4 +1,4 @@
-import { t } from '../content/strings';
+import { t, tf } from '../content/strings';
 import { CoinFeel } from '../settings';
 import { damp } from '../core/Time';
 import { onTap } from './tap';
@@ -9,6 +9,8 @@ export class HUD {
   private readonly coinValue: HTMLSpanElement;
   private readonly fpsEl: HTMLDivElement;
   private readonly hintEl: HTMLDivElement;
+  private readonly dayEl: HTMLDivElement;
+  private lastDayKey = '';
   private frames = 0;
   private fpsTimer = 0;
   private hintHidden = false;
@@ -46,7 +48,21 @@ export class HUD {
     this.hintEl.className = 'hud-hint';
     this.hintEl.textContent = t('moveHint');
 
-    overlay.append(bar, this.hintEl);
+    this.dayEl = document.createElement('div');
+    this.dayEl.className = 'hud-day';
+    overlay.append(bar, this.dayEl, this.hintEl);
+  }
+
+  /** Sun or moon icon with "Day N" under the coin counter. */
+  setDay(day: number, night: boolean): void {
+    const key = `${day}|${night}`;
+    if (key === this.lastDayKey) return;
+    this.lastDayKey = key;
+    const icon = night
+      ? '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M15 3a9 9 0 1 0 6 15.7A8 8 0 0 1 15 3z"/></svg>'
+      : '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></g></svg>';
+    this.dayEl.innerHTML = `${icon}<span>${tf('dayLabel', { n: day })}</span>`;
+    this.dayEl.classList.toggle('night', night);
   }
 
   /** Jump straight to a value (on load). */

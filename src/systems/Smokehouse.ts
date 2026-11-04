@@ -9,6 +9,7 @@ import type { Player } from '../entities/Player';
 import { createSmokehouse, RACK_TOP_Y, type SmokehouseModel } from '../models/createSmokehouse';
 import type { Effects } from '../render/Effects';
 import type { FishRenderer } from '../render/FishRenderer';
+import { NightLights } from '../render/NightLights';
 import type { WorldMap } from '../world/Map';
 import type { Appear } from './Appear';
 import type { CarryStack } from './CarryStack';
@@ -117,7 +118,7 @@ export class Smokehouse {
     // Fire glow flickers while smoking; chimney smokes more.
     const working = this.logic.working;
     const flicker = working ? 0.85 + Math.sin(time * 17) * 0.12 + Math.sin(time * 41) * 0.08 + Math.random() * 0.1 : 0.35;
-    this.model.glowMaterial.emissiveIntensity = flicker;
+    this.model.glowMaterial.emissiveIntensity = flicker * (1 + NightLights.level * 0.7);
     (this.model.groundGlow.material as THREE.MeshBasicMaterial).opacity = working ? 0.35 + flicker * 0.15 : 0.15;
     this.puffTimer -= dt;
     if (this.puffTimer <= 0) {

@@ -35,6 +35,15 @@ export class Snowfall {
     }
   }
 
+  private windX = 0;
+  private fallMul = 1;
+
+  /** Storm wind: sideways speed (units/s) and fall speed multiplier. */
+  setWind(windX: number, fallMul: number): void {
+    this.windX = windX;
+    this.fallMul = fallMul;
+  }
+
   /** 0..1 share of flakes drawn (the intro thickens the snow a little). */
   setDensity(density: number): void {
     this.mesh.count = Math.round(S.count * Math.min(Math.max(density, 0), 1));
@@ -44,12 +53,12 @@ export class Snowfall {
     const spanX = S.areaHalfX * 2;
     const spanZ = S.areaHalfZ * 2;
     for (let i = 0; i < S.count; i++) {
-      let y = (this.py[i] as number) - (this.speed[i] as number) * dt;
+      let y = (this.py[i] as number) - (this.speed[i] as number) * this.fallMul * dt;
       if (y < 0) y += S.height;
       this.py[i] = y;
 
       // Wrap horizontally around the focus so the snow volume follows the camera.
-      let x = this.px[i] as number;
+      let x = (this.px[i] as number) + this.windX * dt;
       let z = this.pz[i] as number;
       x -= Math.floor((x - focus.x + S.areaHalfX) / spanX) * spanX;
       z -= Math.floor((z - focus.z + S.areaHalfZ) / spanZ) * spanZ;

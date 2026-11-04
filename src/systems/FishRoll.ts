@@ -43,7 +43,9 @@ export function makeFish(species: FishSpecies, rand: () => number = Math.random)
  * bait level are never in the pool; the bait upgrade also multiplies the weight of every non-common species.
  */
 export function rollFish(rand: () => number = Math.random, mods: FishingMods = NO_MODS): HookedFish {
-  const pool = FishSpeciesList.filter((f) => f.baitLevel <= mods.baitLevel);
+  const pool = FishSpeciesList.filter(
+    (f) => f.baitLevel <= mods.baitLevel && (!f.when || (f.when === 'night' && mods.night) || (f.when === 'aurora' && mods.aurora)),
+  );
   const species = pickWeighted(pool, (f) => f.rarityWeight * (f.rarity === 'common' ? 1 : mods.bigFishWeight), rand);
   return makeFish(species, rand);
 }

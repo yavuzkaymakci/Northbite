@@ -187,6 +187,26 @@ export const RegionFeel = {
   shake: 0.25,
 } as const;
 
+/** Day/night cycle and weather visuals (GDD §12). Balance effects live in content/time.ts. */
+export const DayFeel = {
+  /** Real seconds per in-game day, per "day length" setting. */
+  dayLength: { short: 300, medium: 480, long: 720 },
+  defaultLength: 'medium' as 'short' | 'medium' | 'long',
+  /** Light intensities at the day/dusk/night keys (dawn uses the dusk values). */
+  hemi: { day: 1.5, dusk: 1.2, night: 0.75 },
+  sun: { day: 2.1, dusk: 1.5, night: 0.55 },
+  /** Sun direction swings from east to west over the day; the moon sits high in the south-west. */
+  sunHeight: 12,
+  fogNear: { clear: 36, storm: 9 },
+  fogFar: { clear: 72, storm: 30 },
+  stormFadeTime: 6, // seconds for the fog to thicken / clear
+  stormSnowWind: 3.2, // sideways snow speed during a storm
+  stormSnowFall: 1.8, // fall speed multiplier during a storm
+  auroraOpacity: 0.55,
+  summaryTime: 4, // seconds the day summary card stays
+  bannerTime: 3.5,
+} as const;
+
 /** Character creator stage (GDD §3). */
 export const CreatorFeel = {
   fov: 28,

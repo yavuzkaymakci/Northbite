@@ -4,7 +4,7 @@ import { SaveSettings } from '../settings';
 import { sanitizeAppearance, type Appearance } from '../content/appearance';
 import { createGameState, type FishItem, type GameState, type WorkerData } from './GameState';
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 /** Pure JSON game state. No Three.js objects here. */
 export interface SaveData {
@@ -38,6 +38,8 @@ const migrations: Record<number, (s: AnySave) => AnySave> = {
     const g = (s.game ?? {}) as Obj;
     return { ...s, saveVersion: 3, game: { ...g, carried: addKind(g.carried), counter: addKind(g.counter) } };
   },
+  // v3 (Demo 2/3): no clock, day totals or buffs. sanitizeGame fills them (day 1, mid-morning).
+  3: (s) => ({ ...s, saveVersion: 4 }),
 };
 
 function isFishItem(v: unknown): v is FishItem {
@@ -63,6 +65,9 @@ function sanitizeGame(raw: unknown): GameState {
   const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : d);
 
   const smoker = (g.smoker ?? {}) as Partial<Record<string, unknown>>;
+  const clock = (g.clock ?? {}) as Partial<Record<string, unknown>>;
+  const today = (g.today ?? {}) as Partial<Record<string, unknown>>;
+  const buffs = (g.buffs ?? {}) as Partial<Record<string, unknown>>;
   const upgrades = { ...base.upgrades };
   const rawUp = (g.upgrades ?? {}) as Partial<Record<string, unknown>>;
   for (const u of UpgradeList) {
@@ -91,6 +96,12 @@ function sanitizeGame(raw: unknown): GameState {
     upgrades,
     seen: stringList(g.seen).filter((id): id is FishId => id in FishById),
     stats: { ...base.stats, ...((g.stats as object | undefined) ?? {}) },
+    clock: {
+      day: Math.max(1, Math.floor(num(clock.day, 1))),
+      t: typeof clock.t === 'number' && clock.t >= 0 && clock.t < 1 ? clock.t : base.clock.t,
+    },
+    today: { coins: num(today.coins, 0), caught: num(today.caught, 0), sold: num(today.sold, 0) },
+    buffs: { aurora: num(buffs.aurora, 0) },
   };
 }
 

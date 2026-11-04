@@ -10,6 +10,7 @@ import { createFlatRingGeometry, createIceHole } from '../models/createFishingPr
 import { createHut } from '../models/createHut';
 import { createIgloo, iglooTunnelStart } from '../models/createIgloo';
 import { createPierSilhouette, createSignPost } from '../models/createTeaser';
+import { createLightPool, NightLights } from '../render/NightLights';
 import { Palette } from '../render/Palette';
 import type { Appear } from '../systems/Appear';
 import type { FishingHole } from '../systems/Fishing';
@@ -113,6 +114,17 @@ export class WorldMap implements Walkable {
     const igloo = bake(createIgloo(ig.radius, ig.tunnelLength, ig.tunnelWidth));
     igloo.position.set(ig.x, 0, ig.z);
     this.group.add(igloo);
+    // Warm light in the doorway at night (GDD §12).
+    const doorZ = ig.z + iglooTunnelStart(ig.radius) + ig.tunnelLength;
+    const doorGlow = new THREE.Mesh(
+      new THREE.CylinderGeometry(ig.tunnelWidth * 0.34, ig.tunnelWidth * 0.34, 0.02, 8, 1, false, -Math.PI / 2, Math.PI),
+      NightLights.window,
+    );
+    doorGlow.rotation.x = -Math.PI / 2;
+    doorGlow.position.set(ig.x, 0, doorZ + 0.05);
+    const doorPool = createLightPool(2.6, 1.8);
+    doorPool.position.set(ig.x, 0.04, doorZ + 0.9);
+    this.group.add(doorGlow, doorPool);
     this.colliders.push({ kind: 'circle', x: ig.x, z: ig.z, r: ig.radius * 0.97 });
     const tunnelStart = iglooTunnelStart(ig.radius);
     this.colliders.push({
@@ -240,6 +252,11 @@ export class WorldMap implements Walkable {
     return this.holeList;
   }
 
+  /** Water material (the atmosphere tints it by time of day). */
+  get waterMaterial(): THREE.MeshStandardMaterial {
+    return this.water.mesh.material as THREE.MeshStandardMaterial;
+  }
+
   addCollider(c: Collider): void {
     this.colliders.push(c);
   }
@@ -267,6 +284,11 @@ export class WorldMap implements Walkable {
     const h = Z.hut;
     const hut = createHut(h.width, h.depth);
     hut.position.set(h.x, 0, h.z);
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.3, 0.04), NightLights.window);
+    glass.position.set(-0.55, 0.45, h.depth / 2 + 0.03);
+    const pool = createLightPool(2.2, 1.4);
+    pool.position.set(0, 0.04, h.depth / 2 + 0.8);
+    hut.add(glass, pool);
     this.group.add(hut);
     this.colliders.push({ kind: 'rect', minX: h.x - h.width / 2 - 0.1, maxX: h.x + h.width / 2 + 0.1, minZ: h.z - h.depth / 2 - 0.1, maxZ: h.z + h.depth / 2 + 0.1 });
     appear?.add(hut);

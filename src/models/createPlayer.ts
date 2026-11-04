@@ -1,32 +1,11 @@
 import * as THREE from 'three';
+import { defaultAppearance, type Appearance, type BeardStyle, type Headwear } from '../content/appearance';
 import { BeardColors, HeadwearColors, JacketColors, Palette, ScarfColors, SkinTones } from '../render/Palette';
 import { flat, mesh, uniqueFlat } from './materials';
+import { createBeanie, createCollar, createFurHat, createHood, createLongBeard, createScarf, createShortBeard } from './createPlayerParts';
 
-export type Headwear = 'beanie' | 'furHat' | 'hood';
-export type BeardStyle = 'none' | 'short' | 'long';
-
-/** Saved as plain JSON. Colors are indices into the Palette option lists. */
-export interface Appearance {
-  name: string;
-  skinTone: number;
-  jacketColor: number;
-  headwear: Headwear;
-  headwearColor: number;
-  beard: BeardStyle;
-  beardColor: number;
-  scarfColor: number;
-}
-
-export const defaultAppearance: Appearance = {
-  name: '',
-  skinTone: 1,
-  jacketColor: 0,
-  headwear: 'beanie',
-  headwearColor: 0,
-  beard: 'short',
-  beardColor: 0,
-  scarfColor: 1,
-};
+export type { Appearance } from '../content/appearance';
+export { defaultAppearance } from '../content/appearance';
 
 export interface PlayerModel {
   root: THREE.Group;
@@ -44,6 +23,13 @@ export interface PlayerModel {
     headwear: THREE.MeshStandardMaterial;
     beard: THREE.MeshStandardMaterial;
   };
+  /** Every swappable part, built once; `applyAppearance` toggles visibility. */
+  parts: {
+    headwear: Record<Exclude<Headwear, 'none'>, THREE.Group>;
+    beard: Record<Exclude<BeardStyle, 'none'>, THREE.Group>;
+    scarf: THREE.Group;
+    collar: THREE.Group;
+  };
 }
 
 function pick<T>(list: readonly T[], index: number): T {
@@ -53,15 +39,17 @@ function pick<T>(list: readonly T[], index: number): T {
 /** Low-poly segmented fisher. Faces +Z. Origin at the feet. */
 export function createPlayer(appearance: Appearance = defaultAppearance): PlayerModel {
   const materials = {
-    skin: uniqueFlat(pick(SkinTones, appearance.skinTone)),
-    jacket: uniqueFlat(pick(JacketColors, appearance.jacketColor)),
-    scarf: uniqueFlat(pick(ScarfColors, appearance.scarfColor)),
-    headwear: uniqueFlat(pick(HeadwearColors, appearance.headwearColor)),
-    beard: uniqueFlat(pick(BeardColors, appearance.beardColor)),
+    skin: uniqueFlat(SkinTones[0]),
+    jacket: uniqueFlat(JacketColors[0]),
+    scarf: uniqueFlat(ScarfColors[0]),
+    headwear: uniqueFlat(HeadwearColors[0]),
+    beard: uniqueFlat(BeardColors[0]),
   };
   const pants = flat(Palette.pants);
   const boots = flat(Palette.boots);
   const eye = flat(Palette.eye);
+  // Mittens used to share the scarf color; with "no scarf" possible they get a fixed knit color.
+  const mittens = flat(Palette.woodDark);
 
   const root = new THREE.Group();
   root.name = 'player';
@@ -84,11 +72,9 @@ export function createPlayer(appearance: Appearance = defaultAppearance): Player
   body.add(mesh(new THREE.CylinderGeometry(0.31, 0.4, 0.66, 7), materials.jacket, 0, 0.84, 0));
   // Jacket hem
   body.add(mesh(new THREE.CylinderGeometry(0.41, 0.41, 0.08, 7), materials.jacket, 0, 0.53, 0));
-  // Scarf ring + tail
-  body.add(mesh(new THREE.CylinderGeometry(0.27, 0.32, 0.14, 8), materials.scarf, 0, 1.2, 0));
-  const tail = mesh(new THREE.BoxGeometry(0.12, 0.34, 0.06), materials.scarf, 0.12, 1.02, -0.3);
-  tail.rotation.z = 0.15;
-  body.add(tail);
+  const scarf = createScarf(materials.scarf);
+  const collar = createCollar(materials.jacket);
+  body.add(scarf, collar);
 
   // Arms pivot at the shoulder.
   const makeArm = (side: number): THREE.Group => {
@@ -96,7 +82,7 @@ export function createPlayer(appearance: Appearance = defaultAppearance): Player
     arm.position.set(0.4 * side, 1.08, 0);
     const sleeve = mesh(new THREE.BoxGeometry(0.17, 0.5, 0.19), materials.jacket, 0, -0.24, 0);
     arm.add(sleeve);
-    arm.add(mesh(new THREE.IcosahedronGeometry(0.11, 0), materials.scarf, 0, -0.52, 0));
+    arm.add(mesh(new THREE.IcosahedronGeometry(0.11, 0), mittens, 0, -0.52, 0));
     arm.rotation.z = 0.12 * side;
     body.add(arm);
     return arm;
@@ -115,42 +101,33 @@ export function createPlayer(appearance: Appearance = defaultAppearance): Player
   nose.rotation.x = Math.PI / 2;
   head.add(nose);
 
-  if (appearance.beard === 'short') {
-    head.add(mesh(new THREE.BoxGeometry(0.36, 0.14, 0.18), materials.beard, 0, -0.17, 0.13));
-  } else if (appearance.beard === 'long') {
-    head.add(mesh(new THREE.BoxGeometry(0.36, 0.12, 0.18), materials.beard, 0, -0.15, 0.13));
-    const point = mesh(new THREE.ConeGeometry(0.17, 0.36, 5), materials.beard, 0, -0.33, 0.17);
-    point.rotation.x = Math.PI;
-    head.add(point);
-  }
+  const parts: PlayerModel['parts'] = {
+    headwear: { beanie: createBeanie(materials.headwear), furHat: createFurHat(materials.headwear), hood: createHood(materials.jacket) },
+    beard: { short: createShortBeard(materials.beard), long: createLongBeard(materials.beard) },
+    scarf,
+    collar,
+  };
+  for (const g of Object.values(parts.headwear)) head.add(g);
+  for (const g of Object.values(parts.beard)) head.add(g);
 
-  switch (appearance.headwear) {
-    case 'beanie': {
-      head.add(mesh(new THREE.CylinderGeometry(0.22, 0.29, 0.22, 8), materials.headwear, 0, 0.18, -0.01));
-      head.add(mesh(new THREE.CylinderGeometry(0.295, 0.295, 0.08, 8), materials.headwear, 0, 0.09, -0.01));
-      head.add(mesh(new THREE.IcosahedronGeometry(0.08, 0), flat(Palette.snow), 0, 0.33, -0.01));
-      break;
-    }
-    case 'furHat': {
-      const fur = flat(Palette.fur);
-      head.add(mesh(new THREE.CylinderGeometry(0.3, 0.32, 0.3, 8), fur, 0, 0.2, -0.01));
-      head.add(mesh(new THREE.CylinderGeometry(0.27, 0.3, 0.08, 8), materials.headwear, 0, 0.36, -0.01));
-      const flapL = mesh(new THREE.BoxGeometry(0.08, 0.24, 0.2), fur, -0.29, 0.0, -0.02);
-      const flapR = mesh(new THREE.BoxGeometry(0.08, 0.24, 0.2), fur, 0.29, 0.0, -0.02);
-      head.add(flapL, flapR);
-      break;
-    }
-    case 'hood': {
-      const hood = mesh(new THREE.IcosahedronGeometry(0.34, 1), materials.jacket, 0, 0.03, -0.09);
-      head.add(hood);
-      const trim = mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.08, 10, 1, true), flat(Palette.fur), 0, 0.02, 0.17);
-      trim.rotation.x = Math.PI / 2;
-      head.add(trim);
-      break;
-    }
-  }
+  const model: PlayerModel = { root, body, legL, legR, armL, armR, head, materials, parts };
+  applyAppearance(model, appearance);
+  return model;
+}
 
-  return { root, body, legL, legR, armL, armR, head, materials };
+/** Recolors and swaps parts in place (no new meshes or materials). */
+export function applyAppearance(model: PlayerModel, a: Appearance): void {
+  const m = model.materials;
+  m.skin.color.set(pick(SkinTones, a.skinTone));
+  m.jacket.color.set(pick(JacketColors, a.jacketColor));
+  m.headwear.color.set(pick(HeadwearColors, a.headwearColor));
+  m.beard.color.set(pick(BeardColors, a.beardColor));
+  const hasScarf = a.scarfColor >= 0;
+  if (hasScarf) m.scarf.color.set(pick(ScarfColors, a.scarfColor));
+  model.parts.scarf.visible = hasScarf;
+  model.parts.collar.visible = !hasScarf;
+  for (const [id, g] of Object.entries(model.parts.headwear)) g.visible = id === a.headwear;
+  for (const [id, g] of Object.entries(model.parts.beard)) g.visible = id === a.beard;
 }
 
 /** Upper-body overrides used while fishing. */

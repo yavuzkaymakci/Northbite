@@ -90,18 +90,27 @@ export const Palette = {
   panelCard: 0xffffff,
   panelMuted: 0x8fa3b3,
   buy: 0x47b37a,
+
+  // Character creator stage
+  creatorSkyTop: 0x1f3c5c,
+  creatorSkyLow: 0xd6e8f2,
+  creatorGround: 0xe9f1f6,
 } as const;
 
 export type PaletteKey = keyof typeof Palette;
 
-// Character creator option lists (GDD §3)
+// Character creator option lists (GDD §3). Order matches the labels in content/appearance.ts.
 export const SkinTones = [0xf6d7c3, 0xeec1a0, 0xd9a07a, 0xb8784f, 0x8d5a3b, 0x5f3b26] as const;
 export const JacketColors = [
   Palette.jacket, 0xe2504c, 0x3f8fd2, 0x47b37a, 0xf2c94c, 0x8e6bd8, 0x2f3e52, 0xf4f8fb,
 ] as const;
-export const ScarfColors = [0xe2504c, 0x3f8fd2, 0xf2c94c, 0x47b37a, 0xf4f8fb, 0x9b6bff] as const;
-export const HeadwearColors = [0xe2504c, 0x3f8fd2, 0xf4f8fb, 0x2f3e52, 0xf2c94c] as const;
+export const ScarfColors = [0xe2504c, 0x3f8fd2, 0xf2c94c, 0x47b37a, 0xf4f8fb, 0x9b6bff, 0x2fa5a0, 0xe07aa8] as const;
+export const HeadwearColors = [0xe2504c, 0x3f8fd2, 0xf4f8fb, 0x2f3e52, 0xf2c94c, 0x47b37a] as const;
 export const BeardColors = [0x5e3c27, 0x2b2420, 0xc98e4f, 0xd9d4cc] as const;
+
+// Townsfolk (customers) use their own muted set so the player's character always stands out.
+export const TownJacketColors = [0x6d7f8f, 0x8a6f55, 0x5d7360, 0x7b5866, 0xa39270, 0x4f6478] as const;
+export const TownHatColors = [0x9aa7b0, 0x6b5a4a, 0xb89a6a, 0x58707a, 0xc7c1b6, 0x7d6a7a] as const;
 
 export function toCss(color: number): string {
   return `#${color.toString(16).padStart(6, '0')}`;

@@ -35,6 +35,11 @@ export class Snowfall {
     }
   }
 
+  /** 0..1 share of flakes drawn (the intro thickens the snow a little). */
+  setDensity(density: number): void {
+    this.mesh.count = Math.round(S.count * Math.min(Math.max(density, 0), 1));
+  }
+
   update(dt: number, time: number, focus: THREE.Vector3): void {
     const spanX = S.areaHalfX * 2;
     const spanZ = S.areaHalfZ * 2;

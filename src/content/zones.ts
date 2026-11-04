@@ -51,7 +51,8 @@ export const IceShore = {
   /** Outer limit for walking (includes locked regions; tree belts and walls are colliders inside it). */
   walkBounds: { minX: -21, maxX: 10.3, minZ: -11.3, maxZ: 12 } satisfies RectArea,
   waterLevel: -0.45,
-  playerSpawn: { x: 0, z: 0 } satisfies Vec2,
+  /** In front of the igloo door (the first-start intro begins here). */
+  playerSpawn: { x: -4, z: 0.9 } satisfies Vec2,
 
   igloo: { x: -4, z: -4, radius: 2.3, tunnelLength: 1.6, tunnelWidth: 1.5 },
 

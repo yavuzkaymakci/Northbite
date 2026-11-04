@@ -4,6 +4,7 @@ import type { MoveInput } from '../core/Input';
 import { damp } from '../core/Time';
 import {
   animatePlayer,
+  applyAppearance,
   createPlayer,
   HAND_POSITION,
   type Appearance,
@@ -39,6 +40,11 @@ export class Player {
 
   get walkPhase(): number {
     return this.walkPhaseValue;
+  }
+
+  /** Character editor result: recolors/swaps parts in place. */
+  setAppearance(appearance: Appearance): void {
+    applyAppearance(this.model, appearance);
   }
 
   /** @param face optional point to turn toward while not walking (e.g. the fishing hole). */

@@ -1,7 +1,7 @@
 import { FishById, type FishId } from '../content/fish';
 import { UpgradeList, UpgradeMaxLevel } from '../content/upgrades';
 import { SaveSettings } from '../settings';
-import type { Appearance } from '../models/createPlayer';
+import { sanitizeAppearance, type Appearance } from '../content/appearance';
 import { createGameState, type FishItem, type GameState, type WorkerData } from './GameState';
 
 export const SAVE_VERSION = 3;
@@ -107,6 +107,8 @@ export function migrate(raw: unknown): SaveData | null {
   const data = s as unknown as SaveData;
   if (!data.player || typeof data.player.x !== 'number' || typeof data.player.z !== 'number') return null;
   data.game = sanitizeGame(data.game);
+  // Demo 0–3 saves have no appearance (null); the game then uses the default look without asking.
+  data.appearance = sanitizeAppearance(data.appearance);
   return data;
 }
 

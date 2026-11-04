@@ -680,3 +680,440 @@ body {
   text-align: center;
   opacity: 0.9;
 }
+
+/* ---------- Character creator (GDD §3) ---------- */
+.ui-layer.hidden {
+  display: none;
+}
+
+.creator {
+  position: absolute;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+  color: var(--ui-ink);
+}
+
+.creator.open {
+  display: block;
+}
+
+.creator-head {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 18px);
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--snow);
+  text-shadow: 0 2px 10px color-mix(in srgb, var(--ui-ink) 60%, transparent);
+}
+
+.creator-logo {
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+
+.creator-sub {
+  font-size: 15px;
+  font-weight: 700;
+  opacity: 0.92;
+}
+
+.creator-close {
+  display: none;
+  position: absolute;
+  top: -6px;
+  right: calc(env(safe-area-inset-right) + 10px);
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--snow);
+  background: color-mix(in srgb, var(--ui-ink) 45%, transparent);
+  pointer-events: auto;
+}
+
+.creator.edit .creator-close {
+  display: block;
+}
+
+.creator-sparkle {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 180px;
+  height: 180px;
+  margin: -90px 0 0 -90px;
+  border-radius: 50%;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 30% 30%, var(--snow) 0 3px, transparent 4px),
+    radial-gradient(circle at 72% 26%, var(--coin) 0 4px, transparent 5px),
+    radial-gradient(circle at 78% 70%, var(--snow) 0 3px, transparent 4px),
+    radial-gradient(circle at 24% 72%, var(--aurora-green) 0 3px, transparent 4px),
+    radial-gradient(circle, color-mix(in srgb, var(--snow) 35%, transparent), transparent 65%);
+}
+
+.creator-sparkle.go {
+  animation: creator-sparkle 420ms ease-out;
+}
+
+@keyframes creator-sparkle {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.25) rotate(20deg);
+  }
+}
+
+.creator-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 45%;
+  min-height: 330px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px calc(env(safe-area-inset-right) + 12px) calc(env(safe-area-inset-bottom) + 12px) calc(env(safe-area-inset-left) + 12px);
+  border-radius: 24px 24px 0 0;
+  background: color-mix(in srgb, var(--panel-bg) 95%, transparent);
+  box-shadow: 0 -6px 26px color-mix(in srgb, var(--ui-ink) 28%, transparent);
+  pointer-events: auto;
+  touch-action: manipulation;
+  animation: creator-panel-in 360ms cubic-bezier(0.3, 0.8, 0.3, 1);
+}
+
+@keyframes creator-panel-in {
+  from {
+    transform: translateY(40%);
+    opacity: 0;
+  }
+}
+
+.creator-options {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+
+.creator-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.creator button {
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.swatch {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 4px solid var(--panel-card);
+  background: var(--c);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--ui-ink) 25%, transparent);
+  transition: transform 120ms ease-out;
+}
+
+.swatch-row.small .swatch {
+  width: 48px;
+  height: 48px;
+}
+
+.swatch.selected {
+  transform: scale(1.1);
+  box-shadow:
+    0 0 0 3px var(--ui-ink),
+    0 2px 8px color-mix(in srgb, var(--ui-ink) 30%, transparent);
+}
+
+.swatch.pressed,
+.style-card.pressed,
+.creator-tab.pressed,
+.creator-actions button.pressed {
+  transform: scale(0.94);
+}
+
+.style-card {
+  min-width: 76px;
+  min-height: 64px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 14px;
+  border: 3px solid transparent;
+  color: var(--wood-dark);
+  background: var(--panel-card);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--ui-ink) 15%, transparent);
+  font-size: 12px;
+  font-weight: 800;
+  transition: transform 120ms ease-out;
+}
+
+.style-card svg {
+  width: 30px;
+  height: 30px;
+}
+
+.style-card.selected {
+  border-color: var(--jacket);
+  color: var(--ui-ink);
+}
+
+.style-card.compact {
+  min-width: 56px;
+  min-height: 52px;
+  padding: 2px 6px;
+}
+
+.style-card.compact svg {
+  width: 22px;
+  height: 22px;
+}
+
+.name-row {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 6px;
+}
+
+.name-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--panel-muted);
+  text-align: center;
+}
+
+.name-input {
+  height: 54px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 3px solid color-mix(in srgb, var(--panel-muted) 60%, transparent);
+  font: inherit;
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+  color: var(--ui-ink);
+  background: var(--panel-card);
+  -webkit-user-select: text;
+  user-select: text;
+  outline: none;
+}
+
+.name-input:focus {
+  border-color: var(--jacket);
+}
+
+.creator-tabs {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+}
+
+.creator-tab {
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 0;
+  border-radius: 12px;
+  color: var(--panel-muted);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 800;
+  transition: transform 120ms ease-out, background-color 150ms;
+}
+
+.creator-tab svg {
+  width: 24px;
+  height: 24px;
+}
+
+.creator-tab.active {
+  color: var(--jacket);
+  background: color-mix(in srgb, var(--jacket) 14%, transparent);
+}
+
+.creator-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.creator-random {
+  flex: 0 0 38%;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 16px;
+  color: var(--ui-ink);
+  background: color-mix(in srgb, var(--ice) 80%, transparent);
+  font-size: 16px;
+  font-weight: 800;
+  transition: transform 120ms ease-out;
+}
+
+.creator-random svg {
+  width: 24px;
+  height: 24px;
+}
+
+.creator-start {
+  flex: 1;
+  height: 56px;
+  border: 0;
+  border-radius: 16px;
+  color: var(--snow);
+  background: var(--jacket);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--ui-ink) 30%, var(--jacket));
+  font-size: 21px;
+  font-weight: 900;
+  transition: transform 120ms ease-out;
+}
+
+.fader {
+  position: absolute;
+  inset: 0;
+  background: var(--snow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity calc(var(--fade-ms) / 2) ease-in-out;
+}
+
+.fader.on {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ---------- HUD gear + settings ---------- */
+.hud-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-gear {
+  width: 48px;
+  height: 48px;
+  padding: 11px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--snow);
+  background: color-mix(in srgb, var(--ui-ink) 55%, transparent);
+  pointer-events: auto;
+}
+
+.hud-gear svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.hud-gear.pressed {
+  transform: scale(0.92);
+}
+
+.settings-backdrop {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: color-mix(in srgb, var(--ui-ink) 40%, transparent);
+  pointer-events: auto;
+}
+
+.settings-backdrop.open {
+  display: grid;
+}
+
+.settings-card {
+  width: min(320px, calc(100% - 32px));
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-radius: 20px;
+  color: var(--ui-ink);
+  background: var(--panel-bg);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--ui-ink) 35%, transparent);
+  animation: label-pop 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.settings-title {
+  font-size: 20px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.settings-btn {
+  height: 52px;
+  border: 0;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--ui-ink);
+  background: color-mix(in srgb, var(--ice) 80%, transparent);
+}
+
+.settings-btn.primary {
+  color: var(--snow);
+  background: var(--jacket);
+}
+
+.settings-btn.pressed {
+  transform: scale(0.97);
+}
+
+/* Greeting bubble over the player after "Start" */
+.greeting {
+  translate: -50% -100%;
+  padding: 8px 16px;
+  border-radius: 16px;
+  font-size: 18px;
+  color: var(--ui-ink);
+  background: var(--snow);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--ui-ink) 30%, transparent);
+}
+
+.greeting::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  margin-left: -8px;
+  border: 8px solid transparent;
+  border-bottom: 0;
+  border-top-color: var(--snow);
+}

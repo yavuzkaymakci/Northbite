@@ -11,14 +11,18 @@ function lockBrowserGestures(): void {
   document.addEventListener('touchmove', prevent, { passive: false });
   document.addEventListener('dblclick', prevent, { passive: false });
   document.addEventListener('contextmenu', prevent);
-  document.addEventListener('selectstart', prevent);
+  // Text selection stays off, except inside text fields (the character name).
+  document.addEventListener('selectstart', (e) => {
+    if (!(e.target instanceof HTMLInputElement)) e.preventDefault();
+  });
   // Double-tap zoom on older iOS: swallow a second touchend arriving quickly.
   let lastTouchEnd = 0;
   document.addEventListener(
     'touchend',
     (e) => {
       const now = performance.now();
-      if (now - lastTouchEnd < 300) e.preventDefault();
+      // Text fields are exempt: blocking their touchend would stop them from getting focus.
+      if (now - lastTouchEnd < 300 && !(e.target instanceof HTMLInputElement)) e.preventDefault();
       lastTouchEnd = now;
     },
     { passive: false },

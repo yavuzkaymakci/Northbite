@@ -187,6 +187,31 @@ export const RegionFeel = {
   shake: 0.25,
 } as const;
 
+/** Character creator stage (GDD §3). */
+export const CreatorFeel = {
+  fov: 28,
+  distance: 12.5,
+  pitchDeg: 12,
+  lookAtY: 0.95,
+  /** Where the model's center sits on screen (0 = top, 1 = bottom). */
+  screenY: 0.35,
+  autoSpin: 0.55, // rad/s
+  dragSpeed: 0.011, // rad per px
+  spinReturn: 2.2, // how fast it eases back to the auto spin after a drag
+  popTime: 0.28,
+  popScale: 0.09,
+  fadeMs: 400,
+} as const;
+
+/** "Start" intro: wide camera easing in, more snow, greeting bubble. */
+export const IntroFeel = {
+  startZoom: 2.1,
+  zoomTime: 1.5,
+  startSnow: 0.55,
+  greetAt: 1.3,
+  greetTime: 2.0,
+} as const;
+
 export const BenchFeel = {
   openDelay: 0.2, // stand on the pad this long before the panel opens
   celebrateMs: 700,

@@ -46,6 +46,12 @@ export class CameraRig {
     this.apply();
   }
 
+  /** Distance multiplier (1 = normal follow distance); the intro starts wide and eases to 1. */
+  setZoom(zoom: number): void {
+    this.zoom = zoom;
+    this.apply();
+  }
+
   /** Short camera shake; decays by itself. */
   shake(amount: number): void {
     this.shakeAmount = Math.max(this.shakeAmount, amount);
@@ -57,9 +63,10 @@ export class CameraRig {
 
   private shakeAmount = 0;
   private shakeTime = 0;
+  private zoom = 1;
 
   private apply(): void {
-    this.camera.position.copy(this.focus).add(this.offset);
+    this.camera.position.copy(this.focus).addScaledVector(this.offset, this.zoom);
     this.lookAt.set(this.focus.x, S.lookAheadY, this.focus.z);
     if (this.shakeAmount > 0) {
       this.shakeTime += 0.016;

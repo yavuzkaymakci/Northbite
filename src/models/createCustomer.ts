@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { HeadwearColors, JacketColors, Palette, ScarfColors, SkinTones } from '../render/Palette';
+import { Palette, SkinTones, TownHatColors, TownJacketColors } from '../render/Palette';
 import { flat, mesh } from './materials';
 
 export interface CustomerModel {
@@ -25,10 +25,11 @@ export function createCustomer(rand: () => number): CustomerModel {
   const body = new THREE.Group();
   root.add(body);
 
-  const jacket = flat(pick(JacketColors, rand));
+  // Muted townsfolk colors (not the player's bright option lists) so the player stands out.
+  const jacket = flat(pick(TownJacketColors, rand));
   const pants = flat(Palette.pants);
   const skin = flat(pick(SkinTones, rand));
-  const hat = flat(rand() < 0.5 ? pick(HeadwearColors, rand) : pick(ScarfColors, rand));
+  const hat = flat(pick(TownHatColors, rand));
 
   const makeLeg = (side: number) => {
     const leg = new THREE.Group();

@@ -1,6 +1,7 @@
 import { t } from '../content/strings';
 import { CoinFeel } from '../settings';
 import { damp } from '../core/Time';
+import { onTap } from './tap';
 
 /** Top HUD: coin counter (counts toward its target), FPS readout and the first-move hint. */
 export class HUD {
@@ -15,7 +16,7 @@ export class HUD {
   private target = 0;
   private lastText = '';
 
-  constructor(overlay: HTMLElement) {
+  constructor(overlay: HTMLElement, onSettings: () => void) {
     const bar = document.createElement('div');
     bar.className = 'hud-bar';
 
@@ -31,7 +32,15 @@ export class HUD {
     this.fpsEl.className = 'hud-fps';
     this.fpsEl.textContent = `-- ${t('fps')}`;
 
-    bar.append(this.coinPill, this.fpsEl);
+    const right = document.createElement('div');
+    right.className = 'hud-right';
+    const gear = document.createElement('button');
+    gear.className = 'hud-gear';
+    gear.setAttribute('aria-label', t('settingsOpen'));
+    gear.innerHTML = `<svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M13.6 3h4.8l.7 3.4 2.4 1 2.9-1.9 3.4 3.4-1.9 2.9 1 2.4 3.4.7v4.8l-3.4.7-1 2.4 1.9 2.9-3.4 3.4-2.9-1.9-2.4 1-.7 3.4h-4.8l-.7-3.4-2.4-1-2.9 1.9-3.4-3.4 1.9-2.9-1-2.4L3 18.4v-4.8l3.4-.7 1-2.4-1.9-2.9 3.4-3.4 2.9 1.9 2.4-1zM16 11a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg>`;
+    onTap(gear, onSettings);
+    right.append(this.fpsEl, gear);
+    bar.append(this.coinPill, right);
 
     this.hintEl = document.createElement('div');
     this.hintEl.className = 'hud-hint';

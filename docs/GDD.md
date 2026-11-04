@@ -60,18 +60,41 @@ Mini oyunun his ayarları `src/settings.ts` (`FishingFeel`), balık verileri `sr
 - **Satış fiyatı** = kg × kg başına fiyat (yuvarlanır, en az 1 coin).
 - **İlk yakalama:** Bir tür ilk kez tutulduğunda kart büyür, "Yeni tür!" şeridi taşır ve daha uzun kalır.
 
-## 3. Karakter oluşturma (ilk açılış)
-- **Ekran:** Ortada döner bir önizleme modeli, altta seçenek şeritleri bulunur.
-- **Seçenekler:**
-  - İsim (en fazla 12 karakter)
-  - Ten tonu (6 seçenek)
-  - Mont rengi (8 seçenek)
-  - Başlık: bere, kürk şapka veya kukuleta
-  - Sakal: yok, kısa veya uzun
-  - Atkı rengi
-- **"Rastgele" butonu** ve **"Başla"** butonu
-- **Teknik:** Model parçalı low-poly yapıdadır, renk değişimi materyal rengiyle yapılır. Görünüm save'e `appearance` objesi olarak yazılır.
-- **Hassasiyet:** Yerleşim hayalî bir kuzey kasabasıdır. Gerçek yerli halkları stereotip biçimde tasvir eden kıyafet veya isimler kullanılmaz.
+## 3. Karakter oluşturma
+**Ne zaman açılır**
+- Kayıt yoksa (ilk açılış) oyun başlamadan önce açılır. "Başla"ya basılana kadar hiçbir şey kaydedilmez; uygulama kapatılırsa ekran bir sonraki açılışta yine gelir.
+- Kayıt varsa doğrudan oyuna girilir. Kayıtta görünüm yoksa (Demo 0–3 oyuncuları) varsayılan görünüm atanır; ekran zorla gösterilmez.
+- HUD'daki dişli → Ayarlar → **"Karakteri düzenle"** aynı ekranı açar. "Başla" yerine "Kaydet" yazar, köşede kapatma (×) vardır; ilerleme bozulmaz.
+
+**Ekran düzeni (dikey, tek elle)**
+- Üst: "Northbite" yazısı, altında "Karakterini oluştur".
+- Orta (~%45): oyundaki karakter modeli hafif yukarıdan, yavaşça dönerek görünür. Arkada soluk kar/buz zemin, gökyüzünde çok hafif kuzey ışığı (yeşil-mor), yavaş kar. Parmakla sürükleyince model döner; bırakınca yumuşakça yavaş dönüşe geçer.
+- Alt (~%45): seçenek paneli. En altta "Rastgele" (ikincil, zar ikonu) ve "Başla" (büyük, mont turuncusu). Onların üstünde ikonlu kategori sekmeleri (Ten, Mont, Başlık, Sakal, Atkı, İsim), sekmelerin üstünde seçili sekmenin seçenekleri: renkler için büyük yuvarlak kutular, şekiller için ikonlu kartlar. Tüm dokunma alanları ≥48 px. Güvenli alanlar hesaba katılır.
+- Seçim anında modele uygulanır; model kısa bir ölçek zıplaması yapar, küçük bir parıltı çıkar.
+
+**Seçenekler** (`src/content/appearance.ts`; renk değerleri `render/Palette.ts`, etiketler `strings.ts`)
+- Ten tonu: 6 (açıktan koyuya)
+- Mont rengi: 8 (ilk sırada turuncu #F28C38)
+- Başlık: yok, bere, kürk şapka, kukuleta (bere ve kürk şapkanın 6 rengi var; kukuleta mont rengini alır)
+- Sakal: yok, kısa, uzun (4 renk)
+- Atkı: yok + 8 renk
+- İsim: en fazla 12 karakter; boşsa "Balıkçı" / "Angler". Yalnızca yerelde görünür (filtre şimdilik yok).
+- **Rastgele:** Uyumlu kombinasyon üretir: mont ve atkı aynı renk olmaz, başlık rengi mont rengiyle aynı olmaz. İsmi değiştirmez.
+
+**"Başla" sonrası giriş sahnesi**
+1. Ekran ~400 ms'de solar.
+2. Karakter iglonun önünde durur. Kamera uzaktan (geniş açı) başlayıp 1.5 sn'de normal takip mesafesine yaklaşır; kar hafifçe artar.
+3. Karakterin başında "Merhaba, {isim}!" balonu çıkar, 2 sn sonra kaybolur.
+4. Sonra joystick ve rehber ok devreye girer (giriş sırasında joystick kapalıdır).
+
+**Teknik**
+- Model parçalı low-poly. Tüm başlık/sakal/atkı parçaları bir kez üretilir; değişimde yalnızca görünürlük ve materyal rengi değişir (çöp üretilmez). Parçalar `src/models/createPlayerParts.ts` içinde ayrı fonksiyonlar.
+- Ekran aynı renderer'ı ayrı bir sahne ve kamerayla kullanır; açıkken oyun sahnesi güncellenmez ve çizilmez. Bütçe ~30 draw call.
+- Görünüm save'e `appearance` objesi olarak yazılır (isim dahil; save v3 alanı, bozuk değerler varsayılana döner).
+- Oyunda isim etiketi gösterilmez; isim yalnızca selamlama balonunda ve ayarlar panelinde görünür.
+- Kasaba halkı (müşteriler) oyuncuya ait olmayan, daha soluk bir renk ve şapka setinden rastgele seçilir; oyuncu kendini kolayca ayırt eder.
+
+**Hassasiyet:** Yerleşim hayalî bir kuzey kasabasıdır. Gerçek yerli halkları stereotip biçimde tasvir eden kıyafet, desen veya isimler kullanılmaz.
 
 ## 4. Kontroller
 ### 4.1 Joystick (yüzen / floating)
@@ -247,9 +270,17 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - Mini oyun sırasında joystick yanlışlıkla açılmaz; 40 px sürükleme mini oyunu temiz biçimde iptal eder.
   - Telefonda 60 fps korunur.
 
-### Demo 2 — Karakter ve kayıt
-- Karakter oluşturma ekranı, kaydetme ve yükleme, ana ekrana ekleme (PWA)
-- **Kabul kriteri:** Uygulama kapatılıp açılınca her şey yerinde olur.
+### Demo 2 — Karakter oluşturma (Demo 3'ten sonra yapıldı)
+- Karakter oluşturma ekranı (§3), "Başla" sonrası giriş sahnesi, ayarlar paneli ve "Karakteri düzenle", kasaba halkı için ayrı renk seti
+- **Kabul kriterleri:**
+  - İlk açılışta ekran açılır; "Başla"ya basınca oyuna girilir. Yeniden açınca ekran tekrar gelmez, görünüm korunur.
+  - Demo 1–3 kayıtları bozulmadan açılır (karakter ekranı çıkmaz).
+  - Her seçenek değişince model anında güncellenir, takılma olmaz.
+  - Panel tek elle rahat kullanılır; tüm dokunma alanları ≥48 px.
+  - Ekran açıkken FPS 60'a yakındır; oyun sahnesi çizilmez.
+  - Ayarlardan "Karakteri düzenle" çalışır ve ilerlemeyi bozmaz.
+  - Model sürükleyince döner; pinch-zoom ve sayfa kayması yoktur.
+- PNG ikonlar (iOS 180×180, Android 192/512) hâlâ eksik; PWA cilası Demo 5'e kaldı.
 
 ### Demo 3 — İlk otomasyon
 - Eşya sistemi (çiğ + tütsülenmiş), balık ağı ve sepet, penguen kulübesi ve penguen işçi (A* ile waypoint), veri odaklı bölge açma (buz duvarı kırılması + kamera gezdirme), Tütsühane bölgesi (tütsühane, 3. delik, 2. penguen), "Yakında" iskele duvarı, olta tezgâhı ve 4 olta yükseltmesi, "Yeni tür!" kartı, save v3, denge simülasyonu
@@ -293,6 +324,15 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **Alabalık süresi:** Saf sarma süresi 5 sn; çekişlerde bırakmakla birlikte toplam süre ~8–9 sn oluyor. Uzun gelirse `reelTime` düşürülebilir.
 - **Masaüstü:** Space tuşu ekrana basılı tutmaya karşılık gelir (vuruşta basmak = dokunmak).
 - **Titreşim:** iOS Safari `navigator.vibrate` desteklemiyor; iPhone'da titreşim native aşamada (Capacitor Haptics) gelecek.
+
+### Demo 2 sırasında verilen geçici kararlar
+- **Sıra:** Demo 2, Demo 3'ten sonra yapıldı; kayıt sürümü v3 olarak kaldı (`appearance` alanı zaten vardı). Bozuk ya da eksik görünüm alanları tek tek varsayılana döner.
+- **Atkı "yok":** `scarfColor = -1`. Atkı yokken boyunda mont renginde bir yaka görünür. Eldivenler önceden atkı rengindeydi; artık sabit koyu kahve.
+- **Kukuleta rengi:** Ayrı rengi yok, mont rengini alır; bu yüzden başlık sekmesinde renk satırı yalnızca bere ve kürk şapkada görünür.
+- **Doğma noktası:** Yeni oyunda karakter iglonun kapısının önünde başlar (giriş sahnesi için). Bu, ilk satışa birkaç saniye ekler.
+- **Kapatma (×):** Düzenleme modunda değişiklikleri atıp oyuna döner.
+- **Hızlı ikinci dokunuş:** iOS çift dokunma zoom'unu engelleyen kural metin kutularına uygulanmaz (yoksa isim kutusu odaklanmıyordu).
+- **Ayarlar paneli** açıkken oyun arka planda sürer; yalnızca karakter ekranı oyunu durdurur.
 
 ### Demo 3 sırasında verilen geçici kararlar
 - **Seviye sayımı:** "5 seviye" = Sv1 (başlangıç) + 4 satın alma. Böylece sırt çantası 5 → 6 → 7 → 8 → 10 olur ve kalkan, 2 yem alımından sonra (Sv3) havuza girer.

@@ -1,6 +1,7 @@
 import { FishingFeel as F } from '../settings';
 import { damp } from '../core/Time';
 import type { HookedFish } from './FishRoll';
+import { NO_MODS, type FishingMods } from './Upgrades';
 
 export type TensionZone = 'green' | 'yellow' | 'red';
 export type ReelResult = 'reeling' | 'caught' | 'snapped';
@@ -24,6 +25,7 @@ export class ReelGame {
   constructor(
     readonly fish: HookedFish,
     private readonly rand: () => number = Math.random,
+    private readonly mods: Pick<FishingMods, 'lineStrength' | 'reelSpeed'> = NO_MODS,
   ) {
     this.nextTugIn = this.tugInterval() * 0.7;
   }
@@ -54,7 +56,7 @@ export class ReelGame {
     if (holding) {
       const zone = this.zone;
       const mul = zone === 'green' ? 1 : zone === 'yellow' ? F.progressYellowMul : F.progressRedMul;
-      this.progress += (mul * dt) / (this.fish.species.reelTime * this.fish.difficulty);
+      this.progress += (mul * this.mods.reelSpeed * dt) / (this.fish.species.reelTime * this.fish.difficulty);
     } else {
       this.progress -= F.progressDecayPerSec * dt;
     }
@@ -72,7 +74,8 @@ export class ReelGame {
           this.phase = 'warn';
           this.phaseTimer = F.tugWarnTime;
           const jitter = 1 + s.tugIrregularity * (this.rand() * 2 - 1);
-          this.tugPower = s.tugStrength * this.fish.difficulty * jitter;
+          // A stronger line raises the effective break ceiling, i.e. the same tug moves tension less.
+          this.tugPower = (s.tugStrength * this.fish.difficulty * jitter) / this.mods.lineStrength;
         }
         break;
       case 'warn':

@@ -7,7 +7,8 @@
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "sim": "node --experimental-transform-types --no-warnings --import ./tools/register-ts.mjs tools/balance-sim.ts"
   },
   "dependencies": {
     "three": "^0.187.0"

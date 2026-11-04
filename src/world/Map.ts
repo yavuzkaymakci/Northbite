@@ -1,11 +1,17 @@
 import * as THREE from 'three';
 import { FishingFeel, UnlockFeel, WaterSettings } from '../settings';
-import { IceShore as Z, type RectArea } from '../content/zones';
+import { Regions, TeaserWalls, IceShore as Z, type RectArea } from '../content/zones';
+import { easeOutBack } from '../core/Ease';
 import { range, seededRandom } from '../core/Random';
+import { bake } from '../models/bake';
+import { createRodBench } from '../models/createBench';
 import { createCounter } from '../models/createCounter';
 import { createFlatRingGeometry, createIceHole } from '../models/createFishingProps';
+import { createHut } from '../models/createHut';
 import { createIgloo, iglooTunnelStart } from '../models/createIgloo';
+import { createPierSilhouette, createSignPost } from '../models/createTeaser';
 import { Palette } from '../render/Palette';
+import type { Appear } from '../systems/Appear';
 import type { FishingHole } from '../systems/Fishing';
 import { createPines } from '../models/createPines';
 import { createCrate, createFloes, createRocks, createSnowMounds } from '../models/createProps';
@@ -13,6 +19,7 @@ import { createGround, createIcePatches, createShoreBlocks, createWater, type Wa
 import { composeInstance, type InstanceTransform } from '../models/instancing';
 import type { Collider } from '../systems/Collision';
 import type { Walkable } from '../systems/Movement';
+import { IceWall } from './IceWall';
 
 const SHORE_INSET = 0.9; // bare-ice band width along the water edge
 
@@ -43,17 +50,20 @@ interface HoleVisual {
   appear: number;
 }
 
-/** Overshooting ease for the unlock bounce. */
-function easeOutBack(t: number): number {
-  const c = 2.2;
-  return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
-}
-
-/** Zone 1 "Ice Shore" scene and its walkable area. */
+/** Ice Shore scene (zone 1) plus the Smokehouse yard behind its ice wall, and the walkable area. */
 export class WorldMap implements Walkable {
   readonly group = new THREE.Group();
   readonly colliders: Collider[] = [];
   readonly bounds: RectArea = Z.walkBounds;
+  private readonly walls = new Map<string, IceWall>();
+  private hutBuilt = false;
+  private readonly padMaterial = new THREE.MeshBasicMaterial({
+    color: Palette.benchPad,
+    transparent: true,
+    opacity: 0.6,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
 
   private readonly water: Water;
   private readonly floes: Floe[] = [];
@@ -69,13 +79,13 @@ export class WorldMap implements Walkable {
     side: THREE.DoubleSide,
   });
 
-  constructor(unlocked: readonly string[]) {
+  constructor(unlocked: readonly string[], regions: readonly string[]) {
     this.group.name = 'world';
     const g = Z.ground;
 
     // Sales counter
     const c = Z.counter;
-    const counter = createCounter(c.width, c.depth);
+    const counter = bake(createCounter(c.width, c.depth));
     counter.position.set(c.x, 0, c.z);
     this.group.add(counter);
     this.colliders.push({
@@ -100,7 +110,7 @@ export class WorldMap implements Walkable {
 
     // Igloo
     const ig = Z.igloo;
-    const igloo = createIgloo(ig.radius, ig.tunnelLength, ig.tunnelWidth);
+    const igloo = bake(createIgloo(ig.radius, ig.tunnelLength, ig.tunnelWidth));
     igloo.position.set(ig.x, 0, ig.z);
     this.group.add(igloo);
     this.colliders.push({ kind: 'circle', x: ig.x, z: ig.z, r: ig.radius * 0.97 });
@@ -126,19 +136,62 @@ export class WorldMap implements Walkable {
       this.colliders.push({ kind: 'rect', minX: c.x - half, maxX: c.x + half, minZ: c.z - half, maxZ: c.z + half });
     }
 
-    // Trees: a few inside (with colliders) plus decorative belts outside
+    // Trees: a few inside (with colliders), solid belts inside the bounds, decorative belts outside
     const rand = seededRandom(Z.borderTrees.seed);
     const pines: InstanceTransform[] = Z.trees.map((t) => ({ x: t.x, z: t.z, scale: t.scale, rotY: rand() * 6 }));
     for (const t of Z.trees) {
       this.colliders.push({ kind: 'circle', x: t.x, z: t.z, r: Z.treeColliderRadius * t.scale });
     }
-    const outsideWalk = (x: number, z: number) => !inside(Z.walkBounds, x, z, 0.6);
-    for (const belt of [Z.borderTrees.west, Z.borderTrees.south]) {
+    const inGap = (x: number, z: number) => Z.borderTrees.gaps.some((a) => inside(a, x, z));
+    const outsideWalk = (x: number, z: number) => !inside(Z.walkBounds, x, z, 0.6) && !inGap(x, z);
+    for (const belt of Z.borderTrees.belts) {
       for (const p of scatter(rand, belt.area, belt.count, outsideWalk)) {
         pines.push({ x: p.x, z: p.z, scale: range(rand, 0.8, 1.5), rotY: rand() * 6 });
       }
     }
+    for (const w of Z.treeWalls) {
+      this.colliders.push({ kind: 'rect', minX: w.minX, maxX: w.maxX, minZ: w.minZ, maxZ: w.maxZ });
+      const area = { minX: w.minX + 0.5, maxX: w.maxX - 0.5, minZ: w.minZ + 0.5, maxZ: w.maxZ - 0.5 };
+      for (const p of scatter(rand, area, w.count, () => true)) {
+        pines.push({ x: p.x, z: p.z, scale: range(rand, 0.95, 1.4), rotY: rand() * 6 });
+      }
+    }
     this.group.add(createPines(pines));
+
+    // Ice walls: one per region still locked, plus the teaser walls that never open in this demo.
+    for (const r of Regions) {
+      if (regions.includes(r.id)) continue;
+      const wall = new IceWall(r.wall, r.wall.height, 31);
+      this.walls.set(r.id, wall);
+      this.group.add(wall.root);
+      this.colliders.push(wall.collider);
+    }
+    for (const tw of TeaserWalls) {
+      const wall = new IceWall(tw.wall, tw.wall.height, 57);
+      this.group.add(wall.root);
+      this.colliders.push(wall.collider);
+      const sign = createSignPost();
+      sign.position.set(tw.sign.x, 0, tw.sign.z);
+      sign.rotation.y = 0.2;
+      const pier = createPierSilhouette();
+      pier.position.set(tw.silhouette.x, 0, tw.silhouette.z);
+      this.group.add(sign, pier);
+    }
+
+    // Rod bench next to the igloo, with the pad you stand on
+    const b = Z.bench;
+    const bench = createRodBench(b.width, b.depth);
+    bench.position.set(b.x, 0, b.z);
+    this.group.add(bench);
+    this.colliders.push({ kind: 'rect', minX: b.x - b.width / 2, maxX: b.x + b.width / 2, minZ: b.z - b.depth / 2, maxZ: b.z + b.depth / 2 });
+    const pad = new THREE.Mesh(createFlatRingGeometry(b.pad.radius, b.pad.radius - 0.16, 32), this.padMaterial);
+    pad.position.set(b.pad.x, 0.025, b.pad.z);
+    const padFill = new THREE.Mesh(
+      new THREE.CylinderGeometry(b.pad.radius - 0.16, b.pad.radius - 0.16, 0.01, 24),
+      new THREE.MeshBasicMaterial({ color: Palette.benchPad, transparent: true, opacity: 0.18, depthWrite: false }),
+    );
+    padFill.position.set(b.pad.x, 0.02, b.pad.z);
+    this.group.add(pad, padFill);
 
     // Rocks
     const rockRand = seededRandom(21);
@@ -162,10 +215,13 @@ export class WorldMap implements Walkable {
     );
     const patchRand = seededRandom(Z.icePatches.seed);
     const ig2 = Z.igloo;
+    const stations = [Z.bench, Z.hut, Z.smokehouse, Z.net.basket];
     const clearOfStations = (x: number, z: number) =>
       Math.hypot(x - ig2.x, z - ig2.z) > ig2.radius + 2 &&
       Z.holes.every((h) => Math.hypot(x - h.x, z - h.z) > 2.6) &&
-      Math.hypot(x - c.x, z - c.z) > 3;
+      Math.hypot(x - c.x, z - c.z) > 3 &&
+      stations.every((s) => Math.hypot(x - s.x, z - s.z) > 2.8) &&
+      !Z.treeWalls.some((w) => inside(w, x, z, 0.8));
     this.group.add(
       createIcePatches(
         scatter(patchRand, Z.walkBounds, Z.icePatches.count, clearOfStations).map(
@@ -182,6 +238,38 @@ export class WorldMap implements Walkable {
   /** Fishing holes the player can use right now. */
   get openHoles(): readonly FishingHole[] {
     return this.holeList;
+  }
+
+  addCollider(c: Collider): void {
+    this.colliders.push(c);
+  }
+
+  removeCollider(c: Collider): void {
+    const i = this.colliders.indexOf(c);
+    if (i >= 0) this.colliders.splice(i, 1);
+  }
+
+  /** The ice wall in front of a locked region. */
+  wallFor(regionId: string): IceWall | undefined {
+    return this.walls.get(regionId);
+  }
+
+  /** The way into a region is free: its wall stops blocking (the break animation is played by the wall). */
+  openRegion(regionId: string): void {
+    const wall = this.walls.get(regionId);
+    if (wall) this.removeCollider(wall.collider);
+  }
+
+  /** Penguin hut (from the "hut" unlock). */
+  buildHut(appear: Appear | null): void {
+    if (this.hutBuilt) return;
+    this.hutBuilt = true;
+    const h = Z.hut;
+    const hut = createHut(h.width, h.depth);
+    hut.position.set(h.x, 0, h.z);
+    this.group.add(hut);
+    this.colliders.push({ kind: 'rect', minX: h.x - h.width / 2 - 0.1, maxX: h.x + h.width / 2 + 0.1, minZ: h.z - h.depth / 2 - 0.1, maxZ: h.z + h.depth / 2 + 0.1 });
+    appear?.add(hut);
   }
 
   /** Adds a fishing hole (and its collider). `animate` plays the unlock bounce. */
@@ -206,6 +294,11 @@ export class WorldMap implements Walkable {
   update(dt: number, time: number): void {
     this.water.update(time);
     this.ringMaterial.opacity = 0.4 + Math.sin(time * 3) * 0.15;
+    this.padMaterial.opacity = 0.55 + Math.sin(time * 3 + 1) * 0.2;
+    for (const [id, wall] of this.walls) {
+      wall.update(dt);
+      if (wall.phase === 'gone') this.walls.delete(id);
+    }
     for (const v of this.holeVisuals) {
       if (v.appear >= 1) continue;
       v.appear = Math.min(v.appear + dt / UnlockFeel.bounceTime, 1);

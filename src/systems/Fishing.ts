@@ -18,6 +18,7 @@ import type { CarryStack } from './CarryStack';
 import { rollFish, type HookedFish } from './FishRoll';
 import { arcPoint } from './Flights';
 import { ReelGame } from './ReelGame';
+import { fishingMods } from './Upgrades';
 
 export interface FishingHole {
   id: string;
@@ -235,7 +236,7 @@ export class FishingSystem implements TouchClaimer {
   private startBite(): void {
     this.phase = 'bite';
     this.timer = F.hookWindow;
-    this.hooked = rollFish();
+    this.hooked = rollFish(Math.random, fishingMods(this.state));
     this.fx.splash(this.bobberPos.x, WATER_Y, this.bobberPos.z, 10, 1.7);
     this.fx.ripple(this.bobberPos.x, WATER_Y + 0.01, this.bobberPos.z, 0.7);
     this.labels.pop(this.alert);
@@ -246,7 +247,7 @@ export class FishingSystem implements TouchClaimer {
     if (this.phase !== 'bite' || !this.hooked) return;
     this.labels.show(this.alert, false);
     this.phase = 'reeling';
-    this.reel = new ReelGame(this.hooked);
+    this.reel = new ReelGame(this.hooked, Math.random, fishingMods(this.state));
     this.state.stats.reels++;
     this.gauge.open(this.hooked.species.greenZone, this.state.stats.reels <= F.reelHintCatches);
   }
@@ -295,7 +296,9 @@ export class FishingSystem implements TouchClaimer {
     this.state.carried.push(hooked.item);
     this.state.stats.caught++;
     this.stack.hiddenTop++;
-    vibrate(HapticsSettings.catch);
+    const firstOfKind = !this.state.seen.includes(hooked.item.species);
+    if (firstOfKind) this.state.seen.push(hooked.item.species);
+    vibrate(firstOfKind ? HapticsSettings.newSpecies : HapticsSettings.catch);
 
     const p = this.player.state;
     const fwdX = Math.sin(p.heading);
@@ -311,7 +314,7 @@ export class FishingSystem implements TouchClaimer {
     };
     this.fx.splash(this.bobberPos.x, WATER_Y, this.bobberPos.z, 14, 2.2);
     this.fx.ripple(this.bobberPos.x, WATER_Y + 0.01, this.bobberPos.z, 0.9);
-    this.showCard(hooked.item);
+    this.showCard(hooked.item, firstOfKind);
   }
 
   private snap(): void {
@@ -375,14 +378,17 @@ export class FishingSystem implements TouchClaimer {
     }
   }
 
-  private showCard(item: FishItem): void {
+  /** Catch card; the first fish of a species gets the bigger "New species!" version and stays longer. */
+  private showCard(item: FishItem, firstOfKind: boolean): void {
     const s = FishById[item.species];
     const rarity = s.rarity;
-    this.card.el.innerHTML = `<div class="card-name">${s.name[getLang()]}</div>
+    this.card.el.innerHTML = `${firstOfKind ? `<div class="card-new">${t('newSpecies')}</div>` : ''}
+      <div class="card-name">${s.name[getLang()]}</div>
       <div class="card-kg">${item.kg.toFixed(2)} ${t('kg')} · <span class="card-price">${item.price}</span></div>
       <div class="card-rarity">${t(`rarity_${rarity}`)}</div>`;
     this.card.el.style.setProperty('--rarity', toCss(Palette[RarityColor[rarity]]));
-    this.cardTimer = F.landArcTime + F.landFlopTime + 0.2;
+    this.card.el.classList.toggle('new-species', firstOfKind);
+    this.cardTimer = F.landArcTime + F.landFlopTime + (firstOfKind ? 1.6 : 0.2);
     this.labels.pop(this.card);
   }
 

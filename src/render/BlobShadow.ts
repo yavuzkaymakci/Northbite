@@ -3,7 +3,8 @@ import { Palette } from './Palette';
 
 let sharedTexture: THREE.CanvasTexture | null = null;
 
-function blobTexture(): THREE.CanvasTexture {
+/** Soft white radial mask (shared). Also used for glows. */
+export function blobTexture(): THREE.CanvasTexture {
   if (sharedTexture) return sharedTexture;
   const size = 64;
   const canvas = document.createElement('canvas');

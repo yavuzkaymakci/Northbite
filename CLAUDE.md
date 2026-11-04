@@ -25,10 +25,11 @@ src/
   entities/  Player, Worker, Customer, Station, Item
   systems/   Movement, CarryStack, Economy, Spawning, OfflineEarnings
   ui/        Joystick, HUD, CharacterCreator, UpgradePanel, Popups
-  content/   economy.ts, fish.ts, stations.ts, zones.ts, workers.ts, strings.ts
+  content/   economy.ts, fish.ts, stations.ts, zones.ts, workers.ts, upgrades.ts, strings.ts
   models/    kodla üretilen low-poly mesh fabrikaları
 public/      manifest.webmanifest, ikonlar, ileride glTF modeller
 docs/        GDD.md
+tools/       balance-sim.ts (denge simülasyonu; oyunun içerik ve mantık dosyalarını Node'da çalıştırır)
 .github/workflows/deploy.yml   main'e her push'ta GitHub Pages yayını
 ```
 
@@ -63,6 +64,7 @@ docs/        GDD.md
 - `npm run build` — production build (`dist/`)
 - `npm run preview` — build önizlemesi (`--host` ile)
 - `npm run typecheck` — `tsc --noEmit`
+- `npm run sim` — denge simülasyonu (açılış süreleri, boşta gelir, yükseltme etkileri); `npm run sim -- 20` koşu sayısını, `npm run sim -- 1 reel` yalnızca mini oyun tablolarını verir. Simülasyonun kullandığı mantık dosyaları (`ReelGame`, `FishRoll`, `StationLogic`, `WorkerBrain`, `Pathfinding`, `Upgrades`) Three.js ve DOM içermemeli.
 
 ## Telefonda test
 1. **Hızlı test (aynı Wi-Fi):** `npm run dev` çalıştır ve terminaldeki "Network" adresini telefon tarayıcısında aç. Vite `base: '/Northbite/'` kullandığı için adres `/Northbite/` ile biter (ör. `http://192.168.x.x:5173/Northbite/`).

@@ -60,6 +60,36 @@ export const Palette = {
   unlockDash: 0xf4f8fb,
   unlockFill: 0xffd447,
   guideArrow: 0xffd447,
+
+  // Smoked fish and the smokehouse
+  smokedFish: 0x8f4f26,
+  smokedBelly: 0xc9864a,
+  woodLight: 0xb07a4f,
+  emberGlow: 0xff9a3c,
+  emberDeep: 0xd9622b,
+  smoke: 0xc9d2da,
+  steam: 0xf4f8fb,
+
+  // Net and basket
+  netCord: 0x4f5f6b,
+  wicker: 0xc49a62,
+
+  // Penguin
+  penguinBack: 0x26303c,
+  penguinBelly: 0xf7f4ee,
+  penguinBeak: 0xf2a03d,
+
+  // Ice walls and the teaser pier
+  wallIce: 0xbfe1f2,
+  wallCrack: 0x5d8fae,
+  haze: 0xb9cfdc,
+
+  // Upgrade bench and panel
+  benchPad: 0xf28c38,
+  panelBg: 0xf4f8fb,
+  panelCard: 0xffffff,
+  panelMuted: 0x8fa3b3,
+  buy: 0x47b37a,
 } as const;
 
 export type PaletteKey = keyof typeof Palette;

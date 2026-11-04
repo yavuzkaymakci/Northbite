@@ -22,8 +22,8 @@ export interface FishSpecies {
   greenZone: number;
   rarity: Rarity;
   rarityWeight: number;
-  /** Not catchable yet (needs a rod upgrade). */
-  locked: boolean;
+  /** Lowest "bait" upgrade level (1 = start) at which this species can bite. */
+  baitLevel: number;
   color: PaletteKey;
   bellyColor: PaletteKey;
   /** Model length in world units at kgMax. */
@@ -45,7 +45,7 @@ export const FishSpeciesList: readonly FishSpecies[] = [
     greenZone: 0.75,
     rarity: 'common',
     rarityWeight: 65,
-    locked: false,
+    baitLevel: 1,
     color: 'fishCapelin',
     bellyColor: 'fishBellyLight',
     length: 0.62,
@@ -64,7 +64,7 @@ export const FishSpeciesList: readonly FishSpecies[] = [
     greenZone: 0.65,
     rarity: 'uncommon',
     rarityWeight: 28,
-    locked: false,
+    baitLevel: 1,
     color: 'fishCod',
     bellyColor: 'fishBellyLight',
     length: 0.82,
@@ -83,7 +83,7 @@ export const FishSpeciesList: readonly FishSpecies[] = [
     greenZone: 0.55,
     rarity: 'rare',
     rarityWeight: 7,
-    locked: false,
+    baitLevel: 1,
     color: 'fishChar',
     bellyColor: 'fishBellyWarm',
     length: 1.0,
@@ -94,15 +94,15 @@ export const FishSpeciesList: readonly FishSpecies[] = [
     kgMin: 8,
     kgMax: 20,
     pricePerKg: 2,
-    reelTime: 8,
-    tugIntervalMin: 0.6,
-    tugIntervalMax: 1.6,
-    tugStrength: 0.95,
-    tugIrregularity: 0.5,
+    reelTime: 6,
+    tugIntervalMin: 1.3,
+    tugIntervalMax: 2.3,
+    tugStrength: 0.9,
+    tugIrregularity: 0.35,
     greenZone: 0.45,
     rarity: 'epic',
     rarityWeight: 2,
-    locked: true,
+    baitLevel: 3,
     color: 'fishHalibut',
     bellyColor: 'fishBellyLight',
     length: 1.3,

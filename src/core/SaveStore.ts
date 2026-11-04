@@ -1,9 +1,10 @@
-import { FishById } from '../content/fish';
+import { FishById, type FishId } from '../content/fish';
+import { UpgradeList, UpgradeMaxLevel } from '../content/upgrades';
 import { SaveSettings } from '../settings';
 import type { Appearance } from '../models/createPlayer';
-import { createGameState, type FishItem, type GameState } from './GameState';
+import { createGameState, type FishItem, type GameState, type WorkerData } from './GameState';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 /** Pure JSON game state. No Three.js objects here. */
 export interface SaveData {
@@ -21,32 +22,75 @@ export interface SaveStore {
 }
 
 type AnySave = Record<string, unknown> & { saveVersion: number };
+type Obj = Record<string, unknown>;
+
+/** v2 fish had no `kind`; every fish was raw. */
+function addKind(list: unknown): unknown {
+  return Array.isArray(list) ? list.map((f) => (f && typeof f === 'object' ? { kind: 'raw', ...(f as Obj) } : f)) : list;
+}
 
 /** Each step upgrades a save by exactly one version. */
 const migrations: Record<number, (s: AnySave) => AnySave> = {
   // v1 (Demo 0) only had the player position.
   1: (s) => ({ ...s, saveVersion: 2, game: createGameState() }),
+  // v2 (Demo 1): raw fish only, no stations, helpers, regions or upgrades. New fields get defaults in sanitizeGame.
+  2: (s) => {
+    const g = (s.game ?? {}) as Obj;
+    return { ...s, saveVersion: 3, game: { ...g, carried: addKind(g.carried), counter: addKind(g.counter) } };
+  },
 };
 
 function isFishItem(v: unknown): v is FishItem {
   const f = v as FishItem;
-  return !!f && typeof f === 'object' && f.species in FishById && typeof f.kg === 'number' && typeof f.price === 'number';
+  return (
+    !!f &&
+    typeof f === 'object' &&
+    f.species in FishById &&
+    (f.kind === 'raw' || f.kind === 'smoked') &&
+    typeof f.kg === 'number' &&
+    typeof f.price === 'number'
+  );
 }
+
+const fishList = (v: unknown): FishItem[] => (Array.isArray(v) ? v.filter(isFishItem) : []);
+const stringList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((u): u is string => typeof u === 'string') : []);
 
 /** Fills missing fields and drops corrupted entries so a damaged save never crashes the game. */
 function sanitizeGame(raw: unknown): GameState {
   const base = createGameState();
   if (!raw || typeof raw !== 'object') return base;
-  const g = raw as Partial<GameState>;
+  const g = raw as Partial<Record<keyof GameState, unknown>>;
   const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : d);
+
+  const smoker = (g.smoker ?? {}) as Partial<Record<string, unknown>>;
+  const upgrades = { ...base.upgrades };
+  const rawUp = (g.upgrades ?? {}) as Partial<Record<string, unknown>>;
+  for (const u of UpgradeList) {
+    const lv = Math.floor(num(rawUp[u.id], 1));
+    upgrades[u.id] = Math.min(Math.max(lv, 1), UpgradeMaxLevel);
+  }
+  const workers: WorkerData[] = Array.isArray(g.workers)
+    ? g.workers.map((w) => ({ carried: fishList((w as Partial<WorkerData> | null)?.carried) }))
+    : [];
+
   return {
     coins: num(g.coins, 0),
     pile: num(g.pile, 0),
-    carried: Array.isArray(g.carried) ? g.carried.filter(isFishItem) : [],
-    counter: Array.isArray(g.counter) ? g.counter.filter(isFishItem) : [],
-    unlocked: Array.isArray(g.unlocked) ? g.unlocked.filter((u): u is string => typeof u === 'string') : [],
-    unlockPaid: g.unlockPaid && typeof g.unlockPaid === 'object' ? { ...g.unlockPaid } : {},
-    stats: { ...base.stats, ...(g.stats ?? {}) },
+    carried: fishList(g.carried),
+    counter: fishList(g.counter),
+    unlocked: stringList(g.unlocked),
+    regions: stringList(g.regions),
+    unlockPaid: g.unlockPaid && typeof g.unlockPaid === 'object' ? { ...(g.unlockPaid as Record<string, number>) } : {},
+    basket: fishList(g.basket),
+    smoker: {
+      input: fishList(smoker.input),
+      output: fishList(smoker.output),
+      progress: Math.min(num(smoker.progress, 0), 1),
+    },
+    workers,
+    upgrades,
+    seen: stringList(g.seen).filter((id): id is FishId => id in FishById),
+    stats: { ...base.stats, ...((g.stats as object | undefined) ?? {}) },
   };
 }
 

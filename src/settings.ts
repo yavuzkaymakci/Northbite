@@ -108,6 +108,10 @@ export const HapticsSettings = {
   catch: [40, 40, 90] as number[],
   lineBreak: 60,
   unlock: [60, 50, 140] as number[],
+  newSpecies: [50, 40, 50, 40, 160] as number[],
+  wallCrack: 40,
+  wallBreak: [120, 60, 220] as number[],
+  upgrade: [30, 30, 70] as number[],
 } as const;
 
 export const CarryFeel = {
@@ -136,6 +140,7 @@ export const CoinFeel = {
 
 export const UnlockFeel = {
   fillTime: 1.4, // seconds to pour the full price while standing on the frame
+  startDelay: 0.3, // stand this long before coins start pouring (walking across a frame costs nothing)
   coinInterval: 0.06,
   bounceTime: 0.6,
 } as const;
@@ -143,4 +148,46 @@ export const UnlockFeel = {
 export const GuideFeel = {
   arrowHeight: 2.6,
   bobAmplitude: 0.25,
+} as const;
+
+/** Player ↔ station transfers (basket, smokehouse racks). */
+export const StationFeel = {
+  pickupRadius: 1.4, // player distance from a basket / rack center
+  transferInterval: 0.12,
+  flightTime: 0.3,
+  arcHeight: 0.8,
+  netSplashMin: 2.5, // random splash/flutter at the net every few seconds
+  netSplashMax: 5,
+  smokePuffInterval: 0.35, // chimney puffs while working (idle chimney puffs 3× slower)
+  steamInterval: 0.7, // steam wisps over smoked fish
+} as const;
+
+export const WorkerFeel = {
+  radius: 0.3,
+  transferInterval: 0.2,
+  arriveDistance: 0.12,
+  turnSharpness: 10,
+  jobCheckInterval: 0.3,
+  homeSpacing: 0.8, // idle spots line up beside the hut door
+  waddleSpeed: 3.2, // steps per second at full speed
+  waddleRoll: 0.16,
+  stackScale: 0.7, // fish on a penguin's back are drawn smaller
+  hopInTime: 0.6, // new penguin hops out of the hut
+} as const;
+
+/** Ice wall break + camera tour when a region opens (GDD §5, §6). */
+export const RegionFeel = {
+  crackTime: 0.5,
+  shardCount: 9, // per wall block
+  shardLife: 1.9,
+  pause: 0.65, // after the shatter, before the camera moves
+  panTime: 0.7,
+  holdTime: 0.9,
+  returnTime: 0.6,
+  shake: 0.25,
+} as const;
+
+export const BenchFeel = {
+  openDelay: 0.2, // stand on the pad this long before the panel opens
+  celebrateMs: 700,
 } as const;

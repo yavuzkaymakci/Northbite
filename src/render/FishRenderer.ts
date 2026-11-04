@@ -4,7 +4,7 @@ import type { FishItem } from '../core/GameState';
 import { createFishGeometry } from '../models/createFish';
 import { Palette } from './Palette';
 
-const MAX_FISH = 96;
+const MAX_FISH = 160;
 
 /**
  * Draws every visible fish (stack, counter, flights, landing) with two InstancedMeshes.
@@ -16,6 +16,8 @@ export class FishRenderer {
   private readonly belly: THREE.InstancedMesh;
   private count = 0;
   private readonly colors = new Map<FishId, { main: THREE.Color; belly: THREE.Color }>();
+  /** Smoked fish: dark orange-brown, keeping a hint of the species color. */
+  private readonly smokedColors = new Map<FishId, { main: THREE.Color; belly: THREE.Color }>();
   private readonly scaleM = new THREE.Matrix4();
   private readonly tmp = new THREE.Matrix4();
 
@@ -33,7 +35,12 @@ export class FishRenderer {
       this.group.add(m);
     }
     for (const f of Object.values(FishById)) {
-      this.colors.set(f.id, { main: new THREE.Color(Palette[f.color]), belly: new THREE.Color(Palette[f.bellyColor]) });
+      const main = new THREE.Color(Palette[f.color]);
+      this.colors.set(f.id, { main, belly: new THREE.Color(Palette[f.bellyColor]) });
+      this.smokedColors.set(f.id, {
+        main: new THREE.Color(Palette.smokedFish).lerp(main, 0.15),
+        belly: new THREE.Color(Palette.smokedBelly),
+      });
     }
   }
 
@@ -53,12 +60,12 @@ export class FishRenderer {
     this.count = 0;
   }
 
-  /** `matrix` places a unit fish; the item's length scale is applied here. */
-  add(item: FishItem, matrix: THREE.Matrix4): void {
+  /** `matrix` places a unit fish; the item's length (× `scale`) is applied here. */
+  add(item: FishItem, matrix: THREE.Matrix4, scale = 1): void {
     if (this.count >= MAX_FISH) return;
-    const len = FishRenderer.lengthOf(item);
+    const len = FishRenderer.lengthOf(item) * scale;
     this.tmp.multiplyMatrices(matrix, this.scaleM.makeScale(len, len, len));
-    const c = this.colors.get(item.species);
+    const c = (item.kind === 'smoked' ? this.smokedColors : this.colors).get(item.species);
     this.main.setMatrixAt(this.count, this.tmp);
     this.belly.setMatrixAt(this.count, this.tmp);
     if (c) {

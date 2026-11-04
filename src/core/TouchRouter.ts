@@ -32,12 +32,26 @@ export class TouchRouter {
     surface.addEventListener('lostpointercapture', this.onUp);
   }
 
+  private enabledValue = true;
+
   releaseAll(): void {
     for (const id of [...this.owned.keys()]) this.finish(id);
   }
 
+  /** While disabled (camera tours), every touch is ignored and held ones are let go. */
+  set enabled(on: boolean) {
+    if (this.enabledValue === on) return;
+    this.enabledValue = on;
+    if (!on) this.releaseAll();
+  }
+
+  get enabled(): boolean {
+    return this.enabledValue;
+  }
+
   private onDown = (e: PointerEvent): void => {
     e.preventDefault();
+    if (!this.enabledValue) return;
     if (this.claimer.wantsTouches()) {
       this.capture(e.pointerId);
       this.owned.set(e.pointerId, { owner: 'claimer', startX: e.clientX, startY: e.clientY });

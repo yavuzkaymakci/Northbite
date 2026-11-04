@@ -14,14 +14,19 @@ Oyuncu balık tutar, satar, para kazanır ve yeni alanlar açar. Zamanla penguen
 
 ## 2. Çekirdek döngü
 1. Oyuncu **buz deliğinin** etkileşim halkasında durunca olta otomatik atılır. Balık vurunca kısa bir **balık tutma mini oyunu** oynanır (bkz. §2.1).
-2. Tutulan balıklar karakterin **sırtında üst üste yığılır** (taşıma kapasitesi kadar).
-3. Oyuncu **satış tezgâhına** yürür, yükü tezgâha bırakır.
-4. **Müşteriler** gelir, tezgâhtan balık alır ve yere **coin** bırakır.
+2. Tutulan balıklar karakterin **sırtında üst üste yığılır** (taşıma kapasitesi kadar). Yığın karışık **eşya** taşır: çiğ balık ve tütsülenmiş balık (ikisi de tür + kg).
+3. Oyuncu **satış tezgâhına** yürür, yükü tezgâha bırakır. Tezgâh iki türü de satar.
+4. **Müşteriler** gelir, tezgâhtan rastgele bir eşya alır ve eşyanın değeri kadar **coin** bırakır.
 5. Oyuncu coin'lerin üstünden geçerek parayı toplar.
-6. Para, yerdeki **kilit alanlarına** harcanır: kesik çizgili çerçevenin üstünde durunca para akar, çerçeve dolunca yapı açılır.
-7. Yeni istasyonlar, işçiler ve yükseltmeler açıldıkça oyuncunun elle yaptığı işler otomatiğe döner. Oyuncu da daha büyük hedeflere yönelir.
+6. Para, yerdeki **kilit alanlarına** harcanır: kesik çizgili çerçevenin üstünde ~0.3 sn durunca para akar, çerçeve dolunca yapı açılır. Bir çerçeve, ön koşulu açılınca zıplayarak belirir.
+7. Yeni istasyonlar, işçiler ve yükseltmeler açıldıkça oyuncunun elle yaptığı işler otomatiğe döner. Oyuncu da daha büyük hedeflere yönelir. Oyuncu bütün işleri elle de yapabilir; otomasyon yalnızca yardım eder.
 
-**Etkileşim kuralı:** Hiçbir istasyonda buton yoktur. İstasyonun etkileşim alanında durmak yeterlidir (türün standardı budur). Balık tutmadaki tek istisna, vuruşta ekrana dokunmak ve sarmak için basılı tutmaktır.
+**Ürün zinciri (Demo 3):**
+- **Balık ağı** (1. deliğe kurulur): Her 6 sn'de deliğin yanındaki **sepete** bir kapelin ya da morina ekler. Sepet 8 balık alır; dolunca ağ durur ve sepetin üstünde "Dolu" görünür. Sepetin yanından geçen oyuncunun sırtına balıklar uçar. Ağ kurulu delikte oyuncu yine mini oyunla balık tutabilir.
+- **Tütsühane:** Giriş rafına (8) çiğ balık bırakılır, her balık 4 sn'de tütsülenip çıkış rafına (8) geçer. Çıkış doluysa durur. Tütsülenmiş balık = aynı balık, koyu turuncu-kahve, hafif buğulu; değeri **çiğ değer × 2.5**.
+- **Penguen** sepetten ve tütsühaneden tezgâha taşır (§7).
+
+**Etkileşim kuralı:** İstasyonlarda buton yoktur; etkileşim alanında durmak yeterlidir (türün standardı budur). İstisnalar: balık tutmada vuruşta dokunmak ve sarmak için basılı tutmak; **olta tezgâhındaki yükseltme paneli** (oyundaki ilk butonlu arayüz, §4.2).
 
 ## 2.1 Balık tutma mini oyunu
 Mini oyunun his ayarları `src/settings.ts` (`FishingFeel`), balık verileri `src/content/fish.ts` içindedir.
@@ -49,10 +54,11 @@ Mini oyunun his ayarları `src/settings.ts` (`FishingFeel`), balık verileri `sr
 | Kapelin (küçük) | 0.05–0.2 | ~1.25 sn | Neredeyse yok | %65 |
 | Kutup morinası (orta) | 0.5–2 | ~3 sn | Ara sıra, hafif | %28 |
 | Kutup alabalığı (büyük) | 2–6 | ~5 sn | Sık ve sert | %7 |
-| Grönland kalkanı (dev) | 8–20 | ~8 sn | Çok sert, düzensiz | Kilitli (ileride olta yükseltmesiyle) |
+| Grönland kalkanı (dev) | 8–20 | ~6 sn | Çok sert, düzensiz | Yalnızca Özel yem seviye 3'ten itibaren |
 
 - Tür içinde kg rastgeledir (küçükler daha sık). Büyük kg, sarma süresini ve çekiş gücünü en fazla %35 artırır.
 - **Satış fiyatı** = kg × kg başına fiyat (yuvarlanır, en az 1 coin).
+- **İlk yakalama:** Bir tür ilk kez tutulduğunda kart büyür, "Yeni tür!" şeridi taşır ve daha uzun kalır.
 
 ## 3. Karakter oluşturma (ilk açılış)
 - **Ekran:** Ortada döner bir önizleme modeli, altta seçenek şeritleri bulunur.
@@ -82,6 +88,7 @@ Mini oyunun his ayarları `src/settings.ts` (`FishingFeel`), balık verileri `sr
 ### 4.2 Diğer
 - Üst bölümde HUD bulunur: coin, (ileride) premium para ve ayarlar.
 - Paneller (yükseltme gibi) alttan kayarak açılır.
+- **Olta tezgâhı paneli:** İglonun yanındaki tezgâhın turuncu halkasında durunca açılır, uzaklaşınca kapanır. 2×2 büyük kart; her kartta ikon, ad, seviye, etki ("şimdi → sonraki") ve fiyat. Kartın tamamı butondur. Alınca kart zıplar, konfeti saçılır, etki hemen uygulanır; para yetmezse kart sallanır.
 - **Titreşim:**
   - Balık eklenince çok kısa bir titreşim
   - Kilit açılınca daha belirgin bir titreşim
@@ -105,6 +112,12 @@ Mini oyunun his ayarları `src/settings.ts` (`FishingFeel`), balık verileri `sr
 
 Bölgeler 1–2 ilk demolar içindir. 3 ve sonrası tasarım yönünü gösterir, ayrıntılar sonra netleşecek.
 
+**Bölge açma sistemi (veri odaklı, `src/content/zones.ts` → `Regions`):** Her bölge tanımı id, ad, maliyet, ön koşul, engel (buz duvarı dikdörtgeni), içindeki kilit alanları ve kamera gezdirme noktası taşır.
+- Açılmamış bölge haritada görünür, ama önünde kalın, yarı saydam, çatlaklı bir **buz duvarı** durur (çarpışmalı). Duvarın önünde kilit alanı vardır.
+- Kilit alanı dolunca: duvar sarsılıp çatlar → parçalara ayrılıp saçılır, kar/buz partikülleri uçar, belirgin titreşim ve kamera sarsıntısı olur → çarpışma kalkar → kamera ~0.7 sn'de yeni bölgeye kayar, içindeki kilit alanları zıplayarak belirir, kamera oyuncuya döner. Bu sırada joystick devre dışıdır (toplam ~3.5 sn).
+
+**Buz Kıyısı + Tütsühane bölgesi yerleşimi (Demo 3):** Kuzey ve doğu deniz. Tütsühane bölgesi batıda, bir ağaç kuşağının arkasında; kuşaktaki tek geçit buz duvarıyla kapalı. İçinde tütsühane ve 3. buz deliği kilit alanları var. Penguen kulübesi merkezde (iglonun güneyinde) kalır; 2. penguen kilit alanı da kulübenin yanındadır. Güneydeki ağaç kuşağında açılmayan ikinci bir buz duvarı durur: arkasında bulanık bir iskele silüeti ve "Yakında" tabelası (bölge 3'ün habercisi, işlevi yok).
+
 Görsel çeşitlilik bölgelere göre artar:
 - Beyaz-mavi kıyı
 - Turuncu ışıklı tütsühane
@@ -121,25 +134,59 @@ Görsel çeşitlilik bölgelere göre artar:
 
 İşçiler basit bir durum makinesiyle çalışır: `idle → gidiyor → alıyor → gidiyor → bırakıyor`.
 
-## 8. Ekonomi (başlangıç değerleri, ayarlanacak)
-Tüm değerler `src/content/economy.ts` dosyasında tutulur.
+**Penguen (Demo 3):**
+- "Penguen kulübesi" kilit alanıyla ilk penguen gelir; kulübenin yanındaki ikinci kilit alanı 2. penguendir (tütsühaneden sonra görünür).
+- İş önceliği:
+  1. Tütsühane çıkışında tütsülenmiş balık varsa → tezgâha taşı.
+  2. Tütsühane açıksa ve girişte yer varsa: sepetteki çiğ balığı → tütsühaneye taşı.
+  3. Değilse sepetteki çiğ balığı → tezgâha taşı.
+  4. Yapacak iş yoksa kulübenin önünde bekler (ara sıra kanat çırpar, etrafına bakar).
+- Taşıma 3, hız 2.6 birim/sn (oyuncu 4.0). Değerler `src/content/workers.ts`.
+- Yol bulma: `zones.ts` içinde waypoint grafiği, A* ile; bazı kenarlar yalnızca ilgili bölge açılınca kullanılır. Yerel kaçınma = statik engellerden itilme. Penguenler oyuncunun ve birbirlerinin içinden geçebilir.
+- Birden fazla penguen aynı balıkları hedeflemesin diye kaynak ve hedeflerde "ayırma" yapılır.
+- Görsel: low-poly penguen, iki yana sallanan paytak yürüyüş, sırtında küçük yığın. Konumları kaydedilmez; açılışta kulübeden başlarlar (taşıdıkları balıklar kaydedilir).
+
+## 8. Ekonomi (Demo 3 değerleri, simülasyonla ayarlandı)
+Değerler `src/content/` altında: `economy.ts` (oyuncu, tezgâh, müşteri, açılış fiyatları), `fish.ts`, `stations.ts`, `workers.ts`, `upgrades.ts`. Denge simülasyonu: `npm run sim` (`tools/balance-sim.ts`).
 
 | Değer | Başlangıç |
 |---|---|
-| Balık tutma | Mini oyun (§2.1); bir balık ortalama ~6 sn |
-| Oyuncu taşıma kapasitesi | 5 |
+| Balık tutma | Mini oyun (§2.1); bir balık ortalama ~6–7 sn |
+| Oyuncu taşıma kapasitesi | 5 (Sırt çantası ile 10'a kadar) |
 | Oyuncu yürüme hızı | 4.0 birim/sn |
-| Çiğ balık satış fiyatı | kg × kg başına fiyat: kapelin 15, morina 3, alabalık 2.5, kalkan 2 coin/kg (ortalama ~3 coin/balık) |
-| Tezgâh kapasitesi | 12 balık |
-| Müşteri gelme aralığı | 3–5 sn, her müşteri 1–3 balık alır |
-| 2. buz deliği | 30 coin |
-| Tezgâh kapasite yükseltmesi | 50 coin |
-| İlk penguen | 75 coin |
-| Tütsühane | 200 coin |
-| Tütsülenmiş balık fiyatı | 8 coin (fırında 4 sn) |
+| Çiğ balık satış fiyatı | kg × kg başına fiyat: kapelin 15, morina 3, alabalık 2.5, kalkan 2 coin/kg (ortalama ~2.6 coin/balık) |
+| Tütsülenmiş balık | Çiğ değer × 2.5 (ortalama ~6.9 coin), tütsüleme 4 sn/balık |
+| Tezgâh kapasitesi | 12 eşya |
+| Müşteri gelme aralığı | 3–5 sn, her müşteri 1–3 eşya alır |
+| Balık ağı | 6 sn'de 1 balık (kapelin/morina), sepet 8 |
+| Tütsühane rafları | Giriş 8, çıkış 8 |
+| Penguen | Taşıma 3, hız 2.6 birim/sn |
 
-- **Yükseltme fiyatları:** `taban × 1.15^seviye` formülüyle büyür.
-- **İlk 15 dakika hedefi:** İlk 30 sn'de ilk satış, ~2 dk'da ilk kilit açılışı, ~6 dk'da ilk penguen, ~12–15 dk'da tütsühane açılmış olmalı.
+**Açılış fiyatları ve sırası** (her biri bir öncekinden sonra görünür):
+
+| Açılış | Fiyat | Hedef | Simülasyon (medyan) |
+|---|---|---|---|
+| 2. buz deliği | 25 | ~2 dk | 2:11 |
+| Balık ağı | 35 | ~4 dk | 4:01 |
+| Penguen kulübesi (1. penguen) | 65 | ~6 dk | 6:32 |
+| Buz duvarı → Tütsühane bölgesi | 140 | ~10 dk | 9:48 |
+| Tütsühane | 160 | 12–15 dk | 14:23 |
+| 3. buz deliği | 220 | 15+ dk | 19:09 |
+| 2. penguen (tütsühaneden sonra) | 300 | 15+ dk | 23:58 |
+
+**Olta yükseltmeleri** (5 seviye, seviye 1 başlangıç; fiyat = `taban × 1.6^(seviye − 1)`):
+
+| Yükseltme | Taban | Etki (Sv1 → Sv5) |
+|---|---|---|
+| Sağlam misina | 20 | Gerilim tavanı %100 → %180 (çekiş gücü bu orana bölünür) |
+| Hızlı makara | 20 | Sarma hızı %100 → %200 |
+| Özel yem | 30 | Yaygın olmayan türlerin vuruş ağırlığı ×1 → ×3; Sv3'te Grönland kalkanı havuza girer |
+| Sırt çantası | 25 | Taşıma 5 → 6 → 7 → 8 → 10 |
+
+- **Çarpan 1.6:** Tüm yükseltmelerin toplamı ~880 coin; ilk seviyeler ucuz, son seviyeler 20. dakikadan sonraya kalır.
+- **İlk 15 dakika hedefi:** İlk dakikada ilk satış, ~2 dk'da ilk kilit açılışı, ~6 dk'da ilk penguen, ~10 dk'da yeni bölge, ~12–15 dk'da tütsühane.
+- **Boşta gelir (simülasyon):** Ağ ve 1. penguen açıldıktan sonra 3 dk hiç dokunulmazsa coin yığınına ~70 coin eklenir; tütsühane açıldıktan sonra ~114 coin.
+- **Rehber oku:** Her zaman karşılanabilir en ucuz hedefi gösterir; karşılanabilir hedef yoksa en ucuz hedefi. Yerdeki coin ile hedefe yetiyorsa önce coin yığınını gösterir. İlk iki açılıştan sonra, hiç yükseltme alınmamışsa ve biri karşılanabiliyorsa olta tezgâhını bir kez gösterir.
 - **Çevrimdışı gelir:**
   - 2. bölgeden sonra açılır.
   - Otomatik istasyonların ürettiğinin %50'si kazanılır.
@@ -205,11 +252,18 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **Kabul kriteri:** Uygulama kapatılıp açılınca her şey yerinde olur.
 
 ### Demo 3 — İlk otomasyon
-- Penguen işçi, tütsühane (çiğ balığın tütsülenmiş balığa dönüşmesi), 3. delik
-- **Kabul kriteri:** Oyuncu hiçbir şey yapmasa da para artmaya devam eder.
+- Eşya sistemi (çiğ + tütsülenmiş), balık ağı ve sepet, penguen kulübesi ve penguen işçi (A* ile waypoint), veri odaklı bölge açma (buz duvarı kırılması + kamera gezdirme), Tütsühane bölgesi (tütsühane, 3. delik, 2. penguen), "Yakında" iskele duvarı, olta tezgâhı ve 4 olta yükseltmesi, "Yeni tür!" kartı, save v3, denge simülasyonu
+- **Kabul kriterleri:**
+  - Penguen ve ağ açıldıktan sonra telefona 3 dk dokunulmazsa coin yığını büyür.
+  - Buz duvarı kırılma anı ve kamera gezdirmesi tatmin edicidir; çarpışma kalkar.
+  - Tütsülenmiş balık satılınca çiğe göre belirgin şekilde fazla para gelir.
+  - Yükseltmeler mini oyunda hissedilir fark yaratır (simülasyon tablolarıyla gösterilir).
+  - Kalkan, yem seviye 3'ten önce asla çıkmaz.
+  - Simülasyondaki açılış süreleri §8'deki hedeflere yakındır.
+  - ~150 draw call bütçesi korunur; telefonda 60 fps hedeflenir.
 
 ### Demo 4 — İlerleme
-- Yükseltme paneli, çevrimdışı gelir, ekonominin ilk 15 dakikaya göre ayarlanması
+- Çevrimdışı gelir ("sen yokken" penceresi), tezgâh kapasitesi ve penguen yükseltmeleri, ekonominin ince ayarı
 
 ### Demo 5 — Cila
 - Ses, titreşim, efektler, kamera gezdirme, iskele bölgesinin ilk hali
@@ -239,3 +293,17 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **Alabalık süresi:** Saf sarma süresi 5 sn; çekişlerde bırakmakla birlikte toplam süre ~8–9 sn oluyor. Uzun gelirse `reelTime` düşürülebilir.
 - **Masaüstü:** Space tuşu ekrana basılı tutmaya karşılık gelir (vuruşta basmak = dokunmak).
 - **Titreşim:** iOS Safari `navigator.vibrate` desteklemiyor; iPhone'da titreşim native aşamada (Capacitor Haptics) gelecek.
+
+### Demo 3 sırasında verilen geçici kararlar
+- **Seviye sayımı:** "5 seviye" = Sv1 (başlangıç) + 4 satın alma. Böylece sırt çantası 5 → 6 → 7 → 8 → 10 olur ve kalkan, 2 yem alımından sonra (Sv3) havuza girer.
+- **Misina etkisi:** "Gerilim tavanı" çekiş gücünü bölerek uygulanır; gösterge ölçeği değişmez (oyuncu aynı yeşil/sarı/kırmızı bölgeleri görür).
+- **"Yeni tür!" kartı:** Yalnızca kalkan için değil, her türün ilk yakalanışında çıkar (ilk kapelin dahil).
+- **Kalkan ayarı:** Sarma 8 → 6 sn, çekiş aralığı 1.3–2.3 sn, güç 0.9. Eski değerlerle kalkan pratikte tutulamıyordu.
+- **Bölge kapısı:** Tütsühane bölgesi batıdaki ağaç kuşağında tek bir geçitten açılıyor; uzun bir duvar yerine kısa, okunaklı bir duvar.
+- **Kilit alanına girme gecikmesi:** Para akmadan önce ~0.3 sn durmak gerekiyor; üstünden yürüyerek geçmek para harcatmıyor.
+- **Kilit alanı etiketi:** Fiyatın üstünde ne açılacağı yazıyor ("Balık ağı", "Buz duvarı"...).
+- **Müşteriler tezgâhtan rastgele eşya alıyor;** boşalan yere son eşya geçiyor (yalnızca bir balık yer değiştiriyor).
+- **Bot hızı:** Simülasyondaki bot verimli bir oyuncudur (tepki 0.3 sn, yürüyüş 1.2× düz çizgi + karar başına 1 sn). Gerçek oyuncular biraz daha yavaş olabilir; ilk testlerden sonra fiyatlar %10–15 düşürülebilir.
+- **Yükseltme alan bot:** Her açılış arasında en fazla bir yükseltme alıyor (sonraki hedefin %30'undan ucuzsa). Bu bot hedeflere ~0.5–1 dk geç ulaşıyor; yükseltmeler ekonomiyi hızlandırmaktan çok mini oyunu kolaylaştırıyor.
+- **Penguen kulübesi** merkezde kaldı (iglonun güneyi); 2. penguen kilit alanı tütsühane açılınca kulübenin yanında beliriyor.
+- **Çizim maliyeti:** Statik modeller (iglo, tezgâh, kulübe, tütsühane, olta tezgâhı, sepet, iskele) tek bir vertex renkli mesh'e "bake" ediliyor. En kalabalık görünümde ~91 draw call, ~25k üçgen.

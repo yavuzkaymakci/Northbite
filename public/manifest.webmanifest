@@ -1,0 +1,13 @@
+{
+  "name": "Northbite",
+  "short_name": "Northbite",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#CFE6F2",
+  "theme_color": "#CFE6F2",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

@@ -354,6 +354,14 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - Çığ koridoru çarpışmalı kar yığınlarıyla kapatır. Üstünde ~2 sn durmak (kürek) yığını temizler; penguenler de temizler (en düşük öncelik). Temizlenmezse 90 sn'de erir. Yarısında "gömülü sandık" çıkar (coin ya da dekorasyon). Alandaki oyuncu en yakın güvenli noktaya hafifçe itilir.
 - **Kar çiti:** Çitli koridorda uyarı gelir ama koridor kapanmaz.
 
+**Uygulama (Demo 4 aşama 2):**
+- Denge `content/threats.ts`, yerleşim `zones.ts` → `ThreatLayout` / `ThreatBuildingSpots`, his `settings.ts` → `ThreatFeel`. Saf kurallar `systems/ThreatLogic.ts` (oyun ve simülasyon ortak).
+- Zamanlama: rastgele gelişler (ortalama gündüz 12 dk, gece 7 dk ayı; 15 dk çığ), aynı anda tek tehdit, her tehditten sonra 60 sn sessizlik, her oturumun ilk 90 sn'si sessiz. Toplam oyun süresi (`stats.playTime`) 15 dk'yı geçmeden ve tütsühane açılmadan hiçbir şey gelmez.
+- Yapılar (isteğe bağlı kilit alanları, rehber ok göstermez): meşale tezgâhı 40 (tütsühaneden sonra), yem tuzağı 70 ve 1. ateş çukuru 90 (meşale tezgâhından sonra), 2.–3. ateş çukuru 150 / 220, kar çiti 120, gözetleme kulesi 450 (1. çukurdan sonra).
+- Ayı kıyıdan (kuzey ya da doğu sudan) yüzerek gelir; tütsühane rafına geçitten iner. Sepette ya da tezgâhta en fazla 40 coin değerinde balık alır. Kaçarken korkutulursa aldığı balıklar yerine döner. Yakındaki her penguen kaçıp 45 sn kulübede saklanır.
+- Korkutma ödülü 6–12 coin, %25 ayı tüyü. Sandık 20–40 coin.
+- Simülasyon (`npm run sim`): aktif oyuncu ayıların neredeyse hepsini engelliyor; ilgisiz oyuncu ayı başına ortalama ~3 coin kaybediyor (en büyük tek kayıp 40'ın altında). Kayıp ve korkutma/sandık ödülleri satış gelirinin ~%1–2'si kadar: tehditler ekonomiyi bozmaz, yalnızca heyecan katar.
+
 ## 14. İglo ve uyku
 - **İglo seviyeleri** (kilit alanıyla, `content/igloo.ts`):
   1. Basit iglo, kürk yatak (kalite 1)
@@ -430,3 +438,14 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **Yükseltme alan bot:** Her açılış arasında en fazla bir yükseltme alıyor (sonraki hedefin %30'undan ucuzsa). Bu bot hedeflere ~0.5–1 dk geç ulaşıyor; yükseltmeler ekonomiyi hızlandırmaktan çok mini oyunu kolaylaştırıyor.
 - **Penguen kulübesi** merkezde kaldı (iglonun güneyi); 2. penguen kilit alanı tütsühane açılınca kulübenin yanında beliriyor.
 - **Çizim maliyeti:** Statik modeller (iglo, tezgâh, kulübe, tütsühane, olta tezgâhı, sepet, iskele) tek bir vertex renkli mesh'e "bake" ediliyor. En kalabalık görünümde ~91 draw call, ~25k üçgen.
+
+### Demo 4 aşama 2 (tehditler) sırasında verilen geçici kararlar
+- **Yamaç:** Tütsühane bölgesinin batısında yeni, erişilebilir bir köşe (x −25…−21) ve arkasında yükselen karlı yamaç. Çığ koridoru yamacın dibinden doğudaki ağaç kuşağına kadar uzanır ve bölgenin kuzeyini (3. delik) keser. Penguenlerin taşıma yolu koridordan geçmez; çığ işleri durdurmaz. Buz Mağarası (aşama 4) bu köşeye gelecek.
+- **Penguenler** yalnızca raflara bakan "kapı" yığınını kazar (geçidi açmak için), aynı anda tek penguen. Diğer yığınları oyuncu kazar ya da erirler.
+- **Kayıt:** Ayı, çığ, yığınlar, sandık ve zamanlayıcılar kaydedilmez. Kaydedilenler: açılan yapılar (`unlocked`), meşale sayısı, yem tuzağındaki balık (kayıpsız olsun diye), ayı tüyü sayısı ve sayaçlar (`stats.playTime`, `bears`, `avalanches`; ilk ayının öğretici olup olmadığı buradan anlaşılır). Kayıt sürümü 4 kaldı; eksik alanlar varsayılana döner.
+- **"Dekorasyon" sandığı:** Dekorasyonlar aşama 3'te gelecek; şimdilik sandık hep coin verir. Ayı tüyünün kullanımı da aşama 3'te (dekorasyon) belirlenecek.
+- **Basılı tut:** Joystick parmağı (ya da masaüstünde Space) basılıyken ayıya 3 birim yaklaşmak dolumu başlatır; parmak kalkınca dolum sıfırlanır. Meşale varken basılı tutmak gerekmez.
+- **Ateş çukuru etkisi:** Hedefin 12 birim yakınındaki her çukur ayı şansını ×0.6 yapar (3 çukur ≈ %78 azalma). Uyarı bonusu çukur sayısıyla artmaz.
+- **Ayarlar paneli "Tehditler: Açık/Kapalı" anahtarı** aşama 5'e (ayarlar) kaldı; şimdilik yalnızca `threatScale`.
+- **Test anahtarı:** `settings.ts` → `DebugSettings.debugForceThreat` ('bear' / 'avalanche') tehditi açılıştan birkaç saniye sonra ve her bitişten 8 sn sonra yeniden başlatır. Commit'lerde 'off'.
+- **Çizim maliyeti:** Ayı ~7, yapılar birer, alevler / ayak izleri / kar yığınları birer InstancedMesh. Ölçülen en kalabalık sahne (ayı + kule + ateş çukuru + penguenler + müşteriler) ~106 draw call, ~28k üçgen.

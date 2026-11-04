@@ -48,6 +48,7 @@ export class Effects {
   private readonly m = new THREE.Matrix4();
   private readonly smokeColor = new THREE.Color(Palette.smoke);
   private readonly steamColor = new THREE.Color(Palette.steam);
+  private readonly snowColor = new THREE.Color(Palette.snow);
 
   constructor() {
     const ringGeo = createFlatRingGeometry(1, 0.86, 28);
@@ -96,9 +97,14 @@ export class Effects {
     this.addPuff(x, y, z, 0.08, 0.35, 1.1, this.steamColor);
   }
 
-  private addPuff(x: number, y: number, z: number, size: number, rise: number, life: number, color: THREE.Color): void {
+  /** Snow cloud (avalanche, shoveling): a white ball that rolls along and settles. */
+  snowPuff(x: number, y: number, z: number, size = 0.5, drift = 0.6): void {
+    this.addPuff(x, y, z, size, 0.25, 1.4, this.snowColor, drift);
+  }
+
+  private addPuff(x: number, y: number, z: number, size: number, rise: number, life: number, color: THREE.Color, drift = 0.25): void {
     if (this.puffs.length >= MAX_PUFFS) this.puffs.shift();
-    this.puffs.push({ x, y, z, rise, drift: 0.25 + Math.random() * 0.25, size, age: 0, life, color });
+    this.puffs.push({ x, y, z, rise, drift: drift + Math.random() * 0.25, size, age: 0, life, color });
   }
 
   ripple(x: number, y: number, z: number, size = 0.7, life = 0.9): void {

@@ -112,6 +112,11 @@ export const HapticsSettings = {
   wallCrack: 40,
   wallBreak: [120, 60, 220] as number[],
   upgrade: [30, 30, 70] as number[],
+  bearWarning: [90, 70, 90] as number[],
+  bearScared: [40, 40, 120] as number[],
+  avalancheRumble: [180, 80, 260] as number[],
+  dig: 12,
+  chest: [40, 40, 140] as number[],
 } as const;
 
 export const CarryFeel = {
@@ -236,3 +241,39 @@ export const BenchFeel = {
   openDelay: 0.2, // stand on the pad this long before the panel opens
   celebrateMs: 700,
 } as const;
+
+/** Polar bear and avalanche feel (GDD §13). Balance values live in content/threats.ts. */
+export const ThreatFeel = {
+  bearScale: 1.15,
+  bearTurnSharpness: 5,
+  /** The bear swims (sinks this much) while off the ice. */
+  swimDepth: 0.62,
+  rearAngle: 1.05, // rad the body tilts back when standing on its hind legs
+  grabTime: 0.9,
+  /** Footprints: spacing in world units and how long one lasts. */
+  printStep: 0.75,
+  printLife: 26,
+  /** Share of the bear's path that footprints reveal during the warning. */
+  warningPrintReach: 0.45,
+  arrowMargin: 46, // px from the screen edge
+  /** Show the "get close and hold" hint when the player is this near the bear. */
+  hintRange: 7,
+  pileRiseTime: 0.45,
+  pileStagger: 0.11, // seconds between piles, west to east
+  meltShrinkTime: 6, // piles shrink over their last seconds
+  pushTime: 0.35,
+  shakeWarning: 0.06,
+  shakeFall: 0.35,
+  stripePulse: 5,
+  digShake: 0.04,
+  chestOpenRadius: 1.1,
+  rewardDelay: 0.35,
+} as const;
+
+/**
+ * Temporary test switch: 'bear' or 'avalanche' starts that threat a few seconds after loading (and again after each
+ * one ends), ignoring play time, the smokehouse requirement and threatScale. Keep it 'off' in commits.
+ */
+export const DebugSettings = {
+  debugForceThreat: 'off' as 'off' | 'bear' | 'avalanche',
+};

@@ -54,6 +54,22 @@ export class CoinSystem {
     }
   }
 
+  /** A reward (scared bear, chest): the value is the player's now, coins hop over from `from` to them. */
+  rewardFrom(from: THREE.Vector3, value: number): void {
+    if (value <= 0) return;
+    this.state.coins += value;
+    this.state.today.coins += value;
+    this.incoming += value;
+    const n = Math.min(CustomerFeel.maxCoinsVisual, value);
+    let left = value;
+    for (let i = 0; i < n; i++) {
+      const share = i === n - 1 ? left : Math.floor(value / n);
+      left -= share;
+      const f = this.toPlayer.add(from, this.chest(this.to), CoinFeel.flightTime * 1.6, CoinFeel.arcHeight * 1.4, share);
+      f.t = -i * 0.08;
+    }
+  }
+
   /** Visual coins flying from the player to a point (unlock payments). */
   spendTo(target: THREE.Vector3): void {
     this.chest(this.from);

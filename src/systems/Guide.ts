@@ -47,7 +47,8 @@ export class Guide {
     if (this.stack.isFull) return C.dropPoint;
     if (this.fishingActive()) return null;
 
-    const spots = [...this.unlocks.visible].sort((a, b) => this.unlocks.remaining(a) - this.unlocks.remaining(b));
+    // Threat buildings are optional extras: the arrow never sends the player to them.
+    const spots = [...this.unlocks.visible].filter((sp) => !sp.zone?.optional).sort((a, b) => this.unlocks.remaining(a) - this.unlocks.remaining(b));
     const cheapest: UnlockSpot | undefined = spots[0];
     const affordable = spots.find((sp) => this.unlocks.remaining(sp) <= s.coins);
     if (affordable) return affordable;

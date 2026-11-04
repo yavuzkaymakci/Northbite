@@ -27,6 +27,7 @@ import { RegionOpening } from '../systems/RegionOpening';
 import { RodBench } from '../systems/RodBench';
 import { Selling } from '../systems/Selling';
 import { Smokehouse } from '../systems/Smokehouse';
+import { Threats } from '../systems/Threats';
 import { Unlocks, type UnlockSpot } from '../systems/Unlocks';
 import { Workers } from '../systems/Workers';
 import { CharacterCreator, type CreatorMode } from '../ui/CharacterCreator';
@@ -93,6 +94,7 @@ export class Game {
   private readonly regionOpening: RegionOpening;
   private readonly bench: RodBench;
   private readonly guide: Guide;
+  private readonly threats: Threats;
 
   private running = false;
   private rafId = 0;
@@ -168,6 +170,23 @@ export class Game {
     this.workers = new Workers(this.scene, s, this.world, this.net, this.smoker, this.selling);
     this.coins = new CoinSystem(s, this.player);
     this.customers = new Customers(this.scene, this.selling, this.coins, s, () => this.day.customerRate);
+    this.threats = new Threats({
+      scene: this.scene,
+      overlay,
+      state: s,
+      player: this.player,
+      stack: this.stack,
+      world: this.world,
+      workers: this.workers,
+      net: this.net,
+      smoker: this.smoker,
+      coins: this.coins,
+      fx: this.fx,
+      rig: this.rig,
+      labels: this.labels,
+      banner: this.banner,
+      appear: this.appear,
+    });
     this.unlocks = new Unlocks(this.scene, s, this.player, this.coins, this.labels, this.appear, (spot) => this.onUnlock(spot));
     this.regionOpening = new RegionOpening(this.world, this.rig, this.fx, this.player, this.unlocks, () => this.save());
     this.panel = new UpgradePanel(overlay, (id) => this.bench.buy(id));
@@ -295,6 +314,13 @@ export class Game {
     this.unlocks.update(dt);
     this.bench.update(dt);
     this.appear.update(dt);
+    this.state.stats.playTime += dt;
+    this.threats.update(dt, elapsed, {
+      locked,
+      holding: !locked && (this.joystick.activePointer !== null || this.input.reelKey),
+      night: this.day.isNight,
+      fishing: this.fishing.active,
+    });
 
     this.updateDay(dt);
     this.intro.update(dt);
@@ -314,6 +340,7 @@ export class Game {
     this.net.render(this.fishRenderer);
     this.smoker.render(this.fishRenderer);
     this.workers.render(this.fishRenderer);
+    this.threats.render(this.fishRenderer, elapsed);
     this.fishRenderer.end();
 
     this.coinRenderer.begin();
@@ -321,8 +348,10 @@ export class Game {
     this.coinRenderer.end();
 
     this.hud.setCoinTarget(this.coins.walletDisplay);
+    this.hud.setTorches(this.threats.buildings.isBuilt('torchStand') ? this.state.threats.torches : -1);
     this.hud.update(dt);
     this.labels.update(this.rig.camera, this.renderer.width, this.renderer.height);
+    this.threats.updateArrow(this.rig.camera, this.renderer.width, this.renderer.height);
 
     this.autosaveTimer += dt;
     if (this.autosaveTimer >= SaveSettings.autosaveIntervalSec) {
@@ -354,6 +383,7 @@ export class Game {
     }
     for (const e of spot.zone?.effects ?? []) {
       if (e.kind === 'worker') this.workers.add();
+      else if (e.kind === 'building') this.threats.build(e.building, true);
       else if (e.station === 'net') this.net.build(true);
       else if (e.station === 'hut') this.world.buildHut(this.appear);
       else if (e.station === 'smokehouse') this.smoker.build(true);

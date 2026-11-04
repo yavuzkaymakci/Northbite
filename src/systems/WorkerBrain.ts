@@ -1,3 +1,4 @@
+import { Threats } from '../content/threats';
 import { Workers } from '../content/workers';
 import type { PathNodeId, Vec2 } from '../content/zones';
 import { WorkerFeel } from '../settings';
@@ -28,9 +29,21 @@ export interface WorkContext {
   homeNode: PathNodeId;
   /** Static colliders for light local avoidance (optional in the sim). */
   walkable?: Walkable;
+  /** Snow pile to shovel when there is nothing to carry (avalanche, lowest priority). */
+  digSite?: () => DigSite | null;
+  /** True while that pile still stands. */
+  digAlive?: (id: number) => boolean;
 }
 
-export type WorkerPhase = 'idle' | 'toPickup' | 'picking' | 'toDrop' | 'dropping';
+/** A spot next to a snow pile, reached through a graph node. */
+export interface DigSite {
+  id: number;
+  node: PathNodeId;
+  x: number;
+  z: number;
+}
+
+export type WorkerPhase = 'idle' | 'toPickup' | 'picking' | 'toDrop' | 'dropping' | 'hiding' | 'toDig' | 'digging';
 
 interface Job {
   from: StoreId;
@@ -41,7 +54,8 @@ const CAP = Workers.penguin.carryCapacity;
 
 /**
  * Helper state machine (GDD §7): idle → going → taking → going → dropping.
- * Job priority: smoked fish → counter; raw fish → smokehouse (if it has room); raw fish → counter; else wait home.
+ * Job priority: smoked fish → counter; raw fish → smokehouse (if it has room); raw fish → counter; shovel a snow pile;
+ * else wait home. A bear makes a helper run into the hut and hide for a while (it keeps what it carries).
  * Pure logic: positions and timers only, so the balance sim can run it without Three.js.
  */
 export class WorkerBrain {
@@ -54,6 +68,13 @@ export class WorkerBrain {
   job: Job | null = null;
   /** Seconds spent idle at home (visuals use it for flaps and look-arounds). */
   idleTime = 0;
+  /** True while hidden inside the hut (drawn invisible). */
+  inside = false;
+  /** Pile being shoveled (or walked to). */
+  digId: number | null = null;
+  private fear = 0;
+  /** Seconds spent walking to a pile (gives up if it cannot get there). */
+  private digWalk = 0;
   private path: Vec2[] = [];
   private timer = 0;
   private atHome = false;
@@ -91,9 +112,20 @@ export class WorkerBrain {
       case 'dropping':
         this.updateDropping(dt, ctx);
         break;
+      case 'hiding':
+        this.updateHiding(dt, ctx);
+        break;
+      case 'toDig':
+        this.digWalk += dt;
+        if (!ctx.digAlive?.(this.digId ?? -1) || this.digWalk > 30) this.toIdle();
+        else if (this.walk(dt, ctx)) this.setPhase('digging', 0);
+        break;
+      case 'digging':
+        this.updateDigging(dt, ctx, all);
+        break;
     }
     const moved = dt > 0 ? Math.hypot(this.x - prevX, this.z - prevZ) / dt : 0;
-    this.speed01 = Math.min(moved / Workers.penguin.walkSpeed, 1);
+    this.speed01 = Math.min(moved / Workers.penguin.walkSpeed, 1.4);
   }
 
   private updateIdle(dt: number, ctx: WorkContext, all: readonly WorkerBrain[]): void {
@@ -107,6 +139,16 @@ export class WorkerBrain {
         this.idleTime = 0;
         if (this.carried.length > 0) this.goTo('toDrop', ctx.stores[job.to].node, ctx);
         else this.goTo('toPickup', ctx.stores[job.from].node, ctx);
+        return;
+      }
+      const site = this.pickDig(ctx, all);
+      if (site) {
+        this.digId = site.id;
+        this.digWalk = 0;
+        this.atHome = false;
+        this.idleTime = 0;
+        this.path = [...ctx.nav.route(this, site.node), { x: site.x, z: site.z }];
+        this.setPhase('toDig', 0);
         return;
       }
       if (!this.atHome && this.path.length === 0) {
@@ -152,6 +194,49 @@ export class WorkerBrain {
     }
     // Waits at a full destination until there is room again.
     if (store.enabled() && store.room() > 0) store.give(this.carried.pop() as FishItem, this);
+  }
+
+  /** A bear came for this helper: run to the hut and hide for `seconds`. */
+  scare(seconds: number, ctx: WorkContext): void {
+    if (this.phase === 'hiding') return;
+    this.fear = seconds;
+    this.job = null;
+    this.digId = null;
+    this.atHome = false;
+    this.idleTime = 0;
+    this.goTo('hiding', ctx.homeNode, ctx);
+  }
+
+  get hiding(): boolean {
+    return this.phase === 'hiding';
+  }
+
+  private updateHiding(dt: number, ctx: WorkContext): void {
+    this.fear -= dt;
+    if (this.path.length > 0) {
+      if (this.walk(dt, ctx)) this.inside = true;
+    } else {
+      this.inside = true;
+    }
+    if (this.fear <= 0) {
+      this.inside = false;
+      this.toIdle();
+    }
+  }
+
+  private updateDigging(dt: number, ctx: WorkContext, all: readonly WorkerBrain[]): void {
+    this.timer -= dt;
+    if (this.timer > 0) return;
+    this.timer = WorkerFeel.jobCheckInterval;
+    // Carrying fish always comes first: drop the shovel as soon as there is a job.
+    if (!ctx.digAlive?.(this.digId ?? -1) || this.pickJob(ctx, all)) this.toIdle();
+  }
+
+  private pickDig(ctx: WorkContext, all: readonly WorkerBrain[]): DigSite | null {
+    const site = ctx.digSite?.();
+    // One shoveler at a time; the others keep carrying.
+    if (!site || all.some((w) => w !== this && w.digId !== null)) return null;
+    return site;
   }
 
   private pickJob(ctx: WorkContext, all: readonly WorkerBrain[]): Job | null {
@@ -201,13 +286,14 @@ export class WorkerBrain {
 
   private toIdle(): void {
     this.job = null;
+    this.digId = null;
     this.path = [];
     this.setPhase('idle', 0);
   }
 
   /** Follows `path`. Returns true on arrival at its last point. */
   private walk(dt: number, ctx: WorkContext): boolean {
-    let step = Workers.penguin.walkSpeed * dt;
+    let step = Workers.penguin.walkSpeed * (this.phase === 'hiding' ? Threats.bear.penguinFleeSpeed : 1) * dt;
     while (step > 0 && this.path.length > 0) {
       const target = this.path[0] as Vec2;
       const dx = target.x - this.x;

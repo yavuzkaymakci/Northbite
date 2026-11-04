@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { FishingFeel, UnlockFeel, WaterSettings } from '../settings';
-import { Regions, TeaserWalls, IceShore as Z, type RectArea } from '../content/zones';
+import { Regions, TeaserWalls, ThreatLayout, IceShore as Z, type RectArea } from '../content/zones';
 import { easeOutBack } from '../core/Ease';
 import { range, seededRandom } from '../core/Random';
 import { bake } from '../models/bake';
@@ -10,6 +10,7 @@ import { createFlatRingGeometry, createIceHole } from '../models/createFishingPr
 import { createHut } from '../models/createHut';
 import { createIgloo, iglooTunnelStart } from '../models/createIgloo';
 import { createPierSilhouette, createSignPost } from '../models/createTeaser';
+import { createSlope } from '../models/createThreatProps';
 import { createLightPool, NightLights } from '../render/NightLights';
 import { Palette } from '../render/Palette';
 import type { Appear } from '../systems/Appear';
@@ -51,7 +52,7 @@ interface HoleVisual {
   appear: number;
 }
 
-/** Ice Shore scene (zone 1) plus the Smokehouse yard behind its ice wall, and the walkable area. */
+/** Ice Shore scene (zone 1) plus the Smokehouse yard behind its ice wall, the slope west of it, and the walkable area. */
 export class WorldMap implements Walkable {
   readonly group = new THREE.Group();
   readonly colliders: Collider[] = [];
@@ -169,6 +170,8 @@ export class WorldMap implements Walkable {
       }
     }
     this.group.add(createPines(pines));
+    // Snowy slope west of the smokehouse yard; avalanches come down its chute (GDD §13).
+    this.group.add(createSlope(ThreatLayout.slope, ThreatLayout.avalanche.pileZ));
 
     // Ice walls: one per region still locked, plus the teaser walls that never open in this demo.
     for (const r of Regions) {

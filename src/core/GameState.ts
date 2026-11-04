@@ -47,13 +47,25 @@ export interface GameState {
   upgrades: Record<UpgradeId, number>;
   /** Species caught at least once (drives the "New species!" card). */
   seen: FishId[];
-  stats: { caught: number; sold: number; reels: number };
+  /** `playTime` = seconds on the game screen (threats wait for it); `bears` / `avalanches` met so far. */
+  stats: { caught: number; sold: number; reels: number; playTime: number; bears: number; avalanches: number };
   /** In-game clock: day number (from 1) and time of day 0..1 (0 = dawn). Only runs while the game is open. */
   clock: { day: number; t: number };
   /** Running totals for the day summary card; reset every morning. */
   today: DayTotals;
   /** Seconds left on timed buffs. */
   buffs: { aurora: number };
+  /** What threat buildings hold (GDD §13). A bear or avalanche in progress is never saved. */
+  threats: ThreatGear;
+}
+
+export interface ThreatGear {
+  /** Torches the player carries (from the torch stand). */
+  torches: number;
+  /** Raw fish lying in the bait trap. */
+  bait: FishItem | null;
+  /** Bear fur dropped by scared bears (used by decorations later). */
+  fur: number;
 }
 
 export interface DayTotals {
@@ -76,10 +88,11 @@ export function createGameState(): GameState {
     workers: [],
     upgrades: { line: 1, reel: 1, bait: 1, backpack: 1 },
     seen: [],
-    stats: { caught: 0, sold: 0, reels: 0 },
+    stats: { caught: 0, sold: 0, reels: 0, playTime: 0, bears: 0, avalanches: 0 },
     clock: { day: 1, t: TimeOfDay.startAt },
     today: { coins: 0, caught: 0, sold: 0 },
     buffs: { aurora: 0 },
+    threats: { torches: 0, bait: null, fur: 0 },
   };
 }
 

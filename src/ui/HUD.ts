@@ -10,6 +10,8 @@ export class HUD {
   private readonly fpsEl: HTMLDivElement;
   private readonly hintEl: HTMLDivElement;
   private readonly dayEl: HTMLDivElement;
+  private readonly torchEl: HTMLDivElement;
+  private lastTorches = -1;
   private lastDayKey = '';
   private frames = 0;
   private fpsTimer = 0;
@@ -50,7 +52,17 @@ export class HUD {
 
     this.dayEl = document.createElement('div');
     this.dayEl.className = 'hud-day';
-    overlay.append(bar, this.dayEl, this.hintEl);
+    this.torchEl = document.createElement('div');
+    this.torchEl.className = 'hud-torch hidden';
+    overlay.append(bar, this.dayEl, this.torchEl, this.hintEl);
+  }
+
+  /** Torch count under the day pill once the torch stand exists (-1 hides it). */
+  setTorches(count: number): void {
+    if (count === this.lastTorches) return;
+    this.lastTorches = count;
+    this.torchEl.classList.toggle('hidden', count < 0);
+    this.torchEl.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2c1 3 4 4.5 4 8a4 4 0 0 1-8 0c0-1.6.8-2.7 1.6-3.6.2 1.3.9 2.1 1.7 2.4C11 6.5 11 4.5 12 2z"/><path fill="currentColor" opacity=".6" d="M11 15h2l-.5 7h-1z"/></svg><span>×${Math.max(count, 0)}</span>`;
   }
 
   /** Sun or moon icon with "Day N" under the coin counter. */

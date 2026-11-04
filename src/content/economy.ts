@@ -25,6 +25,14 @@ export const Economy = {
     smokehouse: 160,
     thirdHole: 220,
     secondPenguin: 300,
+    // Threat buildings (GDD §13); optional, shown once the smokehouse is open.
+    torchStand: 40,
+    baitTrap: 70,
+    firePit1: 90,
+    firePit2: 150,
+    firePit3: 220,
+    snowFence: 120,
+    watchtower: 450,
   },
 } as const;
 

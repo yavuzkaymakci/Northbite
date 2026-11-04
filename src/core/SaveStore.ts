@@ -38,7 +38,7 @@ const migrations: Record<number, (s: AnySave) => AnySave> = {
     const g = (s.game ?? {}) as Obj;
     return { ...s, saveVersion: 3, game: { ...g, carried: addKind(g.carried), counter: addKind(g.counter) } };
   },
-  // v3 (Demo 2/3): no clock, day totals or buffs. sanitizeGame fills them (day 1, mid-morning).
+  // v3 (Demo 2/3): no clock, day totals, buffs or threat gear. sanitizeGame fills them (day 1, mid-morning).
   3: (s) => ({ ...s, saveVersion: 4 }),
 };
 
@@ -68,6 +68,7 @@ function sanitizeGame(raw: unknown): GameState {
   const clock = (g.clock ?? {}) as Partial<Record<string, unknown>>;
   const today = (g.today ?? {}) as Partial<Record<string, unknown>>;
   const buffs = (g.buffs ?? {}) as Partial<Record<string, unknown>>;
+  const threats = (g.threats ?? {}) as Partial<Record<string, unknown>>;
   const upgrades = { ...base.upgrades };
   const rawUp = (g.upgrades ?? {}) as Partial<Record<string, unknown>>;
   for (const u of UpgradeList) {
@@ -102,6 +103,11 @@ function sanitizeGame(raw: unknown): GameState {
     },
     today: { coins: num(today.coins, 0), caught: num(today.caught, 0), sold: num(today.sold, 0) },
     buffs: { aurora: num(buffs.aurora, 0) },
+    threats: {
+      torches: Math.floor(num(threats.torches, 0)),
+      bait: isFishItem(threats.bait) && threats.bait.kind === 'raw' ? threats.bait : null,
+      fur: Math.floor(num(threats.fur, 0)),
+    },
   };
 }
 

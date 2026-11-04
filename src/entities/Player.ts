@@ -47,6 +47,19 @@ export class Player {
     applyAppearance(this.model, appearance);
   }
 
+  /** Holds a tool (shovel, torch) in the right hand; its owner toggles `visible`. */
+  attachToHand(obj: THREE.Object3D): void {
+    obj.position.set(HAND_POSITION.x, HAND_POSITION.y, HAND_POSITION.z);
+    this.model.body.add(obj);
+  }
+
+  /** Turns smoothly toward a point (while working on something next to the player). */
+  faceToward(x: number, z: number, dt: number): void {
+    const target = Math.atan2(x - this.state.x, z - this.state.z);
+    const diff = Math.atan2(Math.sin(target - this.state.heading), Math.cos(target - this.state.heading));
+    this.state.heading += diff * damp(PlayerFeel.turnSharpness, dt);
+  }
+
   /** @param face optional point to turn toward while not walking (e.g. the fishing hole). */
   update(dt: number, time: number, move: MoveInput, world: Walkable, face: { x: number; z: number } | null): void {
     updateMovement(this.state, move, dt, world);

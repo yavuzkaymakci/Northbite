@@ -11,7 +11,7 @@ import type { NetStation } from './NetStation';
 import { PathGraphNav } from './Pathfinding';
 import type { Selling } from './Selling';
 import type { Smokehouse } from './Smokehouse';
-import { WorkerBrain, type StoreId, type WorkContext, type WorkStore } from './WorkerBrain';
+import { WorkerBrain, type DigSite, type StoreId, type WorkContext, type WorkStore } from './WorkerBrain';
 
 interface Penguin {
   brain: WorkerBrain;
@@ -106,6 +106,24 @@ export class Workers {
     return this.penguins.length;
   }
 
+  /** Helper brains (the bear reads positions and loads). */
+  get brains(): readonly WorkerBrain[] {
+    return this.penguins.map((p) => p.brain);
+  }
+
+  /** A bear is close: the helper runs into the hut and hides (GDD §13). */
+  scare(brain: WorkerBrain, seconds: number): void {
+    brain.scare(seconds, this.ctx);
+    const p = this.penguins.find((q) => q.brain === brain);
+    if (p) p.flap = 1.2;
+  }
+
+  /** Snow piles helpers may shovel when idle (avalanche). */
+  setDigging(site: () => DigSite | null, alive: (id: number) => boolean): void {
+    this.ctx.digSite = site;
+    this.ctx.digAlive = alive;
+  }
+
   /** A new penguin joins (unlock). */
   add(): void {
     this.state.workers.push({ carried: [] });
@@ -155,6 +173,8 @@ export class Workers {
         }
       }
       if (b.phase === 'picking' || b.phase === 'dropping') p.flap = Math.max(p.flap, 0.25);
+      if (b.phase === 'digging' || b.phase === 'hiding') p.flap = Math.max(p.flap, 0.6);
+      p.object.visible = !b.inside;
       p.flap = Math.max(p.flap - dt * 1.4, 0);
       p.look += (p.lookTarget - p.look) * Math.min(1, dt * 4);
 
@@ -173,6 +193,7 @@ export class Workers {
     const k = WorkerFeel.stackScale;
     for (const p of this.penguins) {
       const b = p.brain;
+      if (b.inside) continue;
       const n = Math.max(b.carried.length - p.hidden, 0);
       this.m.compose(this.v.set(b.x, p.object.position.y, b.z), this.q.setFromAxisAngle(this.up, b.heading), this.one);
       let h = PENGUIN_BACK.y;

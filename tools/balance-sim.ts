@@ -1,5 +1,5 @@
-// Balance simulation (Demo 3): a bot plays the economy with the real content numbers and the real
-// mini-game / station / helper logic, and reports when each unlock happens.
+// Balance simulation (Demo 3–4): a bot plays the economy with the real content numbers and the real
+// mini-game / station / helper / threat logic, and reports when each unlock happens and what threats cost.
 // Run: npm run sim            (add a number to change the run count, e.g. npm run sim -- 20)
 import { Economy, type UnlockCostKey } from '../src/content/economy';
 import { FishById, type FishId } from '../src/content/fish';
@@ -17,7 +17,20 @@ import { NetLogic, SmokerLogic } from '../src/systems/StationLogic';
 import { carryCapacity, fishingMods, saleMultiplier, upgradeCost, type FishingMods } from '../src/systems/Upgrades';
 import { DayCycle } from '../src/systems/DayCycle';
 import { DayFeel } from '../src/settings';
-import { scaledPrice } from '../src/content/tuning';
+import { scaledPrice, Tuning } from '../src/content/tuning';
+import { Threats } from '../src/content/threats';
+import {
+  bearApproach,
+  bearRoute,
+  bearWarning,
+  pickBearTarget,
+  rollChest,
+  scareReward,
+  stealFrom,
+  ThreatDirector,
+  threatsUnlocked,
+  type BearTargetId,
+} from '../src/systems/ThreatLogic';
 import { WorkerBrain, type StoreId, type WorkContext, type WorkStore } from '../src/systems/WorkerBrain';
 
 declare const process: { argv: string[] };
@@ -27,6 +40,7 @@ const REACTION = 0.3; // seconds the bot needs to react to a tug or a bite
 const DETOUR = 1.2; // real paths are longer than straight lines (obstacles, imperfect steering)
 const DAWDLE = 1.0; // seconds lost per decision (looking around, small corrections)
 const PASS: Vec2 = { x: -11.6, z: -1.2 };
+const THREAT_REACTION = 1.0; // seconds before the bot drops what it does after a threat warning
 const C = IceShore.counter;
 
 // ---------- Mini-game bot ----------
@@ -100,6 +114,23 @@ interface Options {
   idleAfter?: string;
   idleFor?: number;
   endAt: number;
+  /** How the bot treats bears and avalanches: 'active' answers every warning, 'ignore' never does, 'off' = no threats. */
+  threats: 'active' | 'ignore' | 'off';
+}
+
+interface ThreatStats {
+  /** Seconds of play during which threats could come. */
+  window: number;
+  /** Coins earned (sales) during that window. */
+  earned: number;
+  bears: number;
+  blocked: number;
+  lostCoins: number;
+  maxLoss: number;
+  penguinHides: number;
+  scareCoins: number;
+  avalanches: number;
+  chestCoins: number;
 }
 
 interface Result {
@@ -108,6 +139,18 @@ interface Result {
   upgradesBought: Array<{ id: UpgradeId; level: number; t: number }>;
   idle?: { pileGain: number; sold: number; smokedSold: number };
   earned: number;
+  threat: ThreatStats;
+}
+
+/** A bear or avalanche in progress (sim view: just the times that matter). */
+interface SimThreat {
+  kind: 'bear' | 'avalanche';
+  endAt: number;
+  /** Bear: when it takes the fish (unless scared first). */
+  grabAt?: number;
+  target?: BearTargetId;
+  penguin?: WorkerBrain | null;
+  blocked?: boolean;
 }
 
 const dist = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -118,7 +161,18 @@ class Sim {
   readonly state: GameState = createGameState();
   pos: Vec2 = { ...IceShore.playerSpawn };
   readonly rand: () => number;
-  readonly result: Result = { unlocks: {}, firstSale: -1, upgradesBought: [], earned: 0 };
+  readonly result: Result = {
+    unlocks: {},
+    firstSale: -1,
+    upgradesBought: [],
+    earned: 0,
+    threat: { window: 0, earned: 0, bears: 0, blocked: 0, lostCoins: 0, maxLoss: 0, penguinHides: 0, scareCoins: 0, avalanches: 0, chestCoins: 0 },
+  };
+  private readonly director: ThreatDirector;
+  private threat: SimThreat | null = null;
+  /** Seconds the bot owes for answering a threat; paid after its current action. */
+  private debt = 0;
+  private debtPos: Vec2 | null = null;
   private readonly customers: Customer[] = [];
   private spawnTimer = 0.5;
   private net: NetLogic | null = null;
@@ -133,6 +187,7 @@ class Sim {
     this.rand = seededRandom(opts.seed);
     const s = this.state;
     this.day = new DayCycle(s, () => DayFeel.dayLength.medium, this.rand);
+    this.director = new ThreatDirector(this.rand);
     const store = (node: WorkStore['node'], o: Partial<WorkStore>): WorkStore => ({
       node,
       enabled: () => true,
@@ -176,7 +231,10 @@ class Sim {
     for (let left = sec; left > 1e-9; left -= DT) {
       const dt = Math.min(DT, left);
       this.t += dt;
+      this.state.stats.playTime += dt;
       this.day.update(dt);
+      if (threatsUnlocked(this.state)) this.result.threat.window += dt;
+      this.updateThreats(dt);
       this.updateCustomers(dt);
       this.net?.update(dt);
       this.smoker?.update(dt);
@@ -207,6 +265,7 @@ class Sim {
       const value = Math.round(c.bill * saleMultiplier(this.state));
       this.state.pile += value;
       this.result.earned += value;
+      if (threatsUnlocked(this.state)) this.result.threat.earned += value;
       this.customers.shift();
       for (const n of this.customers) n.arriveAt = Math.max(n.arriveAt, this.t + C.queueSpacing / CustomerFeel.walkSpeed);
       return;
@@ -224,6 +283,112 @@ class Sim {
     this.state.stats.sold++;
     if (item.kind === 'smoked') this.smokedSold++;
     if (this.result.firstSale < 0) this.result.firstSale = this.t + CustomerFeel.flightTime;
+  }
+
+  // ---------- threats (GDD §13) ----------
+
+  private updateThreats(dt: number): void {
+    if (this.opts.threats === 'off') return;
+    const th = this.threat;
+    if (th) {
+      if (th.kind === 'bear' && th.grabAt !== undefined && this.t >= th.grabAt) {
+        th.grabAt = undefined;
+        if (!th.blocked) this.bearGrabs(th);
+      }
+      if (this.t >= th.endAt) {
+        this.threat = null;
+        this.director.rest();
+      }
+      return;
+    }
+    const kind = this.director.update(dt, this.state, this.day.isNight);
+    if (kind === 'bear') this.startBear();
+    else if (kind === 'avalanche') this.startAvalanche();
+  }
+
+  private startBear(): void {
+    const s = this.state;
+    const out = this.workers.filter((w) => !w.hiding);
+    const pick = pickBearTarget({
+      basket: this.net ? s.basket.length : null,
+      counter: s.counter.length,
+      smokeOut: this.smoker ? s.smoker.output.length : null,
+      penguins: out.map((w) => w.carried.length),
+    });
+    const penguin = out[pick.penguin] ?? null;
+    const a = bearApproach(pick.id, penguin ? { x: penguin.x, z: penguin.z } : null);
+    const warning = bearWarning(s, this.day.isNight);
+    s.stats.bears++;
+    const route = bearRoute([a.from, a.stand]);
+    let len = 0;
+    for (let i = 1; i < route.length; i++) len += dist(route[i - 1] as Vec2, route[i] as Vec2);
+    const arrive = this.t + warning + len / Threats.bear.walkSpeed;
+    const grabAt = arrive + Threats.bear.sniffTime;
+    const th: SimThreat = { kind: 'bear', grabAt, endAt: grabAt + len / (Threats.bear.walkSpeed * 1.3), target: pick.id, penguin };
+    this.result.threat.bears++;
+    if (this.opts.threats === 'active') {
+      // The bot drops what it does, walks over and holds: blocked if it gets there before the grab.
+      const response = THREAT_REACTION + (dist(this.pos, a.stand) * DETOUR) / Economy.player.walkSpeed + Threats.bear.scareTime;
+      if (this.t + response <= grabAt) {
+        th.blocked = true;
+        th.endAt = Math.max(this.t + response, arrive);
+        this.result.threat.blocked++;
+        const r = scareReward(this.rand);
+        s.coins += r.coins;
+        this.result.threat.scareCoins += r.coins;
+        this.debt += response;
+        this.debtPos = { ...a.stand };
+      }
+    }
+    this.threat = th;
+  }
+
+  private bearGrabs(th: SimThreat): void {
+    const s = this.state;
+    if (th.target === 'penguin') {
+      if (th.penguin && !th.penguin.hiding) {
+        th.penguin.scare(Threats.bear.penguinHide, this.ctx);
+        this.result.threat.penguinHides++;
+      }
+      return;
+    }
+    const list = th.target === 'basket' ? s.basket : th.target === 'counter' ? s.counter : s.smoker.output;
+    const stolen = stealFrom(list, list.length, this.rand);
+    const value = stolen.reduce((v, f) => v + f.price, 0);
+    this.result.threat.lostCoins += value;
+    this.result.threat.maxLoss = Math.max(this.result.threat.maxLoss, value);
+  }
+
+  private startAvalanche(): void {
+    const A = Threats.avalanche;
+    this.state.stats.avalanches++;
+    this.result.threat.avalanches++;
+    const chest = rollChest(this.rand);
+    let endAt = this.t + A.warning + A.meltTime;
+    if (this.opts.threats === 'active') {
+      // The bot shovels its way to the pile with the chest (or one pile to open the way) and comes back.
+      const corridor = { x: -18, z: -6.6 };
+      const walk = (dist(this.pos, corridor) * DETOUR) / Economy.player.walkSpeed;
+      const piles = chest === null ? 1 : 2;
+      this.debt += THREAT_REACTION + A.warning + walk + piles * A.digTime;
+      this.debtPos = corridor;
+      endAt = this.t + A.warning + walk + piles * A.digTime;
+      if (chest !== null) {
+        this.state.coins += chest;
+        this.result.threat.chestCoins += chest;
+      }
+    }
+    this.threat = { kind: 'avalanche', endAt };
+  }
+
+  /** Time spent answering a threat is paid between actions (an approximation: actions are not interrupted). */
+  payDebt(): void {
+    if (this.debt <= 0) return;
+    const d = this.debt;
+    this.debt = 0;
+    if (this.debtPos) this.pos = this.debtPos;
+    this.debtPos = null;
+    this.advance(d);
   }
 
   // ---------- player actions (each advances time) ----------
@@ -245,7 +410,7 @@ class Sim {
       }
     }
     for (const z of UnlockZones) {
-      if (isDone(s, z.id)) continue;
+      if (isDone(s, z.id) || z.optional) continue;
       const region = Regions.find((r) => r.unlockZones.includes(z.id));
       if (region && !isDone(s, region.id)) continue;
       if (!z.requires.every((q) => isDone(s, q))) continue;
@@ -273,8 +438,8 @@ class Sim {
         const data = { carried: [] };
         this.state.workers.push(data);
         this.workers.push(new WorkerBrain(data, this.workers.length, home.x, home.z));
-      } else if (e.station === 'net') this.net = new NetLogic(this.state, this.rand);
-      else if (e.station === 'smokehouse') this.smoker = new SmokerLogic(this.state);
+      } else if (e.kind === 'station' && e.station === 'net') this.net = new NetLogic(this.state, this.rand);
+      else if (e.kind === 'station' && e.station === 'smokehouse') this.smoker = new SmokerLogic(this.state);
     }
   }
 
@@ -319,6 +484,7 @@ class Sim {
     while (this.state.carried.length < this.capacity) {
       const r = fishSession(this.rand, this.mods);
       this.advance(r.time);
+      if (this.debt > 0) return; // a threat warning: go deal with it
       if (r.item) {
         this.state.carried.push(r.item);
         this.state.stats.caught++;
@@ -377,6 +543,7 @@ class Sim {
     const o = this.opts;
     let idleDone = false;
     while (this.t < o.endAt) {
+      this.payDebt();
       if (o.idleAfter && !idleDone && isDone(this.state, o.idleAfter)) {
         idleDone = true;
         const pile0 = this.state.pile;
@@ -439,7 +606,7 @@ const TARGET: Record<string, string> = {
 
 function unlockTable(upgrades: boolean): void {
   const results: Result[] = [];
-  for (let i = 0; i < RUNS; i++) results.push(new Sim({ seed: 1000 + i, upgrades, endAt: 40 * 60 }).run());
+  for (let i = 0; i < RUNS; i++) results.push(new Sim({ seed: 1000 + i, upgrades, endAt: 40 * 60, threats: 'active' }).run());
   console.log(`\n## Açılış süreleri — ${upgrades ? 'yükseltme alan bot' : 'yükseltme almayan bot'} (${RUNS} koşu, medyan [min–maks], oyun içi süre)`);
   console.log('| Açılış | Hedef | Medyan | Aralık |');
   console.log('|---|---|---|---|');
@@ -459,7 +626,7 @@ function idleTest(after: string, label: string): void {
   const sold: number[] = [];
   const smoked: number[] = [];
   for (let i = 0; i < RUNS; i++) {
-    const r = new Sim({ seed: 2000 + i, upgrades: true, idleAfter: after, idleFor: 180, endAt: 60 * 60 }).run();
+    const r = new Sim({ seed: 2000 + i, upgrades: true, idleAfter: after, idleFor: 180, endAt: 60 * 60, threats: 'off' }).run();
     if (!r.idle) continue;
     gains.push(r.idle.pileGain);
     sold.push(r.idle.sold);
@@ -468,6 +635,39 @@ function idleTest(after: string, label: string): void {
   console.log(
     `| ${label} | ${median(gains)} coin | ${Math.min(...gains)}–${Math.max(...gains)} | ${median(sold)} balık (${median(smoked)} tütsü) |`,
   );
+}
+
+/** Bears and avalanches (GDD §13): what they cost an active player and one who never reacts. */
+function threatTable(): void {
+  const runs = (threats: Options['threats']) => {
+    const out: ThreatStats[] = [];
+    for (let i = 0; i < RUNS; i++) out.push(new Sim({ seed: 3000 + i, upgrades: true, endAt: 90 * 60, threats }).run().threat);
+    return out;
+  };
+  const sum = (xs: ThreatStats[], f: (t: ThreatStats) => number) => xs.reduce((a, t) => a + f(t), 0);
+  const scale = Tuning.threatScale;
+  Tuning.threatScale = 1;
+  const rows: Array<[string, ThreatStats[]]> = [
+    ['Tehdit yok (threatScale 0)', runs('off')],
+    ['Aktif oyuncu', runs('active')],
+    ['Hiç ilgilenmeyen oyuncu', runs('ignore')],
+  ];
+  Tuning.threatScale = scale;
+  console.log(`\n## Tehditler — ayı ve çığ (${RUNS} koşu × 90 dk; tehditlerin açık olduğu süreye göre, saat başına)`);
+  console.log('| Oyuncu | Ayı/sa | Engellenen | Kayıp/ayı | En büyük kayıp | Kayıp/sa | Korkutma ödülü/sa | Penguen saklandı/sa | Çığ/sa | Sandık/sa | Satış/sa |');
+  console.log('|---|---|---|---|---|---|---|---|---|---|---|');
+  for (const [label, xs] of rows) {
+    const hours = sum(xs, (t) => t.window) / 3600;
+    const bears = sum(xs, (t) => t.bears);
+    const blocked = sum(xs, (t) => t.blocked);
+    const lost = sum(xs, (t) => t.lostCoins);
+    const hit = bears - blocked;
+    const per = (v: number) => (hours > 0 ? (v / hours).toFixed(1) : '—');
+    console.log(
+      `| ${label} | ${per(bears)} | ${bears ? `%${Math.round((blocked / bears) * 100)}` : '—'} | ${hit ? (lost / hit).toFixed(1) : '—'} | ${Math.max(0, ...xs.map((t) => t.maxLoss))} | ${per(lost)} | ${per(sum(xs, (t) => t.scareCoins))} | ${per(sum(xs, (t) => t.penguinHides))} | ${per(sum(xs, (t) => t.avalanches))} | ${per(sum(xs, (t) => t.chestCoins))} | ${per(sum(xs, (t) => t.earned))} |`,
+    );
+  }
+  console.log('"Kayıp/ayı" yalnızca engellenemeyen ayılar için; kayıp = çalınan balıkların satış değeri (tek seferde en fazla 40).');
 }
 
 function reelTable(): void {
@@ -573,6 +773,7 @@ if (process.argv[3] !== 'reel') {
   console.log('|---|---|---|---|');
   idleTest('hut', 'Ağ + 1. penguen açılınca');
   idleTest('smokehouse', 'Tütsühane açılınca');
+  threatTable();
 }
 reelTable();
 baitTable();

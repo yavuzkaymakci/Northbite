@@ -113,6 +113,20 @@ export const Palette = {
   fogStorm: 0xc9d4dc,
   nightGlow: 0xffb35c,
 
+  // Threats (GDD §13)
+  bearFur: 0xf2e8d2,
+  bearShade: 0xd8c7a4,
+  bearNose: 0x2a2522,
+  footprint: 0x9ab6c9,
+  avalancheStripe: 0xe2504c,
+  fenceWood: 0x9a6a45,
+  flame: 0xffb347,
+  flameCore: 0xffe08a,
+  stone: 0x7d8792,
+  chestBand: 0x6f7a84,
+  slopeRock: 0x7f8e9c,
+  threatArrow: 0xe2504c,
+
   // Character creator stage
   creatorSkyTop: 0x1f3c5c,
   creatorSkyLow: 0xd6e8f2,

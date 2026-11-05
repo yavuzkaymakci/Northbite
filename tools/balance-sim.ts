@@ -46,7 +46,26 @@ import {
   threatsUnlocked,
   type BearTargetId,
 } from '../src/systems/ThreatLogic';
-import { WorkerBrain, type StoreId, type WorkContext, type WorkStore } from '../src/systems/WorkerBrain';
+import { WorkerBrain, type WorkContext } from '../src/systems/WorkerBrain';
+import { JobBoard, type Stores, type WorkStore } from '../src/systems/JobBoard';
+import { veinStore } from '../src/systems/LandLogic';
+import {
+  addXp,
+  availableRoles,
+  buyOffer,
+  firstPenguin,
+  hutCapacity,
+  hutUpgradeCost,
+  offerPrice,
+  penguinCarry,
+  penguinSpeed,
+  rerollOffers,
+  updateMarket,
+  upgradeHut,
+} from '../src/systems/PenguinLogic';
+import { PenguinLevels } from '../src/content/penguins';
+import { RoleList, type RoleId } from '../src/content/roles';
+import { isFish } from '../src/core/GameState';
 
 declare const process: { argv: string[] };
 
@@ -175,10 +194,14 @@ interface Result {
   income60?: Income;
   nightsSlept: number;
   threat: ThreatStats;
+  /** Total income at every full minute (role effect report). */
+  timeline: number[];
+  /** When each penguin role was first bought (GDD §24). */
+  roles: Partial<Record<RoleId, number>>;
 }
 
-type OfflineStage = 'hut' | 'smokehouse' | 'attendant';
-const OFFLINE_STAGES: OfflineStage[] = ['hut', 'smokehouse', 'attendant'];
+type OfflineStage = 'hut' | 'smokehouse' | 'penguin3' | 'attendant' | 'penguin5';
+const OFFLINE_STAGES: OfflineStage[] = ['hut', 'smokehouse', 'penguin3', 'attendant', 'penguin5'];
 
 interface Snapshot {
   state: GameState;
@@ -220,6 +243,22 @@ interface SimThreat {
 }
 
 const dist = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.z - b.z);
+
+/** Something the bot can pay for: an unlock frame, a region gate, a penguin from the market or a hut level. */
+interface Target {
+  id: string;
+  at: Vec2;
+  cost: number;
+  region: boolean;
+  kind?: 'penguin' | 'hut';
+  offer?: number;
+}
+
+/**
+ * The bot's penguins in order, the hut's free carrier first (GDD §24 targets: 2nd ~28 min, 3rd ~40 min, the first
+ * miner / cook ~50 min).
+ */
+const BOT_PLAN: readonly RoleId[] = ['carrier', 'smoker', 'carrier', 'miner', 'cook'];
 const inYard = (p: Vec2) => p.x < -11;
 
 class Sim {
@@ -237,6 +276,8 @@ class Sim {
     snapshots: {},
     extra: { orderCoins: 0, codexCoins: 0, orderGiven: 0, rodValue: 0, variantExtra: 0, orders: {} },
     nightsSlept: 0,
+    timeline: [],
+    roles: {},
     threat: { window: 0, earned: 0, bears: 0, blocked: 0, lostCoins: 0, maxLoss: 0, penguinHides: 0, scareCoins: 0, avalanches: 0, chestCoins: 0 },
   };
   private readonly director: ThreatDirector;
@@ -279,14 +320,16 @@ class Sim {
       take: () => null,
       room: () => 0,
       give: () => {},
+      accepts: () => false,
       ...o,
     });
-    const stores: Record<StoreId, WorkStore> = {
+    const stores: Stores = {
       basket: store('basket', { enabled: () => !!this.net, takeable: () => s.basket.length, take: () => s.basket.pop() ?? null }),
       smokerIn: store('smokeIn', {
         enabled: () => !!this.smoker,
         room: () => Stations.smokehouse.inputCapacity - s.smoker.input.length,
-        give: (item) => s.smoker.input.push(item),
+        give: (item) => isFish(item) && s.smoker.input.push(item),
+        accepts: (item) => item.kind === 'raw',
       }),
       smokerOut: store('smokeOut', {
         enabled: () => !!this.smoker,
@@ -295,10 +338,57 @@ class Sim {
       }),
       counter: store('counter', {
         room: () => stationValue(this.state, 'counterCapacity') - s.counter.length,
-        give: (item) => s.counter.push(item),
+        give: (item) => isFish(item) && s.counter.push(item),
+        accepts: (item) => isFish(item),
       }),
+      kitchenIn: store('kitchenIn', {
+        enabled: () => this.kitchen,
+        room: () => CampCfg.kitchen.inputCapacity - s.camp.input.length,
+        give: (item) => isFish(item) && s.camp.input.push(item),
+        accepts: (item) => item.kind === 'smoked',
+      }),
+      plates: store('plates', {
+        enabled: () => this.kitchen,
+        takeable: () => s.camp.plates.length,
+        take: () => (s.camp.plates.length > 0 ? { kind: 'plate', price: s.camp.plates.pop() as number } : null),
+      }),
+      serve: store('serve', {
+        enabled: () => this.kitchen,
+        room: () => this.guests.queue.filter((g) => !g.serving && g.path.length === 0).length,
+        give: (item) => {
+          const g = this.guests.nextToServe();
+          if (!g) {
+            s.camp.plates.push(item.price);
+            return;
+          }
+          const pay = this.guests.serve(g, item.price, this.tents);
+          this.result.income.camp += pay.value + pay.tip;
+        },
+        accepts: (item) => item.kind === 'plate',
+      }),
+      vein: veinStore(this.caveLogic, () => this.bench),
+      crystalIn: store('crystalIn', {
+        enabled: () => this.bench,
+        room: () => CaveCfg.bench.inputCapacity - s.cave.input,
+        give: () => {
+          s.cave.input++;
+        },
+        accepts: (item) => item.kind === 'crystal',
+      }),
+      // Threat buildings are optional and the bot never builds them.
+      bait: store('bait', { enabled: () => false }),
     };
-    this.ctx = { stores, nav: new PathGraphNav((id) => s.regions.includes(id)), homeNode: 'hut' };
+    const home = IceShore.hut.slots;
+    this.ctx = {
+      board: new JobBoard(stores),
+      nav: new PathGraphNav((id) => s.regions.includes(id)),
+      homeNode: 'hut',
+      homeSpot: (i) => home[i % home.length] as Vec2,
+      carry: (w) => penguinCarry(s, w),
+      speed: (w) => penguinSpeed(s, w),
+      onDeliver: (w) => addXp(w.data, PenguinLevels.xpPerItem),
+      onDug: (w) => addXp(w.data, PenguinLevels.xpPerPile),
+    };
   }
 
   get mods(): FishingMods {
@@ -325,7 +415,10 @@ class Sim {
       this.smoker?.update(dt);
       this.updateLands(dt);
       this.updateBoard(dt);
+      if (this.state.unlocked.includes('market')) updateMarket(this.state, dt, this.rand);
       for (const w of this.workers) w.update(dt, this.ctx, this.workers);
+      const minute = Math.floor(this.t / 60);
+      while (this.result.timeline.length <= minute) this.result.timeline.push(this.totalEarned);
     }
   }
 
@@ -563,9 +656,9 @@ class Sim {
   }
 
   /** Unlock frames and region gates that are visible now. */
-  available(): Array<{ id: string; at: Vec2; cost: number; region: boolean }> {
+  available(): Target[] {
     const s = this.state;
-    const out: Array<{ id: string; at: Vec2; cost: number; region: boolean }> = [];
+    const out: Target[] = [];
     for (const r of Regions) {
       if (!isDone(s, r.id) && r.requires.every((q) => isDone(s, q))) {
         out.push({ id: r.id, at: r.gate, cost: scaledPrice(Economy.unlocks[r.cost]), region: true });
@@ -578,11 +671,58 @@ class Sim {
       if (!z.requires.every((q) => isDone(s, q))) continue;
       out.push({ id: z.id, at: z, cost: scaledPrice(Economy.unlocks[z.cost as UnlockCostKey]), region: false });
     }
+    const buy = this.penguinTarget();
+    if (buy) out.push(buy);
     return out.sort((a, b) => a.cost - b.cost);
   }
 
-  unlock(u: { id: string; at: Vec2; cost: number; region: boolean }): void {
+  /**
+   * The bot's next penguin (GDD §24): roles in BOT_PLAN order, the first one it does not own yet that can work now.
+   * A full hut means a hut upgrade first. A missing role in the catalog is looked for with the free refresh.
+   */
+  penguinTarget(): Target | null {
+    const s = this.state;
+    if (!s.unlocked.includes('market') || s.workers.length >= BOT_PLAN.length) return null;
+    const owned = new Map<RoleId, number>();
+    for (const w of s.workers) owned.set(w.role, (owned.get(w.role) ?? 0) + 1);
+    const need = new Map<RoleId, number>();
+    let want: RoleId | null = null;
+    for (const r of BOT_PLAN) {
+      need.set(r, (need.get(r) ?? 0) + 1);
+      if ((owned.get(r) ?? 0) >= (need.get(r) as number)) continue;
+      if (availableRoles(s).includes(r)) want = r;
+      break;
+    }
+    if (!want) return null;
+    const pad = IceShore.market.pad;
+    if (s.workers.length >= hutCapacity(s)) {
+      const cost = hutUpgradeCost(s);
+      return cost === null ? null : { id: `hutL${s.hutLevel + 1}`, at: pad, cost, region: false, kind: 'hut' };
+    }
+    let offer = s.market.offers.find((o) => o.role === want);
+    if (!offer && rerollOffers(s, this.rand)) offer = s.market.offers.find((o) => o.role === want);
+    if (!offer) return null;
+    return { id: `penguin${s.workers.length + 1}`, at: pad, cost: offerPrice(s, offer), region: false, kind: 'penguin', offer: offer.id };
+  }
+
+  unlock(u: Target): void {
     this.walkTo(u.at);
+    if (u.kind === 'hut') {
+      this.advance(1);
+      if (upgradeHut(this.state)) this.result.unlocks[u.id] = this.t;
+      return;
+    }
+    if (u.kind === 'penguin') {
+      this.advance(1.5);
+      const r = buyOffer(this.state, u.offer ?? -1);
+      if (!r.ok) return;
+      this.result.unlocks[u.id] = this.t;
+      this.result.roles[r.penguin.role] ??= this.t;
+      this.addBrain(r.penguin);
+      if ((OFFLINE_STAGES as string[]).includes(u.id)) this.pendingSnapshot = u.id as OfflineStage;
+      this.boughtSinceUnlock = 0;
+      return;
+    }
     this.advance(UnlockFeel.startDelay + UnlockFeel.fillTime);
     this.state.coins -= u.cost;
     this.result.unlocks[u.id] = this.t;
@@ -597,10 +737,10 @@ class Sim {
     const zone = UnlockZones.find((z) => z.id === u.id);
     for (const e of zone?.effects ?? []) {
       if (e.kind === 'worker') {
-        const home = IceShore.hut.idle;
-        const data = { carried: [] };
+        const data = firstPenguin(this.state, this.rand);
         this.state.workers.push(data);
-        this.workers.push(new WorkerBrain(data, this.workers.length, home.x, home.z));
+        this.result.roles[data.role] ??= this.t;
+        this.addBrain(data);
       } else if (e.kind === 'igloo' || e.kind === 'decoration') applyComfortUnlock(this.state, e);
       else if (e.kind === 'land') {
         if (e.part === 'crystalBench') {
@@ -613,6 +753,11 @@ class Sim {
       else if (e.kind === 'station' && e.station === 'net') this.net = new NetLogic(this.state, this.rand);
       else if (e.kind === 'station' && e.station === 'smokehouse') this.smoker = new SmokerLogic(this.state);
     }
+  }
+
+  addBrain(data: GameState['workers'][number]): void {
+    const home = IceShore.hut.slots[this.workers.length % IceShore.hut.slots.length] as Vec2;
+    this.workers.push(new WorkerBrain(data, this.workers.length, home.x, home.z));
   }
 
   /** Upgrade levels bought since the last unlock (the bot buys one between unlocks, like an "optional" spend). */
@@ -860,7 +1005,7 @@ class Sim {
       for (const snap of Object.values(this.result.snapshots)) {
         if (snap && snap.perHour === undefined && this.t >= snap.t + 1200) snap.perHour = ((this.totalEarned - snap.earnedAt) / (this.t - snap.t)) * 3600;
       }
-      if (o.idleAfter && !idleDone && isDone(this.state, o.idleAfter)) {
+      if (o.idleAfter && !idleDone && (isDone(this.state, o.idleAfter) || this.result.unlocks[o.idleAfter] !== undefined)) {
         idleDone = true;
         const pile0 = this.state.pile;
         const sold0 = this.state.stats.sold;
@@ -904,7 +1049,7 @@ class Sim {
 // ---------- Reports ----------
 
 const fmt = (sec: number | undefined) => {
-  if (sec === undefined) return '   —  ';
+  if (sec === undefined || !Number.isFinite(sec)) return '   —  ';
   const total = Math.round(sec);
   const m = Math.floor(total / 60);
   const s = total % 60;
@@ -916,7 +1061,7 @@ const median = (xs: number[]) => {
 };
 
 const RUNS = Number(process.argv[2] ?? 12);
-const ORDER = ['hole2', 'net', 'hut', 'smokeYard', 'smokehouse', 'hole3', 'penguin2', 'igloo2', 'igloo3', 'igloo4', 'iceCave', 'crystalBench', 'hotSpring', 'tent1', 'kitchen', 'tent2', 'tent3', 'attendant'];
+const ORDER = ['hole2', 'net', 'hut', 'smokeYard', 'smokehouse', 'market', 'hole3', 'penguin2', 'igloo2', 'igloo3', 'igloo4', 'iceCave', 'crystalBench', 'hutL2', 'penguin3', 'hotSpring', 'tent1', 'kitchen', 'tent2', 'tent3', 'hutL3', 'penguin4', 'attendant', 'hutL4', 'penguin5'];
 const DECOR = ['flagpole', 'doormat', 'snowman', 'sled', 'lanterns', 'dryingRack', 'iceSculpture'];
 const TARGET: Record<string, string> = {
   hole2: '~2 dk',
@@ -925,7 +1070,14 @@ const TARGET: Record<string, string> = {
   smokeYard: '~10 dk',
   smokehouse: '12–15 dk',
   hole3: '15+ dk',
-  penguin2: '15+ dk',
+  market: '~15 dk',
+  penguin2: '~28 dk',
+  hutL2: '—',
+  penguin3: '~40 dk',
+  hutL3: '—',
+  penguin4: '~50 dk',
+  hutL4: '—',
+  penguin5: '~50+ dk',
   igloo2: '~8 dk',
   igloo3: '~18 dk',
   igloo4: '~32 dk',
@@ -948,7 +1100,7 @@ function unlockTable(upgrades: boolean): void {
   console.log(`| İlk satış | <1 dk | ${fmt(median(results.map((r) => r.firstSale)))} | |`);
   for (const id of ORDER) {
     const ts = results.map((r) => r.unlocks[id]).filter((x): x is number => x !== undefined);
-    console.log(`| ${id} | ${TARGET[id]} | ${fmt(median(ts))} | ${fmt(Math.min(...ts))}–${fmt(Math.max(...ts))} |`);
+    console.log(`| ${id} | ${TARGET[id]} | ${fmt(median(ts))} | ${ts.length ? `${fmt(Math.min(...ts))}–${fmt(Math.max(...ts))}` : `0/${RUNS} koşu`} |`);
   }
   const decor = DECOR.map((id) => `${id} ${fmt(median(results.map((r) => r.unlocks[id]).filter((x): x is number => x !== undefined))).trim()}`);
   console.log('Dekorasyonlar (medyan): ' + decor.join(', '));
@@ -1007,9 +1159,9 @@ function incomeTable(): void {
 /** Offline earnings (GDD §18): 8 hours away at each automation stage, against active play over the same time. */
 function offlineTable(): void {
   const runs: Result[] = [];
-  for (let i = 0; i < RUNS; i++) runs.push(new Sim({ seed: 6000 + i, upgrades: true, stationUpgrades: true, endAt: 75 * 60, threats: 'active' }).run());
+  for (let i = 0; i < RUNS; i++) runs.push(new Sim({ seed: 6000 + i, upgrades: true, stationUpgrades: true, endAt: 90 * 60, threats: 'active' }).run());
   const away = 8 * 3600;
-  const labels: Record<OfflineStage, string> = { hut: 'Ağ + 1. penguen', smokehouse: '+ tütsühane', attendant: '+ kamp (görevli)' };
+  const labels: Record<OfflineStage, string> = { hut: 'Ağ + 1. penguen', smokehouse: '+ tütsühane', penguin3: '+ 3. penguen (taşıyıcı)', attendant: '+ kamp (görevli)', penguin5: '+ 5. penguen (mutfakçı)' };
   console.log(`\n## Çevrimdışı gelir — 8 saat yokluk (${RUNS} koşu, medyan; aşama açıldığı anki durum)`);
   console.log(`| Aşama | Sayılan süre | Çevrimdışı coin | Aktif coin/sa (sonraki 20 dk) | Oran (aynı süre aktif oyuna) | Maks. Zaman yükseltmesi (8 sa, %${Math.round(stationUpgradeValue('offlineRate', 5) * 100)}) | Oran |`);
   console.log('|---|---|---|---|---|---|---|');
@@ -1040,12 +1192,12 @@ function offlineTable(): void {
       `| ${labels[stage]} | ${h} sa | ${median(base)} | ${Math.round(rate)} | ${ratio(median(base), h)} | ${median(maxed)} | ${ratio(median(maxed), 8)} |`,
     );
   }
-  console.log('Hedef: üst sınırdaki bir çevrimdışı oturum, aynı süre aktif oyunun en fazla ~%35\'i.');
+  console.log('Hedef (Demo 7B): üst sınırdaki bir çevrimdışı oturum, aynı süre aktif oyunun en fazla ~%40\'ı.');
 }
 
 /** Station upgrades and the Demo 4 unlock targets: the same bot with and without them. */
 function stationUpgradeTimings(): void {
-  const ids = ['hole3', 'penguin2', 'igloo4', 'iceCave', 'crystalBench', 'hotSpring', 'tent1', 'attendant'];
+  const ids = ['hole3', 'penguin2', 'igloo4', 'iceCave', 'crystalBench', 'penguin3', 'hotSpring', 'tent1', 'penguin4', 'attendant', 'penguin5'];
   const med = (station: boolean) => {
     const rs: Result[] = [];
     for (let i = 0; i < RUNS; i++) rs.push(new Sim({ seed: 1000 + i, upgrades: true, stationUpgrades: station, endAt: 60 * 60, threats: 'active' }).run());
@@ -1182,6 +1334,42 @@ function threatTable(): void {
   console.log('"Kayıp/ayı" yalnızca engellenemeyen ayılar için; kayıp = çalınan balıkların satış değeri (tek seferde en fazla 40).');
 }
 
+/** Penguin roles (GDD §24): when the bot gets each one and how the income per minute changes around it. */
+function roleTable(): void {
+  const runs: Result[] = [];
+  for (let i = 0; i < RUNS; i++) runs.push(new Sim({ seed: 8000 + i, upgrades: true, stationUpgrades: true, endAt: 75 * 60, threats: 'active' }).run());
+  console.log(`\n## Penguen rolleri — ilk alınış ve etkisi (${RUNS} koşu, olta + istasyon yükseltmesi alan bot)`);
+  console.log('| Rol | Medyan ilk alınış | Koşu | Gelir/dk önceki 10 dk | Gelir/dk sonraki 10 dk | Fark |');
+  console.log('|---|---|---|---|---|---|');
+  for (const r of RoleList) {
+    const times: number[] = [];
+    const before: number[] = [];
+    const after: number[] = [];
+    for (const run of runs) {
+      const t = run.roles[r.id];
+      if (t === undefined) continue;
+      times.push(t);
+      const m = Math.floor(t / 60);
+      const tl = run.timeline;
+      const at = (k: number) => tl[Math.min(Math.max(k, 0), tl.length - 1)] as number;
+      if (m >= 10 && m + 10 < tl.length) {
+        before.push((at(m) - at(m - 10)) / 10);
+        after.push((at(m + 10) - at(m)) / 10);
+      }
+    }
+    if (times.length === 0) {
+      console.log(`| ${r.name.tr} | — | 0/${RUNS} | | | |`);
+      continue;
+    }
+    const b = median(before);
+    const a = median(after);
+    const diff = before.length ? `%${Math.round(((a - b) / b) * 100)}` : '—';
+    console.log(`| ${r.name.tr} | ${fmt(median(times))} | ${times.length}/${RUNS} | ${before.length ? Math.round(b) : '—'} | ${before.length ? Math.round(a) : '—'} | ${diff} |`);
+  }
+  console.log('Fark, rolün yanında o 10 dakikada açılan her şeyi de içerir (yeni bölge, yükseltme); rol ilk kez geldiğinde ölçülür.');
+  console.log('Bot sırası: hediye taşıyıcı → tütsücü → taşıyıcı → madenci → mutfakçı (kulübe dolunca önce kulübe büyütülür).');
+}
+
 function reelTable(): void {
   const rand = seededRandom(7);
   const trials = 600;
@@ -1285,6 +1473,9 @@ if (process.argv[3] !== 'reel') {
   console.log('|---|---|---|---|');
   idleTest('hut', 'Ağ + 1. penguen açılınca');
   idleTest('smokehouse', 'Tütsühane açılınca');
+  idleTest('penguin2', '2. penguen (tütsücü) gelince');
+  idleTest('penguin3', '3. penguen (taşıyıcı) gelince');
+  roleTable();
   threatTable();
   sleepTable();
   incomeTable();

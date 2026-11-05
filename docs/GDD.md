@@ -139,7 +139,7 @@ Bölgeler 1–2 ilk demolar içindir. 3 ve sonrası tasarım yönünü gösterir
 - Açılmamış bölge haritada görünür, ama önünde kalın, yarı saydam, çatlaklı bir **buz duvarı** durur (çarpışmalı). Duvarın önünde kilit alanı vardır.
 - Kilit alanı dolunca: duvar sarsılıp çatlar → parçalara ayrılıp saçılır, kar/buz partikülleri uçar, belirgin titreşim ve kamera sarsıntısı olur → çarpışma kalkar → kamera ~0.7 sn'de yeni bölgeye kayar, içindeki kilit alanları zıplayarak belirir, kamera oyuncuya döner. Bu sırada joystick devre dışıdır (toplam ~3.5 sn).
 
-**Buz Kıyısı + Tütsühane bölgesi yerleşimi (Demo 3):** Kuzey ve doğu deniz. Tütsühane bölgesi batıda, bir ağaç kuşağının arkasında; kuşaktaki tek geçit buz duvarıyla kapalı. İçinde tütsühane ve 3. buz deliği kilit alanları var. Penguen kulübesi merkezde (iglonun güneyinde) kalır; 2. penguen kilit alanı da kulübenin yanındadır. Güneydeki ağaç kuşağında açılmayan ikinci bir buz duvarı durur: arkasında bulanık bir iskele silüeti ve "Yakında" tabelası (bölge 3'ün habercisi, işlevi yok).
+**Buz Kıyısı + Tütsühane bölgesi yerleşimi (Demo 3):** Kuzey ve doğu deniz. Tütsühane bölgesi batıda, bir ağaç kuşağının arkasında; kuşaktaki tek geçit buz duvarıyla kapalı. İçinde tütsühane ve 3. buz deliği kilit alanları var. Penguen kulübesi merkezde (iglonun güneyinde) kalır; batısında Penguen Pazarı tezgâhı vardır (Demo 7B, §24; eski "2. penguen" kilit alanının yerine). Güneydeki ağaç kuşağında açılmayan ikinci bir buz duvarı durur: arkasında bulanık bir iskele silüeti ve "Yakında" tabelası (bölge 3'ün habercisi, işlevi yok).
 
 Görsel çeşitlilik bölgelere göre artar:
 - Beyaz-mavi kıyı
@@ -157,17 +157,13 @@ Görsel çeşitlilik bölgelere göre artar:
 
 İşçiler basit bir durum makinesiyle çalışır: `idle → gidiyor → alıyor → gidiyor → bırakıyor`.
 
-**Penguen (Demo 3):**
-- "Penguen kulübesi" kilit alanıyla ilk penguen gelir; kulübenin yanındaki ikinci kilit alanı 2. penguendir (tütsühaneden sonra görünür).
-- İş önceliği:
-  1. Tütsühane çıkışında tütsülenmiş balık varsa → tezgâha taşı.
-  2. Tütsühane açıksa ve girişte yer varsa: sepetteki çiğ balığı → tütsühaneye taşı.
-  3. Değilse sepetteki çiğ balığı → tezgâha taşı.
-  4. Yapacak iş yoksa kulübenin önünde bekler (ara sıra kanat çırpar, etrafına bakar).
-- Taşıma 3, hız 2.6 birim/sn (oyuncu 4.0). Değerler `src/content/workers.ts`.
+**Penguen (Demo 3; Demo 7B'de rollere ayrıldı, §24):**
+- "Penguen kulübesi" kilit alanıyla ilk penguen (Taşıyıcı) ücretsiz gelir; diğerleri Penguen Pazarı'ndan alınır.
+- Her penguenin bir rolü vardır; ne yapacağını iş panosundan seçer (§24). Yapacak iş yoksa kulübenin önündeki yerinde bekler (ara sıra kanat çırpar, etrafına bakar).
+- Taşıma 3, hız 2.6 birim/sn (oyuncu 4.0); özellik ve seviye bunu değiştirir. Değerler `src/content/workers.ts`, `penguins.ts`, `roles.ts`.
 - Yol bulma: `zones.ts` içinde waypoint grafiği, A* ile; bazı kenarlar yalnızca ilgili bölge açılınca kullanılır. Yerel kaçınma = statik engellerden itilme. Penguenler oyuncunun ve birbirlerinin içinden geçebilir.
-- Birden fazla penguen aynı balıkları hedeflemesin diye kaynak ve hedeflerde "ayırma" yapılır.
-- Görsel: low-poly penguen, iki yana sallanan paytak yürüyüş, sırtında küçük yığın. Konumları kaydedilmez; açılışta kulübeden başlarlar (taşıdıkları balıklar kaydedilir).
+- Birden fazla penguen aynı balıkları hedeflemesin diye iş panosu kaynak ve hedeflerde rezervasyon yapar (§24).
+- Görsel: low-poly penguen, iki yana sallanan paytak yürüyüş, sırtında küçük yığın; her penguenin kendi bere ve atkı rengi var. Konumları kaydedilmez; açılışta kulübeden başlarlar (taşıdıkları kaydedilir).
 
 ## 8. Ekonomi (Demo 3 değerleri, simülasyonla ayarlandı)
 Değerler `src/content/` altında: `economy.ts` (oyuncu, tezgâh, müşteri, açılış fiyatları), `fish.ts`, `stations.ts`, `workers.ts`, `upgrades.ts`. Denge simülasyonu: `npm run sim` (`tools/balance-sim.ts`).
@@ -195,7 +191,8 @@ Değerler `src/content/` altında: `economy.ts` (oyuncu, tezgâh, müşteri, aç
 | Buz duvarı → Tütsühane bölgesi | 125 (Demo 4: 140 → 125) | ~10 dk | 10:57 |
 | Tütsühane | 150 (Demo 4: 160 → 150) | 12–15 dk | 14:38 |
 | 3. buz deliği | 160 (Demo 4: 220 → 160) | ~22 dk | 22:06 |
-| 2. penguen (tütsühaneden sonra) | 220 (Demo 4: 300 → 220) | ~28 dk | 28:53 |
+| Penguen Pazarı tezgâhı (tütsühaneden sonra; Demo 7B, eski "2. penguen" 220'nin yerine) | 40 | ~15 dk | 15:54 |
+| 2. penguen (Pazar'dan, Tütsücü ~185) | §24 | ~28 dk | 26:34 |
 
 **Olta yükseltmeleri** (5 seviye, seviye 1 başlangıç; fiyat = `taban × 1.6^(seviye − 1)`):
 
@@ -341,9 +338,10 @@ Her demo **telefondan açılabilen bir link** ile biter.
 ### Demo 7 — Panel yöneticisi, Penguen Pazarı, İskele (§23–§25)
 Üç alt aşama, her biri ayrı commit (typecheck, build ve sim her aşamada). Sayılar `src/content/` altında (yeni: `roles.ts`, `penguins.ts`, `voyages.ts`, `harbor.ts`), his ayarları `settings.ts` içinde. `priceScale` yeni fiyatlara da uygulanır. Save v5 → v6 göçü yazılır. ~150 draw call ve 60 fps bütçesi korunur.
 - **7A — Panel yöneticisi (§23) — BİTTİ:** Takılı kalan panel hatasının kök nedeni bulundu ve düzeltildi. Bütün paneller tek bir yöneticiden (`ui/PanelManager.ts`) geçiyor. Headless Chrome panel stres testleri var (`npm run test:panels`). Save hâlâ v5 (yeni ayar `debugTools` varsayılanla okunuyor); v5 → v6 göçü 7B'de yazılacak.
-- **7B — Penguen Pazarı ve roller (§24):** İşçi rolleri ve penguen pazarı (ayrıntılar 7B'de yazılacak).
+- **7B — Penguen Pazarı ve roller (§24) — BİTTİ:** Penguenler artık karakter: ad, rol, özellik, seviye/deneyim, bere-atkı görünümü. Altı rol (Taşıyıcı, Tütsücü, Madenci, Mutfakçı, Temizlikçi, Bekçi) veri odaklı; istasyonlar iş panosuna ilan verir, penguenler rollerine göre ilan alır, rezervasyon çift taşımayı önler. Yol grafiği mağara, kamp ve yem tuzağına uzatıldı. Kulübe 2 → 5 yer ve her seviyede büyüyor. Kulübenin yanındaki Penguen Pazarı (bağlamsal panel: Katalog | Penguenlerim | Kulübe). Çevrimdışı formül rol hızlarından. Save v6 (v5 → v6 göçü).
+  - **Kabul (7B):** Roller çalışıyor; çakışma ve çift taşıma yok (`npm run test:panels -- roles`: madenci, mutfakçı, bekçi, temizlikçi gerçek oyunda işini yapıyor, takılan penguen yok). Pazar paneli yöneticiden açılıp kapanıyor (`-- market` ve `cycles` içinde 50 tur). Eski kayıtlar bozulmuyor (v5 test kaydı: 2 penguen Taşıyıcı + Tütsücü, eski 2. penguen yerine Pazar). typecheck, build ve sim hatasız. Sim hedefleri: 2. penguen ✓, ilk Madenci ✓, gelir kolları ✓, çevrimdışı ✓ (uç durum %42); 3. penguen ~6 dk erken (§17).
 - **7C — İskele ve seferler (§25):** Ahşap İskele bölgesi ("Yakında" duvarının arkası): tekne, açık su, seferler (ayrıntılar 7C'de yazılacak).
-- **Hata ayıklama araçları** (Ayarlar → Hata ayıklama → Araçlar, varsayılan kapalı): coin ver, zamanı ileri sar (saat/gün), tehdit tetikle, panel durumu göstergesi (7A'da yapıldı). Sefer süresi çarpanı 7C'de eklenecek.
+- **Hata ayıklama araçları** (Ayarlar → Hata ayıklama → Araçlar, varsayılan kapalı): coin ver, zamanı ileri sar (saat/gün; gün atlatmak Pazar kataloğunu da yeniler), tehdit tetikle, panel durumu göstergesi (7A). 7B: "+XP" (bütün penguenlere deneyim) ve "İşler" (açık iş ilanları, her penguenin rolü, seviyesi, işi ve yükü). Sefer süresi çarpanı 7C'de eklenecek.
 - **Kabul (7A):** Panel test senaryoları hatasız geçer. Hiçbir panel takılı kalmaz, görünmez dokunuş yutucu katman kalmaz. Bütün paneller tek yöneticiden geçer. typecheck ve build hatasızdır.
 
 ### Demo 8 — Yayın hazırlığı
@@ -457,9 +455,10 @@ Her demo **telefondan açılabilen bir link** ile biter.
 ## 18. Çevrimdışı gelir (Demo 5A)
 - **Hesap formülle yapılır, simülasyon yoktur** (`systems/Offline.ts`). Oyun açılınca ya da arka plandan dönünce son kayıt zamanından (`lastSeenAt`) bu yana geçen süreye bakılır. Oyun saati çevrimdışı ilerlemez; tehdit olmaz, uyku buff'ı etkilenmez.
 - **Yalnızca otomatik zincir sayılır, her adım bir darboğazdır:**
-  1. Ağ (aralığı ve sepet kapasitesi) → penguenler (sayı × taşıma / tur süresi; tur süresi yol grafiğinden hesaplanır, tütsülü zincirde balık başına iki tur) → tütsühane (işleme hızı) → tezgâh (kapasite dolunca penguenler durur) → müşteriler (gündüz ve gece ortalaması, ~0.44 eşya/sn).
-  2. Kamp: çadır kirası (turist gelişi × huzur bonusu, çadırların kapasitesiyle sınırlı). Tabaklar yalnızca rafta bekleyenler kadar ve kamp görevlisi varsa satılır.
-  3. Mağara: yeni kristal yok; tezgâh elindeki kristali yontar, Koleksiyoncu ziyaretlerinde stoktan alır.
+  1. Ağ (aralığı ve sepet kapasitesi) → Taşıyıcılar → tütsühane (işleme hızı) → Tütsücüler → tezgâh (kapasite dolunca penguenler durur) → müşteriler (gündüz ve gece ortalaması, ~0.44 eşya/sn). Tütsücü yoksa Taşıyıcılar iki turu birlikte yapar (Demo 3 davranışı).
+  2. Kamp: çadır kirası (turist gelişi × huzur bonusu, çadırların kapasitesiyle sınırlı). Mutfak zinciri (Demo 7B): Mutfakçı (ya da Mutfakçı yokken Tütsücü) tütsüyü mutfağa taşır; tabaklar Mutfakçı ya da kamp görevlisi varsa turistlere satılır.
+  3. Mağara: Madenci varsa kristal gelir (damarların dolma hızını geçmez, fazlası giriş rafında raf kapasitesine kadar bekler); tezgâh yontar, Koleksiyoncu ziyaretlerinde stoktan alır. Madenci yoksa yeni kristal yok.
+  - **Rol hızları (Demo 7B):** Her penguen için tur süresi = 2 × iş yolunun uzunluğu (yol grafiğinden, `roles.ts` → `Jobs[...].legs`) / hız + taşıma × aktarma süresi × 2 + iş süresi (madencilik). Hız ve taşıma özellik ve seviyeyle değişir. Yeni sayı yok; oyun, sim ve formül aynı tabloları okur.
 - Sonunda sepet, raflar ve tezgâh hesapla tutarlı biçimde güncellenir (satılan çıkar, taşınamayan yerinde kalır, ağ boş yerleri doldurur). Çift sayma ve negatif değer olmaz.
 - **Oran ve üst sınır** (`content/economy.ts` → `offline`): %50, 2 saat; en az 60 sn. Ağ ve 1. penguen açılmadan gelir 0'dır ve pencere çıkmaz (penguen yoksa ağ yalnızca sepeti doldurur).
 - **"Sen yokken…" penceresi:** Geçen süre, sayarak artan coin, "Üst sınır: X saat" ve tek büyük "Topla" düğmesi var. Coin doğrudan cüzdana eklenir; coin yığınlarına dokunulmaz. Toplanmamış tutar kaydedilir ve pencere yeniden açılır. "x2" düğmesi gelecekteki ödüllü reklam için gizli bir yer tutucudur (`settings.ts` → `OfflineFeel.showOfflineBoost`).
@@ -580,7 +579,7 @@ Bütün paneller tek bir yöneticiden geçer: `ui/PanelManager.ts` (`panels`). P
 
 **Panel türleri ve kurallar:**
 - **MODAL:** ansiklopedi, günlük, ayarlar, karakter düzenleme, "Sen yokken", kalite önerisi.
-- **BAĞLAMSAL:** olta tezgâhı, sipariş panosu; 7B'de Pazar, 7C'de sefer paneli eklenecek. Halkaya bağlıdır.
+- **BAĞLAMSAL:** olta tezgâhı, sipariş panosu, Penguen Pazarı (7B); 7C'de sefer paneli eklenecek. Halkaya bağlıdır.
 - **KART:** gün özeti, yakalama / "Yeni tür!" kartı, günlük sayfası. Kısa sürelidir, sıraya girer.
 - **ŞERİT:** bildirim banner'ı. Yalnızca olay günlüğüne yazılır.
 - Aynı anda en fazla bir modal ya da bağlamsal panel açık olur. Yeni bağlamsal ya da kullanıcının açtığı modal, açık olanı kapatır. Sistemin açtığı modal ("Sen yokken", kalite önerisi) sıraya girer. Bağlamsal panel açık bir modalı itemez.
@@ -604,6 +603,7 @@ Bütün paneller tek bir yöneticiden geçer: `ui/PanelManager.ts` (`panels`). P
 |---|---|---|---|
 | Olta tezgâhı (Olta / İstasyonlar / Zaman sekmeleri) | bağlamsal | Tezgâh halkasında 0.2 sn durmak | ×, dışarı, geri, halkadan çıkma, kilit, arka plan |
 | Sipariş panosu | bağlamsal | Pano halkasında durmak; HUD pano düğmesi (uzaktan) | Kapat, dışarı, geri, halkadan çıkma, 30 sn dokunuşsuz (uzaktan), kilit, arka plan |
+| Penguen Pazarı (Katalog / Penguenlerim / Kulübe) | bağlamsal | Pazar halkasında 0.2 sn durmak | ×, dışarı, geri, halkadan çıkma, kilit, arka plan |
 | Ansiklopedi | modal | HUD balık düğmesi | Kapat, geri |
 | Günlük | modal | HUD kitap düğmesi | Kapat, arka plana dokunma, geri |
 | Günlük sayfası kartı | kart | Sayfa bulununca (Story) | "Günlüğe ekle", dışarı, geri (ilk 0.6 sn korumalı) |
@@ -628,7 +628,66 @@ Testlerin yakaladığı iki hata düzeltildi:
 - Açık bir modalın altında kalan kart, geri tuşuyla modalden önce kapanıyordu.
 
 ## 24. İşçiler ve roller (Demo 7B)
-(7B'de doldurulacak. Sayılar `content/roles.ts` ve `content/penguins.ts` içinde olacak.)
+Sayılar `content/roles.ts` (iş ilanları ve roller) ve `content/penguins.ts` (adlar, özellikler, seviyeler, görünüm, fiyatlar, kulübe, Pazar); his ayarları `settings.ts` → `WorkerFeel`, `MarketFeel`. Saf kurallar `systems/PenguinLogic.ts` ve `systems/JobBoard.ts` (oyun, save göçü ve sim ortak).
+
+**Penguen (kayıtlı):** id, ad (40 adlık havuzda indeks; tr ve en aynı sırada, dil değişince ad da çevrilir), rol, özellik, seviye ve toplam deneyim, görünüm (bere rengi ya da beresiz, atkı rengi; oyuncunun bere/atkı paletinden), ödenen fiyat, sırtındakiler (balık, kristal ya da tabak). İsim değiştirilmez.
+
+**Özellikler:**
+
+| Özellik | Etki | Fiyat çarpanı |
+|---|---|---|
+| Hızlı | +%20 hız, −1 taşıma (en az 1) | ×1.1 |
+| Güçlü | +1 taşıma, −%15 hız | ×1.1 |
+| Çalışkan | Deneyim +%50 | ×1.05 |
+| Dengeli | — | ×1 |
+| Sevimli | Huzur +1 (bahşiş ve turist gelişine katılır) | ×1 |
+
+**Seviye 1–5:** her seviye +%4 hız. Deneyim: teslim edilen her parça (balık, tabak, kristal, yem) 1, temizlenen her kar yığını 4. Eşikler (toplam) 0 / 40 / 110 / 220 / 380. Seviye atlayınca penguen kanat çırpar, parıltı çıkar, kısa bir cıvıltı ve "{ad} seviye N oldu!" şeridi gelir.
+
+**Roller** (rol yalnızca gerektirdiği yapı açıksa katalogda çıkar ve atanabilir):
+
+| Rol | Gerekir | İşler (öncelik sırasıyla) | Taban fiyat |
+|---|---|---|---|
+| Taşıyıcı | Kulübe | (Tütsücü yoksa) tütsü → tezgâh; sepet → tütsühane girişi (yer varsa); sepet → tezgâh. Temizlikçi yoksa kar yığını da kazar. | 180 |
+| Tütsücü | Tütsühane | (Mutfakçı yoksa ve mutfak açıksa) tütsü → mutfak girişi; tütsü → tezgâh | 175 |
+| Madenci | Kristal tezgâhı | Hazır bir damara gider, 4 sn kazar (oyuncu 2 sn), kristalleri tezgâhın giriş rafına bırakır | 260 |
+| Mutfakçı | Mutfak | Tabak rafı → kuyruktaki turist (servis); tütsü → mutfak girişi | 260 |
+| Temizlikçi | Tütsühane | Çığ kar yığınlarını temizler (önce raflara bakan "kapı" yığını, sonra koridor boyunca doğudan batıya); iş yoksa kulübe önünde bekler | 150 |
+| Bekçi | Tütsühane | Ayı uyarısı +5 sn (en fazla 2 bekçi sayılır), yaklaşan ayıyı her yerde "!" ile işaretler, yem tuzağını sepetten aldığı çiğ balıkla kendi kurar | 160 |
+
+Rıhtımcı (iskele ganimet rafı → tezgâh / tütsühane) 7C'de aynı tabloya eklenecek.
+
+**İş panosu (B4):**
+- İstasyonlar "mağaza" (store) olarak tanımlıdır: sepet, tütsühane giriş/çıkış rafı, tezgâh, mutfak girişi, tabak rafı, servis (kuyruktaki sıradaki turist), kristal damarı, kristal tezgâhı girişi, yem tuzağı. Her biri ne kadar verebileceğini (`takeable`), ne kadar yer olduğunu (`room`) ve hangi eşyayı kabul ettiğini söyler.
+- İlan = içerikteki bir iş (nereden, nereye, en fazla kaç parça, iş süresi): miktar her an canlı stoktan hesaplanır (kaynaktaki parça − rezerve, hedefteki yer − rezerve). İlanlar kaydedilmez.
+- Penguen boştayken kendi rolünün işlerini öncelik sırasıyla dener, ilk açık ilanı taşıyabileceği kadar rezerve eder. Rezervasyon kaynakta parçaları, hedefte yerleri tutar; başka penguen aynı parçaları ya da yerleri alamaz. Damar gibi tekil kaynaklar ayrıca sahiplenilir (bir damarda tek madenci).
+- Oyuncu her işi elle de yapabilir. Oyuncu eşyayı önce alırsa ilan küçülür: penguen gelir, kalanı alır ya da boş bulup başka işe geçer. Parçalar fiziksel olarak taşındığı için çift sayım olmaz.
+- Hedef doluysa penguen 6 sn bekler, sonra elindekini kabul eden ve yeri olan başka bir hedefe götürür (ör. mutfak doluysa tezgâh).
+- Sırtında eşyayla başlayan (yeniden yükleme, rol değişimi, ayıdan saklanma) penguen önce onu teslim eder (kendi rolünün işleri önce, sonra eşyayı kabul eden herhangi bir hedef).
+- Fok işçiler (7C) ve yeni roller aynı panoyu kullanacak: yeni rol = `roles.ts`'e bir satır, yeni istasyon = bir mağaza.
+- Yol bulma aynı A* waypoint grafiği; Demo 7B'de mağara (tütsühane bölgesinin güneyi → yamaç köşesi → mağara ağzı, mağara tapusuyla açılan kenar), kamp (tezgâhın doğusu → buz köprü, kamp tapusuyla açılan kenar → mutfak, tabak rafı, servis) ve yem tuzağı (sepetin doğusundan, iglonun etrafından) eklendi.
+- Hata ayıklama → "İşler": açık ilanlar ve her penguenin rolü, seviyesi, durumu, işi (nereden → nereye) ve yükü.
+
+**Kulübe kapasitesi:** 2 → 3 → 4 → 5 yer; yükseltme 300 / 380 / 560 (× `priceScale`), Pazar panelinin Kulübe sekmesinden. Kulübe her seviyede %8 büyür: 2'de arkada yataklı bir sundurma, 3'te ikinci pencere ve çiçek kutusu, 4'te çatı penceresi, bayrak ve kapı feneri (pencereler gece yanar). Boştaki penguenler kulübe önünde beş ayrı yerde bekler.
+
+**Penguen Pazarı:**
+- Kulübenin batısında çizgili tenteli küçük bir tezgâh; tütsühaneden sonra 40 coin'lik kilit alanıyla gelir. Önündeki halkada 0.2 sn durunca bağlamsal panel açılır (PanelManager, §23): **Katalog | Penguenlerim | Kulübe**.
+- **Katalog:** Her oyun günü yenilenir; 3–4 aday, roller mümkün olduğunca farklı, yalnızca şu an çalışabilecek roller. Kartta SVG portre (görünüm renklerinden, ayrı renderer yok), ad, rol ve kısa açıklama, özellik ve etkisi, fiyat ve "Satın al". Kulübe doluysa düğme soluk ve "Kulübe dolu" yazar; para yetmezse kart sallanır. Ücretsiz "Yenile" (sonra 3 dk bekleme).
+- **Penguenlerim:** Her satırda portre, ad, rol, seviye, özellik, deneyim çubuğu ve "Rolü değiştir" (açık roller çip olarak açılır; ücret 25 × `priceScale`).
+- **Kulübe:** Doluluk (N/M), seviye noktaları ve yükseltme kartı.
+- **Fiyat:** rol tabanı × özellik çarpanı × sayı çarpanı × `priceScale`. İlk 3 penguen (kulübenin hediyesi dahil) taban fiyattır; sonra her biri ×1.45 (4. penguen ×1.45, 5. ×2.1). Fiyat gösterilirken hesaplanır.
+- Satın alınan penguen kulübe kapısından zıplayarak çıkar, parıltı ve kar tozu, "{ad} aramıza katıldı!" şeridi.
+- Panel yeniden çizimi: yapı (adaylar, penguenler, roller, kulübe seviyesi, sekme) değişince kurulur; coin, süre ve deneyim çubukları yerinde güncellenir, böylece coin akarken dokunuş kaybolmaz.
+
+**Eski kayıtlar (v5 → v6):** Penguenler korunur. 1. penguen Taşıyıcı, 2. penguen tütsühane açıksa Tütsücü (değilse Taşıyıcı); ad, özellik ve görünüm sabit tohumla (`SaveSettings.penguinSeed`) üretilir, seviye 1. Eski "2. penguen" kilit alanı kalktı: onu almış kayda Pazar tezgâhı verilir; ona yarım dökülmüş coin cüzdana iade edilir. Kulübe seviyesi en az penguen sayısını alacak kadar olur. Kurutma askısı dekorasyonu artık Pazar'dan sonra çıkar.
+
+**Simülasyon** (`npm run sim`, 8 koşu, medyan; yükseltme almayan / alan bot):
+- Bot sırası: hediye Taşıyıcı → Tütsücü → Taşıyıcı → Madenci → Mutfakçı. Kulübe doluysa önce kulübeyi büyütür; istediği rol katalogda yoksa ücretsiz yenilemeyi kullanır. Bot her şeyi "karşılanabilir en ucuz hedef" kuralıyla alır.
+- Pazar 15:54 / 17:01. **2. penguen 26:34 / 28:29** (hedef ~28). **3. penguen 33:19 / 34:50** (hedef ~40, erken; §17). **İlk Madenci (4. penguen) 52:47 / 55:47** (hedef ~50), Mutfakçı (5.) ~57–61 dk.
+- Rol etkisi (gelir/dk, önceki 10 dk → sonraki 10 dk; o arada açılan her şey dahil): Tütsücü 70 → 134 (+%91), Madenci 158 → 247 (+%56), Mutfakçı 215 → 271 (+%26).
+- Gelir kolları: 60 dk balık %59 / kamp %15 / mağara %27; 90 dk %39 / %30 / %31. Hiçbiri %70'i geçmiyor, %10'un altına düşmüyor.
+- 3 dk hareketsiz coin: ağ + 1. penguen 76, tütsühane 91, 2. penguen (Tütsücü) 199, 3. penguen 211.
+- Çevrimdışı (8 sa yokluk, aynı süre aktif oyuna oran): taban (2 sa, %50) %19–%32; Zaman yükseltmeleri tam (8 sa, %65) %23–%42. En uç durum kamp + madenci aşamasında %42 (hedef ~%40).
 
 ## 25. İskele ve seferler (Demo 7C)
 (7C'de doldurulacak. Sayılar `content/voyages.ts` ve `content/harbor.ts` içinde olacak.)
@@ -639,6 +698,10 @@ Testlerin yakaladığı iki hata düzeltildi:
 - Ayı tüyünün kullanımı (şimdilik yalnızca sayılıyor; dekorasyon ya da huzurla bağlanabilir)
 - Kalite otomatik seçilmeli mi? Şimdilik varsayılan Orta, yavaş cihaza yalnızca bir kerelik öneri var.
 - Gerçek müzik parçası gerekecek mi? Şimdilik her şey sentez; `MusicDirector.loadTrack(url)` kancası hazır.
+- **3. penguen zamanı (Demo 7B):** Sim'de ~34 dk (hedef ~40). Bot "en ucuz karşılanabilir hedef" kuralıyla alıyor; kulübe 2. seviye fiyatı 360'ın altındayken kamp tapusundan önce (~34 dk), 380 ve üstündeyken kamp çadırlarından sonra (~46–50 dk) alınıyor, arası yok. 300 seçildi (hedefe daha yakın). Gerçek oyuncu farklı sıralayabilir; telefonda bakılmalı.
+- **Çevrimdışı uç durum:** Kamp + madenci aşamasında bütün Zaman yükseltmeleri alınmışken oran %42 (hedef ~%40). Madenci çevrimdışında Koleksiyoncu darboğazına kadar kristal getiriyor; "raf kapasitesine kadar" daha dar yorumlanırsa (yalnızca giriş rafını doldurur) oran düşer.
+- Uyku buff'ının etkisi 8 koşulu sim'de %12.9 çıktı (hedef ≤ ~%12, önceki ölçüm %10); koşu sayısına bağlı oynuyor, 7B ona dokunmadı.
+- Temizlikçi ve Bekçi sim'de kullanılmıyor (bot tehdit yapılarını da almıyor); etkileri yalnızca oyunda ve panel testinde ölçüldü.
 
 **Demo 6C'de kapananlar:** PWA PNG ikonları eklendi. Ses kaynakları sorusu kapandı (dosya yok, WebAudio sentezi). Diller Türkçe + İngilizce olarak kaldı. Ayarlarda "Sessiz" düğmeleri dil seçimini bozuyordu (seçici hatası), düzeltildi. Ayarlar kartı artık HUD düğmelerinin üstünde açılıyor.
 
@@ -681,17 +744,17 @@ Demolar sırasında verilen ve kalıcılaşan kararlar (eskimiş geçici kararla
 - Yamaç köşesi: tütsühane bölgesinin batısındadır. Çığ koridoru 3. deliğe giden yolu keser ama penguenlerin yolunu kesmez. Mağara koridorun güneyindedir.
 - Kamp, ana kıyının doğusundaki kara parçasındadır (buz köprü). Çevresindeki su çarpışmalarından ayı yüzerek geçer.
 - Mağara ve kampın kendi coin yığınları vardır. Heykelcik ve tabak sırtta taşınmaz; sırtta yalnızca kristal taşınır (balıkla aynı kapasite).
-- Penguenler kristal, heykelcik ve tabak taşımaz (`content/workers.ts` → `goods` kancası).
+- Penguenler balık, kristal (Madenci) ve tabak (Mutfakçı) taşır; heykelcik taşımaz (Koleksiyoncu raftan alır).
 
 **Tehditler, uyku ve hikâye**
 - Ayıyı korkutmak için joystick parmağı (ya da Space) basılıyken 3 birim yaklaşılır; parmak kalkınca dolum sıfırlanır. Meşale varken basılı tutmak gerekmez.
 - Hedefin 12 birim yakınındaki her ateş çukuru ayı şansını ×0.6 yapar; uyarı bonusu çukur sayısıyla artmaz.
-- Penguenler yalnızca raflara bakan "kapı" kar yığınını kazar, aynı anda tek penguen. Çığ sandığı coin verir.
+- Kar yığınlarını Temizlikçi (yoksa Taşıyıcı) kazar: önce raflara bakan "kapı" yığını, sonra koridor boyunca doğudan batıya; her yığında tek penguen. Çığ sandığı coin verir.
 - Uyku günün %64'ünden gece yarısına kadar mümkündür, uyanış günün %3'ündedir. Buff o günün sonuna kadar sürer. Ayı uyarısı/yaklaşması ve çığ uyarısı uykuyu engeller. Uyanınca yeni gün 90 sn sessiz başlar.
 - Tütsühanesi açık eski kayıtlarda 1. günlük sayfası ilk açılışta gelir.
 - Test anahtarı `DebugSettings.debugForceThreat` ('bear' / 'avalanche') commit'lerde 'off' kalır.
 
-**Kayıt (v5)**
-- Kaydedilir: oyuncu konumu, görünüm, ilerleme (`unlocked`, `regions`), istasyon içerikleri (tezgâh, sepet, tütsühane, mağara ve mutfak rafları, kristal damarlarının dolma süreleri), işçilerin taşıdıkları, yükseltmeler (olta + istasyon), saat ve gün toplamları, buff'lar, meşale / yem / ayı tüyü, iglo seviyesi, dekorasyonlar, uyku bilgisi, günlük sayfaları, Koleksiyoncu'ya kalan süre, ayarlar ve çevrimdışı hesap için son görülme zamanı.
+**Kayıt (v6)**
+- Kaydedilir: oyuncu konumu, görünüm, ilerleme (`unlocked`, `regions`), istasyon içerikleri (tezgâh, sepet, tütsühane, mağara ve mutfak rafları, kristal damarlarının dolma süreleri), penguenler (ad, rol, özellik, seviye, deneyim, görünüm, fiyat, taşıdıkları), kulübe seviyesi, Pazar kataloğu ve yenileme süresi, yükseltmeler (olta + istasyon), saat ve gün toplamları, buff'lar, meşale / yem / ayı tüyü, iglo seviyesi, dekorasyonlar, uyku bilgisi, günlük sayfaları, Koleksiyoncu'ya kalan süre, ayarlar ve çevrimdışı hesap için son görülme zamanı.
 - Kaydedilmez: müşteriler, turistler, NPC konumları, aktif ayı ve çığ, kar yığınları, sandık, uyku animasyonu, uçuştaki coin'ler. Uçuştaki balıklar inmiş sayılır.
 - Her sürüm bir öncekine göç eder; eksik ya da bozuk alanlar tek tek varsayılana döner.

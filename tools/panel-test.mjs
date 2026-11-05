@@ -1,7 +1,8 @@
 // Panel stress tests (GDD §23) in headless Chrome. Starts its own Vite dev server, loads crafted saves and drives
 // the game with real pointer / key events over the DevTools protocol.
 //   node tools/panel-test.mjs [suite ...] [--chrome <path>] [--throttle N] [--reduce-motion] [--cycles N]
-// Suites: cycles, storm, pairs, joystick, forced, lang (default: all). Exit code 1 when a check fails.
+// Suites: cycles, storm, pairs, joystick, forced, lang, market, roles (default: all).
+// --shots <dir> saves screenshots of the roles suite there. Exit code 1 when a check fails.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -17,9 +18,10 @@ const CHROME = opt('--chrome', 'C:/Program Files/Google/Chrome/Application/chrom
 const THROTTLE = Number(opt('--throttle', '1'));
 const REDUCE = args.includes('--reduce-motion');
 const CYCLES = Number(opt('--cycles', '200'));
-const VALUED = ['--chrome', '--throttle', '--cycles'];
+const VALUED = ['--chrome', '--throttle', '--cycles', '--shots'];
+const SHOTS = opt('--shots', '');
 const SUITES = args.filter((a, i) => !a.startsWith('--') && !VALUED.includes(args[i - 1]));
-const ALL = ['cycles', 'storm', 'pairs', 'joystick', 'forced', 'lang'];
+const ALL = ['cycles', 'storm', 'pairs', 'joystick', 'forced', 'lang', 'market', 'roles'];
 const run = SUITES.length ? SUITES : ALL;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -153,6 +155,7 @@ const teleport = (x, z) => js(`(() => { const p = window.__game.player.state; p.
 const isOpen = (pid) => js(`window.__panels.isOpen(${JSON.stringify(pid)})`);
 const PAD = { x: -7.6, z: -2.0 };
 const BOARD = { x: -1.2, z: 2.9 };
+const MARKET = { x: -8.6, z: 8.1 };
 const AWAY = { x: 2, z: 1.5 };
 
 /** Clean state: nothing open or queued, no hidden touch catcher, game touches on, no pointer held. */
@@ -182,7 +185,118 @@ const results = [];
 const check = (label, ok, detail = '') => results.push({ label, ok, fails: ok ? [] : [detail || 'failed'] });
 
 // ---------- suites ----------
+const shot = async (name) => {
+  if (!SHOTS) return;
+  const r = await send('Page.captureScreenshot', { format: 'png' });
+  fs.mkdirSync(SHOTS, { recursive: true });
+  fs.writeFileSync(path.join(SHOTS, `${name}.png`), Buffer.from(r.data, 'base64'));
+};
+
 const suites = {
+  /**
+   * Roles at work (GDD §24): a late save with the cave, the camp and the bait trap open and five penguins (miner, cook,
+   * guard, sweeper, carrier). The real game runs for a while; the work must get done and no penguin may get stuck.
+   */
+  async roles() {
+    const smoked = (n) => Array.from({ length: n }, () => fish('cod', 'smoked', 8));
+    const raw = (n) => Array.from({ length: n }, () => fish('capelin', 'raw', 2));
+    await load({
+      unlocked: ['hole2', 'net', 'hut', 'smokehouse', 'hole3', 'penguin2', 'orderBoard', 'igloo2', 'torchStand', 'baitTrap', 'crystalBench', 'tent1', 'kitchen', 'tent2'],
+      regions: ['smokeYard', 'iceCave', 'hotSpring'],
+      story: { pages: ['page1', 'page2', 'page3'] },
+      workers: Array.from({ length: 5 }, () => ({ carried: [] })),
+      basket: raw(6),
+      smoker: { input: [], output: smoked(8), progress: 0 },
+      cave: { veins: [0, 0, 0, 0, 0, 0], input: 0, output: 0, progress: 0, collectorIn: 400, pile: 0, mined: 3 },
+      camp: { input: [], plates: [], progress: 0, pile: 0, served: 1 },
+    });
+    const roles = ['carrier', 'miner', 'cook', 'guard', 'sweeper'];
+    await js(`(() => { const g = window.__game; g.state.workers.forEach((w, i) => { w.role = ${JSON.stringify(roles)}[i]; g.workers.roleChanged(w); }); return true; })()`);
+    const st = () =>
+      js(`(() => { const g = window.__game; const s = g.state; return { mined: s.cave.mined, crystals: s.cave.input + s.cave.output, kitchen: s.camp.input.length, plates: s.camp.plates.length, served: s.camp.served, bait: !!s.threats.bait, hut: s.hutLevel, pos: g.workers.brains.map((b) => [b.x, b.z, b.phase]) }; })()`);
+    const s0 = await st();
+    check('5 penguins from a v5 save: hut grows to fit them', s0.hut >= 4, JSON.stringify(s0.hut));
+    await js(`window.__game.threats.debugStart('avalanche', false), true`);
+    const moved = [0, 0, 0, 0, 0];
+    let last = s0.pos;
+    for (let t = 0; t < 30; t++) {
+      await sleep(3000);
+      const now = (await st()).pos;
+      now.forEach((p, i) => (moved[i] += Math.hypot(p[0] - last[i][0], p[1] - last[i][1])));
+      last = now;
+      if (t === 8) {
+        await teleport(-27.5, 0.6);
+        await sleep(600);
+        await shot('roles-cave');
+      }
+      if (t === 18) {
+        await teleport(15.5, -2.5);
+        await sleep(600);
+        await shot('roles-camp');
+      }
+    }
+    const s1 = await st();
+    check('miner: crystals mined and on the bench', s1.mined > s0.mined && s1.crystals > 0, `mined ${s0.mined}→${s1.mined}, bench ${s1.crystals}`);
+    check('cook: kitchen filled and platters served', s1.kitchen + s1.plates > 0 || s1.served > s0.served, JSON.stringify({ k: s1.kitchen, p: s1.plates, served: s1.served }));
+    check('guard: bait trap set from the basket', s1.bait);
+    check('sweeper: avalanche piles cleared', await js(`window.__game.world.colliders.filter((c) => window.__game.threats.avalanche.isPile(c)).length === 0`));
+    check('every penguin moved (none stuck at home or on the way)', moved.every((d) => d > 5), moved.map((d) => d.toFixed(0)).join(', '));
+    await teleport(-6, 8.6);
+    await sleep(600);
+    await shot('roles-hut');
+    await teleport(AWAY.x, AWAY.z);
+    await audit('roles: clean');
+  },
+
+
+  /**
+   * Penguin Market (GDD §24): the v5 test save migrates (two penguins become carrier + smoker, the old "2nd penguin"
+   * gives the stall); tabs, buying, a role change and a hut upgrade work through the panel and leave nothing stuck.
+   */
+  async market() {
+    await load();
+    const st = () => js(`(() => { const s = window.__game.state; return { n: s.workers.length, roles: s.workers.map((w) => w.role), market: s.unlocked.includes('market'), hut: s.hutLevel, coins: s.coins, offers: s.market.offers.length }; })()`);
+    let s0 = await st();
+    check('v5 → v6: penguins kept as carrier + smoker, stall from the old 2nd-penguin frame', s0.n === 2 && s0.roles[0] === 'carrier' && s0.roles[1] === 'smoker' && s0.market, JSON.stringify(s0));
+    await teleport(MARKET.x, MARKET.z);
+    for (let k = 0; k < 40 && !(await isOpen('market')); k++) await sleep(25);
+    check('market opens on its pad', await isOpen('market'));
+    check('catalog has 3–4 candidates', s0.offers >= 3 && s0.offers <= 4, `${s0.offers}`);
+    const buyBtn = () => js(`(() => { const b = document.querySelector('.market-panel .mc-buy'); return b ? b.classList.contains('full') : null; })()`);
+    check('hut full (2/2): buy button says so', (await buyBtn()) === true);
+    await tapSel('.market-panel .panel-tabs button[data-tab="hut"]');
+    await frames(3);
+    await tapSel('.market-panel .mh-card');
+    await frames(3);
+    s0 = await st();
+    check('hut upgrade from the Hut tab (2 → 3 places)', s0.hut === 2, JSON.stringify(s0));
+    await tapSel('.market-panel .panel-tabs button[data-tab="catalog"]');
+    await frames(3);
+    await tapSel('.market-panel .mc-buy');
+    await frames(3);
+    s0 = await st();
+    check('buying a candidate adds a penguin', s0.n === 3 && s0.offers >= 2, JSON.stringify(s0));
+    await tapSel('.market-panel .panel-tabs button[data-tab="mine"]');
+    await frames(3);
+    await tapSel('.market-panel .mc-role-btn');
+    await frames(3);
+    const before = (await st()).roles[0];
+    await tapSel('.market-panel .mr-chip:not(.on)');
+    await frames(3);
+    const after = (await st()).roles[0];
+    check('role change from "My penguins"', before !== after, `${before} → ${after}`);
+    for (let i = 0; i < 20; i++) {
+      await tapSel(`.market-panel .panel-tabs button[data-tab="${['catalog', 'mine', 'hut'][i % 3]}"]`);
+      await frames(1);
+    }
+    check('still open after tab taps', await isOpen('market'));
+    await teleport(AWAY.x, AWAY.z);
+    await frames(3);
+    check('walking off closes the market', !(await isOpen('market')));
+    await audit('market: clean');
+  },
+
+
   /** Every panel opened and closed CYCLES times, closing it every possible way in turn. */
   async cycles() {
     await load();
@@ -241,6 +355,7 @@ const suites = {
     };
     await contextual('bench', PAD, '.panel-x');
     await contextual('orders', BOARD, '.order-close');
+    await contextual('market', MARKET, '.panel-x');
 
     // Cards.
     let stuck = 0;
@@ -292,7 +407,7 @@ const suites = {
   /** Random taps everywhere (HUD buttons, cards, canvas), Escape and drags, fast; then everything must settle. */
   async storm() {
     await load();
-    const sels = ['.hud-right .hud-gear:not(.hud-book)', '.hud-book', '.hud-codex', '.hud-board', '.settings-btn.close', '.codex-close', '.order-close', '.panel-x', '.journal-row', '.codex-card'];
+    const sels = ['.hud-right .hud-gear:not(.hud-book)', '.hud-book', '.hud-codex', '.hud-board', '.settings-btn.close', '.codex-close', '.order-close', '.panel-x', '.journal-row', '.codex-card', '.market-panel .panel-tabs button', '.mc-buy', '.mc-role-btn'];
     let seed = 7;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     for (let i = 0; i < 600; i++) {
@@ -300,7 +415,10 @@ const suites = {
       if (r < 0.35) await tapSel(sels[Math.floor(rnd() * sels.length)]);
       else if (r < 0.75) await tap(rnd() * 390, rnd() * 844);
       else if (r < 0.82) await key('Escape');
-      else if (r < 0.88) await teleport(rnd() < 0.5 ? PAD.x : BOARD.x, rnd() < 0.5 ? PAD.z : BOARD.z);
+      else if (r < 0.88) {
+        const spot = [PAD, BOARD, MARKET][Math.floor(rnd() * 3)];
+        await teleport(spot.x, spot.z);
+      }
       else if (r < 0.92) await js(`window.__game.summary.show(1, { coins: 1, caught: 1, sold: 1 }, null), true`);
       else {
         const x = rnd() * 390;

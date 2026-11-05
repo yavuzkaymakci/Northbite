@@ -59,6 +59,10 @@ import { Smokehouse } from '../systems/Smokehouse';
 import { Threats } from '../systems/Threats';
 import { Unlocks, type UnlockSpot } from '../systems/Unlocks';
 import { Workers } from '../systems/Workers';
+import { Market } from '../systems/Market';
+import { MarketPanel } from '../ui/MarketPanel';
+import { addXp, firstPenguin } from '../systems/PenguinLogic';
+import { Jobs } from '../content/roles';
 import { CharacterCreator, type CreatorMode } from '../ui/CharacterCreator';
 import { HUD } from '../ui/HUD';
 import { SettingsPanel } from '../ui/SettingsPanel';
@@ -117,6 +121,7 @@ export class Game {
   private readonly net: NetStation;
   private readonly smoker: Smokehouse;
   private readonly workers: Workers;
+  private readonly market: Market;
   private readonly coins: CoinSystem;
   private readonly customers: Customers;
   private readonly unlocks: Unlocks;
@@ -219,7 +224,7 @@ export class Game {
 
     this.world = new WorldMap(s.unlocked, s.regions);
     this.scene.add(this.world.group);
-    if (s.unlocked.includes('hut')) this.world.buildHut(null);
+    if (s.unlocked.includes('hut')) this.world.buildHut(null, s.hutLevel);
 
     const spawn = save?.player ?? { ...IceShore.playerSpawn, heading: 0 };
     this.player = new Player(this.appearance, spawn.x, spawn.z, spawn.heading);
@@ -255,7 +260,7 @@ export class Game {
     if (s.unlocked.includes('net')) this.net.build(false);
     this.smoker = new Smokehouse(this.scene, s, this.player, this.stack, this.fx, this.world, this.appear);
     if (s.unlocked.includes('smokehouse')) this.smoker.build(false);
-    this.workers = new Workers(this.scene, s, this.world, this.net, this.smoker, this.selling);
+    this.workers = new Workers(this.scene, s, this.world, this.net, this.smoker, this.selling, this.fx, this.banner);
     this.coins = new CoinSystem(s, this.player);
     this.customers = new Customers(this.scene, this.selling, this.coins, s, () => this.day.customerRate);
     this.cave = new Cave(this.scene, s, this.player, this.stack, this.world, this.fx, this.labels, this.banner, this.coins, this.appear);
@@ -282,6 +287,9 @@ export class Game {
       onChestOpened: () => this.story.event('avalancheChest'),
       campPlates: () => (this.state.unlocked.includes('kitchen') ? this.state.camp.plates.length : null),
     });
+    // Penguins work in the lands and at the bait trap too (GDD §24): their stores need those systems.
+    this.workers.link({ camp: this.camp, cave: this.cave, buildings: this.threats.buildings });
+    this.market = new Market(s, this.player, this.world, this.coins, this.fx, this.banner, this.appear, this.workers, new MarketPanel(overlay));
     this.unlocks = new Unlocks(this.scene, s, this.player, this.coins, this.labels, this.appear, (spot) => this.onUnlock(spot));
     this.regionOpening = new RegionOpening(this.world, this.rig, this.fx, this.player, this.unlocks, () => this.save());
     this.panel = new UpgradePanel(overlay, (kind, id) => this.bench.buy(kind, id));
@@ -314,7 +322,7 @@ export class Game {
     // The visual hints are for the first minutes only (GDD §22).
     if (s.stats.playTime >= TutorialFeel.seconds) this.hud.hideHint();
     this.qualityPrompt = new QualityPrompt(overlay);
-    this.debugBar = new DebugBar(overlay, (a) => this.debugAction(a));
+    this.debugBar = new DebugBar(overlay, (a) => this.debugAction(a), () => this.jobLines());
     this.debugBar.setVisible(s.prefs.debugTools);
     this.applyQuality();
 
@@ -445,6 +453,7 @@ export class Game {
     this.coins.update(dt);
     this.unlocks.update(dt);
     this.bench.update(dt);
+    this.market.update(dt);
     this.appear.update(dt);
     this.state.stats.playTime += dt;
     this.threats.update(dt, elapsed, {
@@ -490,7 +499,7 @@ export class Game {
     this.fishing.render(this.fishRenderer, elapsed);
     this.net.render(this.fishRenderer);
     this.smoker.render(this.fishRenderer);
-    this.workers.render(this.fishRenderer);
+    this.workers.render(this.fishRenderer, this.goods);
     this.threats.render(this.fishRenderer, elapsed, (flames) => this.igloo.addFlames(flames, elapsed));
     this.fishRenderer.end();
     this.goods.end();
@@ -632,7 +641,19 @@ export class Game {
     else if (a === 'hour') this.dayEvents(this.day.update(len / 24));
     else if (a === 'day') this.dayEvents(this.day.update(len));
     else if (a === 'bear' || a === 'avalanche') this.threats.debugStart(a, this.day.isNight);
+    else if (a === 'xp') for (const w of this.state.workers) addXp(w, DebugTools.penguinXp);
     this.save();
+  }
+
+  /** Debug view (GDD §24): open job-board listings and what each penguin is doing. */
+  private jobLines(): string[] {
+    const ctx = this.workers.ctx;
+    const listings = ctx.board.listings().map((l) => `${l.job} ${l.amount}`);
+    const penguins = this.workers.brains.map((b) => {
+      const job = ctx.board.jobOf(b);
+      return `#${b.data.id} ${b.data.role} Lv${b.data.level} ${b.phase}${job ? ` ${Jobs[job].from}→${Jobs[job].to}` : ''} [${b.carried.length}]`;
+    });
+    return [`jobs: ${listings.join(', ') || '-'}`, ...penguins];
   }
 
   /** Music mood and ambience follow the time of day, the place and what happens (GDD §21). */
@@ -736,7 +757,12 @@ export class Game {
       if (h.unlock === spot.id) this.world.openHole(h.id, true);
     }
     for (const e of spot.zone?.effects ?? []) {
-      if (e.kind === 'worker') this.workers.add();
+      if (e.kind === 'worker') {
+        // The hut's free penguin (GDD §24); the others come from the Penguin Market.
+        const data = firstPenguin(this.state, Math.random);
+        this.state.workers.push(data);
+        this.workers.add(data, true);
+      }
       else if (e.kind === 'building') this.threats.build(e.building, true);
       else if (e.kind === 'igloo') {
         applyComfortUnlock(this.state, e);
@@ -751,7 +777,8 @@ export class Game {
       }
       else if (e.station === 'orderBoard') this.board.build(true);
       else if (e.station === 'net') this.net.build(true);
-      else if (e.station === 'hut') this.world.buildHut(this.appear);
+      else if (e.station === 'hut') this.world.buildHut(this.appear, this.state.hutLevel);
+      else if (e.station === 'market') this.market.build(true);
       else if (e.station === 'smokehouse') this.smoker.build(true);
     }
     if (spot.region) this.regionOpening.start(spot.region);

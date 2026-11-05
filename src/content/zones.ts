@@ -17,7 +17,7 @@ export interface RectArea {
   maxZ: number;
 }
 
-export type StationId = 'net' | 'hut' | 'smokehouse' | 'orderBoard';
+export type StationId = 'net' | 'hut' | 'smokehouse' | 'orderBoard' | 'market';
 
 /** Threat buildings (GDD §13); their positions are in `ThreatBuildingSpots`. */
 export type BuildingId = 'torchStand' | 'baitTrap' | 'firePit1' | 'firePit2' | 'firePit3' | 'snowFence' | 'watchtower';
@@ -103,8 +103,26 @@ export const IceShore = {
   /** Rod bench next to the igloo; standing on the pad opens the upgrade panel. */
   bench: { x: -7.6, z: -3.4, width: 1.8, depth: 0.8, pad: { x: -7.6, z: -2.0, radius: 0.9 } },
 
-  /** Penguin hut. Penguins wait at `idle` (door side) when there is nothing to carry. */
-  hut: { x: -5.8, z: 7.2, width: 2.4, depth: 2.0, idle: { x: -4.4, z: 9.0 } },
+  /** Penguin hut. Penguins wait at `idle` (door side) when there is nothing to carry, one per slot (GDD §24). */
+  hut: {
+    x: -5.8,
+    z: 7.2,
+    width: 2.4,
+    depth: 2.0,
+    idle: { x: -4.4, z: 9.0 },
+    slots: [
+      { x: -4.4, z: 9.0 },
+      { x: -3.5, z: 9.3 },
+      { x: -2.6, z: 9.0 },
+      { x: -4.0, z: 10.1 },
+      { x: -3.0, z: 10.3 },
+    ],
+    /** Where a newly bought penguin hops out. */
+    door: { x: -5.45, z: 8.4 },
+  },
+
+  /** Penguin Market stall west of the hut (GDD §24): stand on the pad to open the market panel. */
+  market: { x: -8.6, z: 6.7, width: 1.8, depth: 0.8, pad: { x: -8.6, z: 8.1, radius: 0.9 } },
 
   /** Smokehouse with an input rack (raw) and an output rack (smoked) on its east side. */
   smokehouse: {
@@ -322,7 +340,8 @@ export const UnlockZones: readonly UnlockZoneDef[] = [
     effects: [{ kind: 'station', station: 'smokehouse' }],
   },
   { id: 'hole3', x: -17, z: -8.2, size: 2.2, cost: 'thirdHole', requires: [], effects: [] },
-  { id: 'penguin2', x: -8.4, z: 7.6, size: 1.8, cost: 'secondPenguin', requires: ['smokehouse'], effects: [{ kind: 'worker' }] },
+  // Penguin Market stall next to the hut (GDD §24); it replaced the old "2nd penguin" frame.
+  { id: 'market', x: -8.6, z: 6.9, size: 1.8, cost: 'market', requires: ['smokehouse'], effects: [{ kind: 'station', station: 'market' }] },
   // Threat buildings (GDD §13): optional, they show up once the smokehouse is open.
   ...(
     [
@@ -432,8 +451,9 @@ export const TeaserWalls = [
 ] as const;
 
 /**
- * Waypoint graph for helpers (A*). Edges are straight lines kept clear of colliders; an edge with `gate`
- * is only usable once that region is open.
+ * Waypoint graph for penguins (A*). Edges are straight lines kept clear of colliders; an edge with `gate`
+ * is only usable once that region is open. Demo 7B added the Ice Cave (through the yard's south side and the nook),
+ * the Hot Spring Camp (over the ice bridge) and the bait trap north of the igloo.
  */
 export const PathGraph = {
   nodes: {
@@ -446,6 +466,22 @@ export const PathGraph = {
     pass: { x: -9.8, z: -1.2 },
     smokeIn: { x: -13.5, z: -2.8 },
     smokeOut: { x: -13.5, z: -0.2 },
+    // Bait trap (north of the igloo), around the basket's east side.
+    iceNorth: { x: 1.0, z: -2.6 },
+    bait: { x: -1.6, z: -8.4 },
+    // Yard south side → slope nook → Ice Cave.
+    yardSouth: { x: -15.4, z: 0.9 },
+    yardWest: { x: -20.6, z: 0.4 },
+    nook: { x: -23.0, z: -0.4 },
+    caveMouth: { x: -25.0, z: -0.4 },
+    crystalIn: { x: -28.6, z: 0.5 },
+    caveMid: { x: -30.2, z: 0.2 },
+    // Ice bridge → Hot Spring Camp.
+    east: { x: 8.6, z: -1.0 },
+    campGate: { x: 12.4, z: -1.2 },
+    kitchenIn: { x: 13.6, z: -1.5 },
+    plates: { x: 17.4, z: -1.5 },
+    serve: { x: 18.6, z: -0.3 },
   },
   edges: [
     { a: 'hut', b: 'plaza' },
@@ -458,6 +494,20 @@ export const PathGraph = {
     { a: 'pass', b: 'smokeIn', gate: 'smokeYard' },
     { a: 'pass', b: 'smokeOut', gate: 'smokeYard' },
     { a: 'smokeIn', b: 'smokeOut' },
+    { a: 'basket', b: 'iceNorth' },
+    { a: 'counter', b: 'iceNorth' },
+    { a: 'iceNorth', b: 'bait' },
+    { a: 'smokeOut', b: 'yardSouth' },
+    { a: 'yardSouth', b: 'yardWest' },
+    { a: 'yardWest', b: 'nook' },
+    { a: 'nook', b: 'caveMouth', gate: 'iceCave' },
+    { a: 'caveMouth', b: 'crystalIn' },
+    { a: 'crystalIn', b: 'caveMid' },
+    { a: 'counter', b: 'east' },
+    { a: 'east', b: 'campGate', gate: 'hotSpring' },
+    { a: 'campGate', b: 'kitchenIn' },
+    { a: 'kitchenIn', b: 'plates' },
+    { a: 'plates', b: 'serve' },
   ],
 } as const;
 

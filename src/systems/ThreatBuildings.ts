@@ -101,6 +101,16 @@ export class ThreatBuildings {
     if (animate) this.appear.add(obj);
   }
 
+  /** Guard penguins (GDD §24): 1 when the trap is built and empty (and no fish is flying in). */
+  baitRoom(): number {
+    return this.built.has('baitTrap') && !this.state.threats.bait && this.toBait.items.length === 0 ? 1 : 0;
+  }
+
+  /** A guard sets the trap with a raw fish from the basket. */
+  setBait(item: FishItem, from: THREE.Vector3): void {
+    this.toBait.add(from, this.to.set(S.baitTrap.at.x, BAIT_Y + 0.05, S.baitTrap.at.z), StationFeel.flightTime, StationFeel.arcHeight, item);
+  }
+
   update(dt: number): void {
     const p = this.player.state;
     const g = this.state.threats;

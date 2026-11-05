@@ -5,6 +5,8 @@ import type { OrderExtra, OrderKind } from '../content/orders';
 import { TimeOfDay } from '../content/time';
 import type { UpgradeId } from '../content/upgrades';
 import type { StationUpgradeId } from '../content/stationUpgrades';
+import type { RoleId } from '../content/roles';
+import type { TraitId } from '../content/penguins';
 
 export type ItemKind = 'raw' | 'smoked';
 
@@ -25,9 +27,61 @@ export interface SmokerState {
   progress: number;
 }
 
-/** A helper's saved data. Positions are not saved; helpers start at their hut. */
+/** Goods penguins carry besides fish: crystals (miner) and platters (cook). `price` is the platter value (0 for a crystal). */
+export interface GoodItem {
+  kind: 'crystal' | 'plate';
+  price: number;
+}
+
+/** Anything on a penguin's back. */
+export type WorkerItem = FishItem | GoodItem;
+
+export function isFish(item: WorkerItem): item is FishItem {
+  return item.kind === 'raw' || item.kind === 'smoked';
+}
+
+/** Hat (-1 = none) and scarf colours, indices into Palette.HeadwearColors / ScarfColors. */
+export interface PenguinLook {
+  hat: number;
+  scarf: number;
+}
+
+/**
+ * A penguin's saved data (GDD §24). Positions are not saved; penguins start at their hut. `name` is an index into
+ * content/penguins.ts → PenguinNames (both languages), `xp` the total experience.
+ */
 export interface WorkerData {
-  carried: FishItem[];
+  id: number;
+  name: number;
+  role: RoleId;
+  trait: TraitId;
+  level: number;
+  xp: number;
+  look: PenguinLook;
+  /** What was paid for it (0 for the hut's free penguin). */
+  price: number;
+  carried: WorkerItem[];
+}
+
+/** A penguin waiting in the market catalog; its price is worked out when shown (it depends on how many you own). */
+export interface PenguinOffer {
+  id: number;
+  name: number;
+  role: RoleId;
+  trait: TraitId;
+  look: PenguinLook;
+}
+
+/** Penguin Market (GDD §24). */
+export interface MarketState {
+  offers: PenguinOffer[];
+  /** Game day the catalog was made for (a new day brings a new catalog). */
+  day: number;
+  /** Seconds until the free "Refresh" works again. */
+  refreshIn: number;
+  nextId: number;
+  /** Penguin ids so far (WorkerData.id). */
+  nextPenguin: number;
 }
 
 /**
@@ -91,6 +145,14 @@ export interface GameState {
   codex: CodexState;
   /** Order board (GDD §20). */
   orders: OrdersState;
+  /** Penguin hut level 1..4: how many penguins live there (GDD §24). */
+  hutLevel: number;
+  /** Penguin Market catalog (GDD §24). */
+  market: MarketState;
+}
+
+export function createMarketState(): MarketState {
+  return { offers: [], day: 0, refreshIn: 0, nextId: 1, nextPenguin: 1 };
 }
 
 export interface SpeciesRecord {
@@ -268,6 +330,8 @@ export function createGameState(): GameState {
     offlinePending: null,
     codex: createCodexState(),
     orders: createOrdersState(),
+    hutLevel: 1,
+    market: createMarketState(),
   };
 }
 

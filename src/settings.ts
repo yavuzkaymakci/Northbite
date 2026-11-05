@@ -54,6 +54,8 @@ export const SaveSettings = {
   storageKey: 'northbite-save',
   /** Keys used by earlier builds; read once and migrated to `storageKey`. */
   legacyStorageKeys: ['polar-harbor-save'],
+  /** Fixed seed for the names, traits and looks given to penguins of v5 saves (GDD §24). */
+  penguinSeed: 7700,
 } as const;
 
 export const TimeSettings = {
@@ -185,6 +187,15 @@ export const WorkerFeel = {
   waddleRoll: 0.16,
   stackScale: 0.7, // fish on a penguin's back are drawn smaller
   hopInTime: 0.6, // new penguin hops out of the hut
+  hopOutTime: 1.1, // a bought penguin's jump out of the hut door (GDD §24)
+  dropPatience: 6, // seconds at a full destination before looking for another one
+  levelUpFlap: 1.6, // flapping after a level-up
+} as const;
+
+/** Penguin Market feel (GDD §24). Prices and timers live in content/penguins.ts. */
+export const MarketFeel = {
+  openDelay: 0.2, // stand on the pad this long before the panel opens
+  celebrateMs: 700,
 } as const;
 
 /** Ice wall break + camera tour when a region opens (GDD §5, §6). */
@@ -402,4 +413,6 @@ export const PanelFeel = {
 /** Debug tools (Settings → Debug → Tools). */
 export const DebugTools = {
   coins: 1000,
+  /** Experience given to every penguin by the debug "+XP" button (GDD §24). */
+  penguinXp: 60,
 } as const;

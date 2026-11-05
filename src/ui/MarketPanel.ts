@@ -1,0 +1,279 @@
+import { Hut, PenguinLevels, TraitById } from '../content/penguins';
+import { RoleById, type RoleId } from '../content/roles';
+import { getLang, t, tf } from '../content/strings';
+import { MarketFeel } from '../settings';
+import type { GameState, PenguinLook, WorkerData } from '../core/GameState';
+import { HeadwearColors, ScarfColors, toCss } from '../render/Palette';
+import { availableRoles, hutCapacity, hutUpgradeCost, levelProgress, offerPrice, penguinName, roleChangeFee } from '../systems/PenguinLogic';
+import { onTap } from './tap';
+import { panels, type CloseReason } from './PanelManager';
+
+type Tab = 'catalog' | 'mine' | 'hut';
+
+export interface MarketActions {
+  buy: (offerId: number) => void;
+  reroll: () => void;
+  role: (penguinId: number, role: RoleId) => void;
+  hut: () => void;
+}
+
+const mmss = (sec: number) => {
+  const s = Math.max(Math.ceil(sec), 0);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+/** Small penguin portrait drawn from its look (SVG, no renderer): body, belly, beak, scarf and beanie. */
+export function penguinPortrait(look: PenguinLook): string {
+  const scarf = toCss(ScarfColors[look.scarf % ScarfColors.length] as number);
+  const hat =
+    look.hat >= 0
+      ? `<path d="M14 14 a10 9 0 0 1 20 0 z" fill="${toCss(HeadwearColors[look.hat % HeadwearColors.length] as number)}"/><rect x="13" y="12.5" width="22" height="3.5" rx="1.7" fill="${toCss(HeadwearColors[look.hat % HeadwearColors.length] as number)}"/><circle cx="24" cy="4.6" r="2.6" fill="var(--snow)"/>`
+      : '';
+  return `<svg class="pg-portrait" viewBox="0 0 48 48" aria-hidden="true">
+    <ellipse cx="24" cy="33" rx="13" ry="13.5" fill="var(--penguin-back)"/>
+    <ellipse cx="24" cy="35" rx="8.5" ry="10" fill="var(--penguin-belly)"/>
+    <circle cx="24" cy="17" r="9.5" fill="var(--penguin-back)"/>
+    <ellipse cx="24" cy="18.5" rx="6.4" ry="5.6" fill="var(--penguin-belly)"/>
+    <circle cx="21" cy="17" r="1.3" fill="var(--eye)"/><circle cx="27" cy="17" r="1.3" fill="var(--eye)"/>
+    <path d="M22 19.5 h4 l-2 3.2 z" fill="var(--penguin-beak)"/>
+    <rect x="14.5" y="24.5" width="19" height="4" rx="2" fill="${scarf}"/><rect x="28" y="26" width="3.6" height="8" rx="1.5" fill="${scarf}"/>
+    ${hat}</svg>`;
+}
+
+interface OfferRefs {
+  id: number;
+  card: HTMLElement;
+  button: HTMLButtonElement;
+  price: HTMLElement;
+  cost: number;
+}
+
+/**
+ * Penguin Market panel (GDD §24), contextual (opens on the stall pad, closes when the player walks off): tabs
+ * Catalog | My penguins | Hut. The structure is rebuilt only when offers, penguins, roles or the hut change; coins,
+ * timers and experience bars update in place, so a tap is never lost to a re-render.
+ */
+export class MarketPanel {
+  private readonly root: HTMLDivElement;
+  private readonly body: HTMLDivElement;
+  private readonly tabButtons: Record<Tab, HTMLElement>;
+  private tab: Tab = 'catalog';
+  private structureKey = '';
+  /** Penguin whose role chips are open. */
+  private roleOpen = -1;
+  private offerRefs: OfferRefs[] = [];
+  private refreshBtn: HTMLButtonElement | null = null;
+  private xpBars: Array<{ w: WorkerData; bar: HTMLElement }> = [];
+  private roleChips: Array<{ el: HTMLButtonElement }> = [];
+  private hutBtn: HTMLElement | null = null;
+  private hutCost: number | null = null;
+  onClosed: ((reason: CloseReason) => void) | null = null;
+  actions: MarketActions | null = null;
+
+  constructor(overlay: HTMLElement) {
+    this.root = document.createElement('div');
+    this.root.className = 'upgrade-panel market-panel';
+    this.root.innerHTML = `<div class="panel-grip"></div><div class="panel-head"><div class="panel-title">${t('marketTitle')}</div><button class="panel-x" aria-label="${t('creatorClose')}">×</button></div>
+      <div class="panel-tabs"><button data-tab="catalog">${t('tabCatalog')}</button><button data-tab="mine">${t('tabMyPenguins')}</button><button data-tab="hut">${t('tabHut')}</button></div>
+      <div class="market-body"></div>`;
+    const q = <T extends HTMLElement>(sel: string) => this.root.querySelector(sel) as T;
+    this.body = q('.market-body');
+    this.tabButtons = { catalog: q('button[data-tab="catalog"]'), mine: q('button[data-tab="mine"]'), hut: q('button[data-tab="hut"]') };
+    for (const tab of ['catalog', 'mine', 'hut'] as const) {
+      onTap(this.tabButtons[tab], () => {
+        this.tab = tab;
+        this.roleOpen = -1;
+        this.structureKey = '';
+      });
+    }
+    onTap(q('.panel-x'), () => panels.close('market', 'button'));
+    this.root.addEventListener('pointerdown', (e) => e.stopPropagation());
+    overlay.appendChild(this.root);
+    panels.register({
+      id: 'market',
+      kind: 'contextual',
+      root: this.root,
+      show: () => this.root.classList.add('open'),
+      hide: () => this.root.classList.remove('open'),
+      onClose: (reason) => {
+        this.roleOpen = -1;
+        this.onClosed?.(reason);
+      },
+    });
+  }
+
+  get opened(): boolean {
+    return panels.isOpen('market');
+  }
+
+  open(state: GameState, valid: () => boolean): boolean {
+    if (this.opened) return true;
+    return panels.open('market', {
+      valid,
+      run: () => {
+        this.structureKey = '';
+        this.refresh(state);
+      },
+    });
+  }
+
+  /** Rebuilds when the structure changed (or `force`), then updates coins, timers and bars in place. */
+  refresh(state: GameState, force = false): void {
+    const key = JSON.stringify([
+      this.tab,
+      this.roleOpen,
+      state.market.offers.map((o) => o.id),
+      state.workers.map((w) => [w.id, w.role, w.level]),
+      state.hutLevel,
+      availableRoles(state).length,
+      getLang(),
+    ]);
+    if (force || key !== this.structureKey) {
+      this.structureKey = key;
+      for (const k of ['catalog', 'mine', 'hut'] as const) this.tabButtons[k].classList.toggle('on', k === this.tab);
+      this.build(state);
+    }
+    this.updateLive(state);
+  }
+
+  private build(state: GameState): void {
+    this.body.innerHTML = '';
+    this.offerRefs = [];
+    this.xpBars = [];
+    this.roleChips = [];
+    this.refreshBtn = null;
+    this.hutBtn = null;
+    if (this.tab === 'catalog') this.buildCatalog(state);
+    else if (this.tab === 'mine') this.buildMine(state);
+    else this.buildHut(state);
+  }
+
+  private buildCatalog(state: GameState): void {
+    const lang = getLang();
+    const head = document.createElement('div');
+    head.className = 'market-head';
+    head.innerHTML = `<span class="market-cap"></span><button class="market-refresh"></button>`;
+    this.refreshBtn = head.querySelector('.market-refresh') as HTMLButtonElement;
+    onTap(this.refreshBtn, () => this.actions?.reroll());
+    this.body.appendChild(head);
+    const list = document.createElement('div');
+    list.className = 'market-list';
+    if (state.market.offers.length === 0) list.innerHTML = `<div class="market-empty">${t('marketEmpty')}</div>`;
+    for (const o of state.market.offers) {
+      const role = RoleById[o.role];
+      const trait = TraitById[o.trait];
+      const card = document.createElement('div');
+      card.className = 'market-card';
+      card.innerHTML = `${penguinPortrait(o.look)}
+        <div class="mc-text"><b class="mc-name">${penguinName(o, lang)}</b><span class="mc-role">${role.name[lang]}</span>
+        <span class="mc-info">${role.info[lang]}</span><span class="mc-trait">${trait.name[lang]} · ${trait.info[lang]}</span></div>
+        <button class="mc-buy"><span class="mc-price"><span class="coin-icon small"></span><span class="mc-cost"></span></span><span class="mc-label"></span></button>`;
+      const button = card.querySelector('.mc-buy') as HTMLButtonElement;
+      onTap(button, () => this.actions?.buy(o.id));
+      this.offerRefs.push({ id: o.id, card, button, price: card.querySelector('.mc-cost') as HTMLElement, cost: offerPrice(state, o) });
+      list.appendChild(card);
+    }
+    this.body.appendChild(list);
+  }
+
+  private buildMine(state: GameState): void {
+    const lang = getLang();
+    const list = document.createElement('div');
+    list.className = 'market-list';
+    if (state.workers.length === 0) list.innerHTML = `<div class="market-empty">${t('marketNoPenguins')}</div>`;
+    const roles = availableRoles(state);
+    for (const w of state.workers) {
+      const row = document.createElement('div');
+      row.className = 'market-card mine';
+      const maxed = w.level >= PenguinLevels.max;
+      row.innerHTML = `${penguinPortrait(w.look)}
+        <div class="mc-text"><b class="mc-name">${penguinName(w, lang)}</b><span class="mc-role">${RoleById[w.role].name[lang]} · ${tf('penguinLevel', { n: w.level })}</span>
+        <span class="mc-trait">${TraitById[w.trait].name[lang]} · ${TraitById[w.trait].info[lang]}</span>
+        <span class="mc-xp${maxed ? ' max' : ''}"><span class="mc-xp-fill"></span></span></div>
+        <button class="mc-role-btn">${t('roleChange')}</button>`;
+      this.xpBars.push({ w, bar: row.querySelector('.mc-xp-fill') as HTMLElement });
+      onTap(row.querySelector('.mc-role-btn') as HTMLElement, () => {
+        this.roleOpen = this.roleOpen === w.id ? -1 : w.id;
+      });
+      list.appendChild(row);
+      if (this.roleOpen === w.id) {
+        const chips = document.createElement('div');
+        chips.className = 'market-roles';
+        chips.innerHTML = `<span class="mr-fee">${tf('roleChangeFee', { c: roleChangeFee() })}</span>`;
+        for (const r of roles) {
+          const chip = document.createElement('button');
+          chip.className = `mr-chip${r === w.role ? ' on' : ''}`;
+          chip.textContent = RoleById[r].name[lang];
+          chip.disabled = r === w.role;
+          onTap(chip, () => {
+            if (r === w.role) return;
+            this.roleOpen = -1;
+            this.actions?.role(w.id, r);
+          });
+          this.roleChips.push({ el: chip });
+          chips.appendChild(chip);
+        }
+        list.appendChild(chips);
+      }
+    }
+    this.body.appendChild(list);
+  }
+
+  private buildHut(state: GameState): void {
+    const cap = hutCapacity(state);
+    const next = Hut.capacity[state.hutLevel];
+    this.hutCost = hutUpgradeCost(state);
+    const box = document.createElement('div');
+    box.className = 'market-hut';
+    const pips = Hut.capacity.map((_, i) => `<span class="${i < state.hutLevel ? 'on' : ''}"></span>`).join('');
+    box.innerHTML = `<div class="mh-cap">${tf('hutCapacity', { n: state.workers.length, max: cap })}</div><div class="up-pips">${pips}</div>
+      <div class="upgrade-card mh-card${this.hutCost === null ? ' maxed' : ''}"><div class="up-name">${t('hutUpgrade')}</div>
+      <div class="up-effect">${next === undefined ? t('hutMax') : tf('hutUpgradeEffect', { a: cap, b: next })}</div>
+      <div class="up-price">${this.hutCost === null ? t('maxed') : `<span class="coin-icon small"></span>${this.hutCost}`}</div></div>`;
+    this.hutBtn = box.querySelector('.mh-card') as HTMLElement;
+    if (this.hutCost !== null) onTap(this.hutBtn, () => this.actions?.hut());
+    this.body.appendChild(box);
+  }
+
+  /** Coins, timers and bars: no rebuild. */
+  private updateLive(state: GameState): void {
+    const full = state.workers.length >= hutCapacity(state);
+    const cap = this.body.querySelector('.market-cap');
+    if (cap) cap.textContent = tf('hutCapacity', { n: state.workers.length, max: hutCapacity(state) });
+    if (this.refreshBtn) {
+      const wait = state.market.refreshIn;
+      this.refreshBtn.textContent = wait > 0 ? tf('marketRefreshWait', { t: mmss(wait) }) : t('marketRefresh');
+      this.refreshBtn.disabled = wait > 0;
+    }
+    for (const r of this.offerRefs) {
+      const offer = state.market.offers.find((o) => o.id === r.id);
+      if (!offer) continue;
+      r.cost = offerPrice(state, offer);
+      r.price.textContent = String(r.cost);
+      r.button.classList.toggle('affordable', !full && state.coins >= r.cost);
+      r.button.classList.toggle('full', full);
+      (r.button.querySelector('.mc-label') as HTMLElement).textContent = full ? t('marketHutFull') : t('marketBuy');
+    }
+    for (const x of this.xpBars) x.bar.style.width = `${Math.round(levelProgress(x.w) * 100)}%`;
+    const fee = roleChangeFee();
+    for (const c of this.roleChips) c.el.classList.toggle('poor', state.coins < fee);
+    if (this.hutBtn && this.hutCost !== null) this.hutBtn.classList.toggle('affordable', state.coins >= this.hutCost);
+  }
+
+  /** Shakes an offer the player cannot buy now. */
+  deny(offerId: number): void {
+    const r = this.offerRefs.find((o) => o.id === offerId);
+    if (r) shake(r.card);
+  }
+
+  denyHut(): void {
+    if (this.hutBtn) shake(this.hutBtn);
+  }
+}
+
+function shake(el: HTMLElement): void {
+  el.classList.remove('denied');
+  void el.offsetWidth;
+  el.classList.add('denied');
+  window.setTimeout(() => el.classList.remove('denied'), MarketFeel.celebrateMs);
+}

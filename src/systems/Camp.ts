@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Camp as CFG } from '../content/land';
 import { CampLayout as L } from '../content/zones';
 import { LandFeel, StationFeel } from '../settings';
-import type { FishItem, GameState } from '../core/GameState';
+import type { FishItem, GameState, GoodItem } from '../core/GameState';
 import { seededRandom } from '../core/Random';
 import type { Player } from '../entities/Player';
 import { animateGuest, createGuest, createHotSpring, createKitchen, createLampPost, createTent, LAND_RACK_Y, type GuestModel } from '../models/createLand';
@@ -151,6 +151,46 @@ export class Camp {
     }
     this.group.add(obj);
     if (animate) this.appear.add(obj);
+  }
+
+  // ---------- cook penguins (GDD §24): the job board's kitchen, platter rack and serve stores ----------
+
+  /** The kitchen works (camp open, kitchen built). */
+  get kitchenReady(): boolean {
+    return this.open && this.kitchenBuilt;
+  }
+
+  kitchenRoom(): number {
+    return CFG.kitchen.inputCapacity - this.state.camp.input.length - this.toKitchen.items.length;
+  }
+
+  /** A penguin puts smoked fish on the kitchen's input rack. */
+  receiveSmoked(item: FishItem, from: THREE.Vector3): void {
+    const slot = this.rackSlot(L.kitchen.input, this.state.camp.input.length + this.toKitchen.items.length, this.w);
+    this.toKitchen.add(from, slot, StationFeel.flightTime, StationFeel.arcHeight, item);
+  }
+
+  /** A penguin takes a platter off the rack; `out` is where it starts its hop. */
+  takePlate(out: THREE.Vector3): GoodItem | null {
+    const plates = this.state.camp.plates;
+    if (plates.length === 0) return null;
+    const value = plates.pop() as number;
+    this.rackSlot(L.kitchen.output, plates.length, out);
+    return { kind: 'plate', price: value };
+  }
+
+  /** Guests standing in line who still wait for a platter. */
+  waitingGuests(): number {
+    return this.guests.queue.filter((g) => !g.serving && g.path.length === 0).length;
+  }
+
+  /** A penguin hands a platter to the next guest in line. False when nobody waits. */
+  servePlate(value: number, from: THREE.Vector3): boolean {
+    const guest = this.guests.nextToServe();
+    if (!guest) return false;
+    guest.serving = true;
+    this.toGuest.add(from, this.v.set(guest.x, 1.2, guest.z), LandFeel.plateFlightTime, 0.9, { guest, value });
+    return true;
   }
 
   update(dt: number, time: number): void {

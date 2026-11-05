@@ -35,7 +35,7 @@ export const DecorationList: readonly DecorationDef[] = [
     frame: 1.4,
     light: true,
   },
-  { id: 'dryingRack', cost: 80, peace: 3, requires: ['penguin2'], at: { x: -19.4, z: 1.9, rot: 0 }, frame: 1.8, light: true },
+  { id: 'dryingRack', cost: 80, peace: 3, requires: ['market'], at: { x: -19.4, z: 1.9, rot: 0 }, frame: 1.8, light: true },
   // Encyclopedia reward for all species (GDD §19): a fish on a scale, no unlock frame.
   { id: 'fishWeight', cost: 0, peace: 4, requires: [], at: { x: -8.6, z: 1.2, rot: 0.4 }, frame: 1.4, light: false, reward: true },
   { id: 'iceSculpture', cost: 100, peace: 4, requires: ['igloo4'], at: { x: -6.6, z: -7.4, rot: 0.3 }, frame: 1.6, light: false },

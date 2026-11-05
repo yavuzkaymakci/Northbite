@@ -109,6 +109,31 @@ export class Cave implements TouchClaimer {
     }
   }
 
+  // ---------- miner penguins (GDD §24) ----------
+
+  /** The bench works (cave open, bench built). */
+  get benchReady(): boolean {
+    return this.open && this.benchBuilt;
+  }
+
+  benchRoom(): number {
+    return CFG.bench.inputCapacity - this.state.cave.input - this.toBench.items.length;
+  }
+
+  /** A penguin puts a crystal on the bench's input rack. */
+  receiveCrystal(from: THREE.Vector3): void {
+    this.toBench.add(from, this.rackSlot(L.bench.input, this.state.cave.input + this.toBench.items.length, this.w), 0.3, 0.8, 0);
+  }
+
+  /** A miner breaks a vein: the same sparkle and chime as the player's pickaxe. */
+  minedByPenguin(i: number): void {
+    const v = L.veins[i];
+    if (!v) return;
+    this.fx.ripple(v.x, 0.05, v.z, 1.6, 1.1);
+    this.fx.splash(v.x, 0.5, v.z, 12, 2.2);
+    sfx('crystalChime', v, 1.1);
+  }
+
   // ---------- touches (mining) ----------
 
   wantsTouches(): boolean {

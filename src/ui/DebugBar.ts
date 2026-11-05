@@ -2,7 +2,7 @@ import { t, type StringKey } from '../content/strings';
 import { onTap } from './tap';
 import { panels } from './PanelManager';
 
-export type DebugAction = 'coins' | 'hour' | 'day' | 'bear' | 'avalanche' | 'panels';
+export type DebugAction = 'coins' | 'hour' | 'day' | 'bear' | 'avalanche' | 'xp' | 'panels' | 'jobs';
 
 const BUTTONS: ReadonlyArray<[DebugAction, StringKey]> = [
   ['coins', 'debugCoins'],
@@ -10,27 +10,34 @@ const BUTTONS: ReadonlyArray<[DebugAction, StringKey]> = [
   ['day', 'debugDay'],
   ['bear', 'debugBear'],
   ['avalanche', 'debugAvalanche'],
+  ['xp', 'debugXp'],
   ['panels', 'debugPanels'],
+  ['jobs', 'debugJobs'],
 ];
 
 /**
- * Debug tools (Settings → Debug → Tools, off by default): give coins, skip time, start a threat, and the panel
- * state view (open panels, waiting cards, the last panel events, problems found by the audit).
+ * Debug tools (Settings → Debug → Tools, off by default): give coins, skip time, start a threat, give the penguins
+ * experience, the panel state view (open panels, waiting cards, the last panel events, problems found by the audit)
+ * and the job view (open job-board listings, what each penguin is doing).
  */
 export class DebugBar {
   private readonly bar: HTMLDivElement;
   private readonly view: HTMLPreElement;
-  private viewOn = false;
+  private mode: 'off' | 'panels' | 'jobs' = 'off';
   private timer = 0;
 
-  constructor(overlay: HTMLElement, onAction: (a: DebugAction) => void) {
+  constructor(
+    overlay: HTMLElement,
+    onAction: (a: DebugAction) => void,
+    private readonly jobs: () => string[] = () => [],
+  ) {
     this.bar = document.createElement('div');
     this.bar.className = 'debug-bar hidden';
     for (const [action, label] of BUTTONS) {
       const b = document.createElement('button');
       b.textContent = t(label);
       onTap(b, () => {
-        if (action === 'panels') this.toggleView();
+        if (action === 'panels' || action === 'jobs') this.toggleView(action);
         else onAction(action);
       });
       this.bar.appendChild(b);
@@ -42,20 +49,24 @@ export class DebugBar {
 
   setVisible(on: boolean): void {
     this.bar.classList.toggle('hidden', !on);
-    if (!on && this.viewOn) this.toggleView();
+    if (!on) this.toggleView('off');
   }
 
-  private toggleView(): void {
-    this.viewOn = !this.viewOn;
-    this.view.classList.toggle('hidden', !this.viewOn);
+  private toggleView(mode: 'off' | 'panels' | 'jobs'): void {
+    this.mode = this.mode === mode ? 'off' : mode;
+    this.view.classList.toggle('hidden', this.mode === 'off');
     this.timer = 0;
   }
 
   update(dt: number): void {
-    if (!this.viewOn) return;
+    if (this.mode === 'off') return;
     this.timer -= dt;
     if (this.timer > 0) return;
     this.timer = 0.25;
+    if (this.mode === 'jobs') {
+      this.view.textContent = this.jobs().join('\n');
+      return;
+    }
     const s = panels.snapshot();
     this.view.textContent = [
       `open: ${s.open.join(', ') || '-'}`,

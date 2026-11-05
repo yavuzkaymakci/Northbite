@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { WorkerFeel } from '../settings';
-import { Palette } from '../render/Palette';
+import { HeadwearColors, Palette, ScarfColors } from '../render/Palette';
 import { bake } from './bake';
 import { flat, mesh } from './materials';
 
@@ -17,11 +17,17 @@ export interface PenguinModel {
 /** Height of the back where carried fish start. */
 export const PENGUIN_BACK = { y: 0.5, z: -0.27 };
 
+/** Hat (-1 = none) and scarf colours as indices into Palette.HeadwearColors / ScarfColors (GDD §24). */
+export interface PenguinLookColors {
+  hat: number;
+  scarf: number;
+}
+
 /**
  * Low-poly penguin helper, ~0.95 tall (the player is ~1.8). Faces +Z, origin at the feet.
- * Torso, belly, head, eyes and beak are baked into one mesh; flippers and feet move.
+ * Torso, belly, head, eyes, beak, beanie and scarf are baked into one mesh; flippers and feet move.
  */
-export function createPenguin(): PenguinModel {
+export function createPenguin(look: PenguinLookColors | null = null): PenguinModel {
   const root = new THREE.Group();
   root.name = 'penguin';
   const body = new THREE.Group();
@@ -42,6 +48,22 @@ export function createPenguin(): PenguinModel {
   parts.add(torso, belly, head, face, beak);
   for (const side of [-1, 1]) {
     parts.add(mesh(new THREE.IcosahedronGeometry(0.035, 0), flat(Palette.eye), 0.08 * side, 0.9, 0.18));
+  }
+  if (look) {
+    // Scarf: a ring at the neck with a tail hanging down the back.
+    const scarf = flat(ScarfColors[look.scarf % ScarfColors.length] as number);
+    parts.add(mesh(new THREE.CylinderGeometry(0.2, 0.235, 0.08, 8), scarf, 0, 0.67, 0.0));
+    const tail = mesh(new THREE.BoxGeometry(0.09, 0.22, 0.04), scarf, 0.09, 0.56, -0.22);
+    tail.rotation.x = 0.25;
+    parts.add(tail);
+    if (look.hat >= 0) {
+      // Beanie with a pompom.
+      const hat = flat(HeadwearColors[look.hat % HeadwearColors.length] as number);
+      const cap = mesh(new THREE.IcosahedronGeometry(0.19, 1), hat, 0, 0.95, 0.0);
+      cap.scale.set(1.04, 0.62, 1.04);
+      parts.add(cap, mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.06, 10), hat, 0, 0.92, 0.0));
+      parts.add(mesh(new THREE.IcosahedronGeometry(0.055, 0), flat(Palette.snow), 0, 1.07, 0));
+    }
   }
   body.add(bake(parts));
 

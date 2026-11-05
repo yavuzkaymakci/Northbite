@@ -2,6 +2,7 @@ import { DecorationCosts } from './decorations';
 import { IglooCosts } from './igloo';
 import { LandCosts } from './land';
 import { Orders } from './orders';
+import { Market } from './penguins';
 
 // Balance values (GDD §8). Fish prices live in content/fish.ts, stations in stations.ts, workers in workers.ts,
 // rod upgrades in upgrades.ts. Numbers are tuned with `npm run sim` (tools/balance-sim.ts).
@@ -36,7 +37,7 @@ export const Economy = {
     smokeRegion: 125,
     smokehouse: 150,
     thirdHole: 160,
-    secondPenguin: 220,
+    market: Market.stallCost, // Penguin Market stall (GDD §24); the old "2nd penguin" frame (220) is gone
     // Threat buildings (GDD §13); optional, shown once the smokehouse is open.
     torchStand: 40,
     baitTrap: 70,

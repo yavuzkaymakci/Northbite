@@ -27,6 +27,7 @@ import type { NetStation } from './NetStation';
 import type { Smokehouse } from './Smokehouse';
 import type { ThreatBuildings } from './ThreatBuildings';
 import { stationValue } from './StationUpgrades';
+import { countRole } from './PenguinLogic';
 import { bearApproach, bearRoute, scareReward, stealFrom, stealPlates, type BearTargetId } from './ThreatLogic';
 import type { WorkerBrain } from './WorkerBrain';
 import type { Workers } from './Workers';
@@ -501,8 +502,9 @@ export class Bear {
       this.ring.el.style.setProperty('--p', this.scare.toFixed(3));
     }
     const tower = ThreatBuildingSpots.watchtower.at;
-    const marked =
-      this.d.buildings.isBuilt('watchtower') && this.phase !== 'flee' && Math.hypot(b.x - tower.x, b.z - tower.z) <= T.watchtower.range;
+    // The watchtower marks a bear within its range; a guard penguin (GDD §24) marks it anywhere.
+    const towerSees = this.d.buildings.isBuilt('watchtower') && Math.hypot(b.x - tower.x, b.z - tower.z) <= T.watchtower.range;
+    const marked = this.phase !== 'flee' && (towerSees || countRole(this.d.state, 'guard') > 0);
     this.glow.visible = marked;
     this.d.labels.show(this.mark, marked && !showHint && this.scare <= 0);
     if (marked) this.mark.anchor.set(b.x, 3.2, b.z);

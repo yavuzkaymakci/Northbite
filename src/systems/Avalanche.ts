@@ -348,10 +348,18 @@ export class Avalanche {
         best = p;
       }
     }
-    // Only the pile right next to the node: clearing it opens the way, the others sit behind the racks.
-    if (!best || bestD > A.pileRadius + 1.4) return null;
-    const k = (A.pileRadius + 0.45) / Math.max(bestD, 1e-6);
-    return { id: best.id, node: A.digNode, x: best.x + (DIG_NODE.x - best.x) * k, z: best.z + (DIG_NODE.z - best.z) * k };
+    if (!best) return null;
+    // The "door" pile right next to the node first: clearing it opens the way.
+    if (bestD <= A.pileRadius + 1.4) {
+      const k = (A.pileRadius + 0.45) / Math.max(bestD, 1e-6);
+      return { id: best.id, node: A.digNode, x: best.x + (DIG_NODE.x - best.x) * k, z: best.z + (DIG_NODE.z - best.z) * k };
+    }
+    // Then (GDD §24) the piles further west, one by one from the corridor's open east end along its middle line.
+    let east: Pile | null = null;
+    for (const p of this.piles) if (!east || p.x > east.x) east = p;
+    if (!east) return null;
+    const mouth = { x: A.pileXs[A.pileXs.length - 1] as number, z: A.pileZ };
+    return { id: east.id, node: A.digNode, via: [{ x: mouth.x, z: A.safeSouthZ }, mouth], x: east.x + A.pileRadius + 0.45, z: A.pileZ, inside: C };
   }
 
   private renderPiles(time: number): void {

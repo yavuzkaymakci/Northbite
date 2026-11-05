@@ -7,7 +7,7 @@ import { bake } from '../models/bake';
 import { createRodBench } from '../models/createBench';
 import { createCounter } from '../models/createCounter';
 import { createFlatRingGeometry, createIceHole } from '../models/createFishingProps';
-import { createHut } from '../models/createHut';
+import { createHut, createMarketStall, hutScale, hutWindows } from '../models/createHut';
 import { createPierSilhouette, createSignPost } from '../models/createTeaser';
 import { createSlope } from '../models/createThreatProps';
 import { createLightPool, NightLights } from '../render/NightLights';
@@ -58,6 +58,9 @@ export class WorldMap implements Walkable {
   readonly bounds: RectArea = Z.walkBounds;
   private readonly walls = new Map<string, IceWall>();
   private hutBuilt = false;
+  private hutLevel = 0;
+  private hutMesh: THREE.Object3D | null = null;
+  private hutCollider: Collider | null = null;
   private readonly padMaterial = new THREE.MeshBasicMaterial({
     color: Palette.benchPad,
     transparent: true,
@@ -266,20 +269,51 @@ export class WorldMap implements Walkable {
     if (wall) this.removeCollider(wall.collider);
   }
 
-  /** Penguin hut (from the "hut" unlock). */
-  buildHut(appear: Appear | null): void {
-    if (this.hutBuilt) return;
+  /** Penguin Market stall (GDD §24) with the pad you stand on (same look as the rod bench pad). */
+  buildMarket(appear: Appear | null): void {
+    const m = Z.market;
+    const stall = createMarketStall(m.width, m.depth);
+    stall.position.set(m.x, 0, m.z);
+    const pad = new THREE.Mesh(createFlatRingGeometry(m.pad.radius, m.pad.radius - 0.16, 32), this.padMaterial);
+    pad.position.set(m.pad.x, 0.025, m.pad.z);
+    this.group.add(stall, pad);
+    this.colliders.push({ kind: 'rect', minX: m.x - m.width / 2, maxX: m.x + m.width / 2, minZ: m.z - m.depth / 2, maxZ: m.z + m.depth / 2 });
+    appear?.add(stall);
+  }
+
+  /** Penguin hut (from the "hut" unlock). A higher level (GDD §24) rebuilds it bigger, with more windows. */
+  buildHut(appear: Appear | null, level = 1): void {
+    if (this.hutBuilt && this.hutLevel === level) return;
+    if (this.hutMesh) {
+      this.group.remove(this.hutMesh);
+      if (this.hutCollider) this.removeCollider(this.hutCollider);
+    }
     this.hutBuilt = true;
+    this.hutLevel = level;
     const h = Z.hut;
-    const hut = createHut(h.width, h.depth);
+    const hut = createHut(h.width, h.depth, level);
     hut.position.set(h.x, 0, h.z);
-    const glass = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.3, 0.04), NightLights.window);
-    glass.position.set(-0.55, 0.45, h.depth / 2 + 0.03);
+    for (const w of hutWindows(h.width, h.depth, level)) {
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(w.w, w.h, 0.04), NightLights.window);
+      glass.position.set(w.x, w.y, w.z);
+      hut.add(glass);
+    }
     const pool = createLightPool(2.2, 1.4);
     pool.position.set(0, 0.04, h.depth / 2 + 0.8);
-    hut.add(glass, pool);
+    hut.add(pool);
     this.group.add(hut);
-    this.colliders.push({ kind: 'rect', minX: h.x - h.width / 2 - 0.1, maxX: h.x + h.width / 2 + 0.1, minZ: h.z - h.depth / 2 - 0.1, maxZ: h.z + h.depth / 2 + 0.1 });
+    this.hutMesh = hut;
+    const k = hutScale(level);
+    // The lean-to (level 2+) adds room behind the hut.
+    const back = level >= 2 ? 0.7 : 0;
+    this.hutCollider = {
+      kind: 'rect',
+      minX: h.x - (h.width / 2) * k - 0.1,
+      maxX: h.x + (h.width / 2) * k + 0.1,
+      minZ: h.z - (h.depth / 2 + back) * k - 0.1,
+      maxZ: h.z + (h.depth / 2) * k + 0.1,
+    };
+    this.colliders.push(this.hutCollider);
     appear?.add(hut);
   }
 

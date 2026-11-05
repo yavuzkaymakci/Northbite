@@ -2,6 +2,7 @@ import { Threats as T } from '../content/threats';
 import { Tuning } from '../content/tuning';
 import { ThreatBuildingSpots, ThreatLayout, type BuildingId, type Vec2 } from '../content/zones';
 import type { FishItem, GameState } from '../core/GameState';
+import { guardWarningBonus } from './PenguinLogic';
 
 // Visual-free threat rules (GDD §13), shared by the game and the balance sim. No Three.js or DOM here.
 
@@ -92,7 +93,8 @@ export function bearWarning(state: GameState, night: boolean): number {
   let w: number = state.stats.bears === 0 ? T.bear.warningFirst : night ? T.bear.warningNight : T.bear.warning;
   if (FIRE_PITS.some((id) => state.unlocked.includes(id))) w += T.firePit.warningBonus;
   if (state.unlocked.includes('watchtower')) w += T.watchtower.warningBonus;
-  return w;
+  // Guard penguins (GDD §24): +5 s each, at most two count.
+  return w + guardWarningBonus(state);
 }
 
 /** Shore point and raid spot for a target; a penguin uses the approach whose shore point is nearest to it. */

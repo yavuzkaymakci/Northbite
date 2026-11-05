@@ -3,6 +3,7 @@ import { IglooLevels, Peace, RestedBuffs, Sleep } from '../content/igloo';
 import { TimeOfDay } from '../content/time';
 import { Tuning } from '../content/tuning';
 import type { GameState } from '../core/GameState';
+import { penguinPeace } from './PenguinLogic';
 
 // Igloo, sleep and peace rules (GDD §14), shared by the game and the balance sim. No Three.js or DOM here.
 
@@ -50,7 +51,8 @@ export function wakeRested(state: GameState): void {
 export function peaceScore(state: GameState): number {
   let p = iglooDef(state.iglooLevel).peace;
   for (const d of DecorationList) if (state.decorations.includes(d.id)) p += d.peace;
-  return p;
+  // Cute penguins add peace too (GDD §24).
+  return p + penguinPeace(state);
 }
 
 /**

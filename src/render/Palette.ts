@@ -81,6 +81,10 @@ export const Palette = {
   penguinBack: 0x26303c,
   penguinBelly: 0xf7f4ee,
   penguinBeak: 0xf2a03d,
+  // Penguin hut levels and the market stall (GDD §24)
+  flower: 0xe07aa8,
+  flag: 0x3f8fd2,
+  lantern: 0xffc56b,
 
   // Ice walls and the teaser pier
   wallIce: 0xbfe1f2,

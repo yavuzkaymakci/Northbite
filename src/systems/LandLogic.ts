@@ -3,6 +3,7 @@ import { Camp, Cave } from '../content/land';
 import { CampLayout, CaveLayout, type Vec2 } from '../content/zones';
 import { LandFeel } from '../settings';
 import type { FishItem, GameState } from '../core/GameState';
+import type { JobWorker, WorkStore } from './JobBoard';
 import { payout } from './Rest';
 import { stationValue } from './StationUpgrades';
 
@@ -96,6 +97,71 @@ export class CaveLogic {
     }
     return out;
   }
+}
+
+/**
+ * Crystal veins as a job-board source for miner penguins (GDD §24): a miner claims one ready vein nobody else works,
+ * walks next to it, works for a while (the job's workTime) and breaks its crystals off. The player mining it first
+ * makes the claim worth nothing (the miner finds an empty vein and goes on).
+ */
+export function veinStore(logic: CaveLogic, enabled: () => boolean, onMine?: (vein: number) => void, node: WorkStore['node'] = 'caveMid'): WorkStore {
+  const claims = new Map<JobWorker, { vein: number; left: number; mined: boolean }>();
+  const claimed = (i: number) => [...claims.values()].some((c) => c.vein === i);
+  const yieldOf = (i: number) => Cave.yieldBySize[(CaveLayout.veins[i]?.size ?? 1) - 1] ?? 1;
+  return {
+    node,
+    enabled,
+    takeable: () => {
+      let n = 0;
+      CaveLayout.veins.forEach((_, i) => {
+        if (logic.veinReady(i) && !claimed(i)) n += yieldOf(i);
+      });
+      for (const c of claims.values()) n += c.left;
+      return n;
+    },
+    claim: (w) => {
+      let best = -1;
+      let bestD = Infinity;
+      CaveLayout.veins.forEach((v, i) => {
+        const d = Math.hypot(v.x - w.x, v.z - w.z);
+        if (logic.veinReady(i) && !claimed(i) && d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      });
+      if (best < 0) return 0;
+      claims.set(w, { vein: best, left: yieldOf(best), mined: false });
+      return yieldOf(best);
+    },
+    release: (w) => {
+      claims.delete(w);
+    },
+    spot: (w) => {
+      const c = claims.get(w);
+      const v = c ? CaveLayout.veins[c.vein] : undefined;
+      if (!v) return null;
+      // Stand at the vein's edge, on the side facing the middle of the cave.
+      const mid = { x: -30.2, z: 0.2 };
+      const d = Math.max(Math.hypot(mid.x - v.x, mid.z - v.z), 1e-6);
+      const r = (LandFeel.veinRadius[v.size - 1] ?? 0.7) + 0.25;
+      return { x: v.x + ((mid.x - v.x) / d) * r, z: v.z + ((mid.z - v.z) / d) * r };
+    },
+    take: (w) => {
+      const c = claims.get(w);
+      if (!c || c.left <= 0) return null;
+      if (!c.mined) {
+        c.mined = true;
+        c.left = Math.min(c.left, logic.mine(c.vein));
+        if (c.left <= 0) return null;
+        onMine?.(c.vein);
+      }
+      c.left--;
+      return { kind: 'crystal', price: 0 };
+    },
+    room: () => 0,
+    give: () => {},
+    accepts: () => false,
+  };
 }
 
 // ---------- Hot Spring Camp ----------

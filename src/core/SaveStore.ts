@@ -7,7 +7,12 @@ import { sanitizeAppearance, type Appearance } from '../content/appearance';
 import { Pages } from '../content/story';
 import { OrderTemplates } from '../content/orders';
 import { AudioMix } from '../content/audio';
+import { Hut, PenguinLooks, PenguinNames, TraitById, TraitList, type TraitId } from '../content/penguins';
+import { RoleById, type RoleId } from '../content/roles';
+import { levelForXp, randomLook } from '../systems/PenguinLogic';
+import { seededRandom } from './Random';
 import {
+  createMarketState,
   createCampState,
   createCaveState,
   createCodexState,
@@ -18,10 +23,14 @@ import {
   type GameState,
   type Order,
   type OrdersState,
+  type GoodItem,
+  type MarketState,
+  type PenguinLook,
   type WorkerData,
+  type WorkerItem,
 } from './GameState';
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 /** Pure JSON game state. No Three.js objects here. */
 export interface SaveData {
@@ -57,6 +66,42 @@ const migrations: Record<number, (s: AnySave) => AnySave> = {
   },
   // v4 (Demo 4): no settings, offline data or station upgrades. sanitizeGame fills them with defaults.
   4: (s) => ({ ...s, saveVersion: 5 }),
+  // v5 (Demo 5–7A): penguins had no identity (GDD §24). They are kept: the 1st becomes a carrier, the 2nd a smoker
+  // (carrier while there is no smokehouse); names, traits and looks come from a fixed seed. The old "2nd penguin"
+  // frame is gone: a save that bought it gets the market stall instead; coins half-poured into it come back.
+  5: (s) => {
+    const g = { ...((s.game ?? {}) as Obj) };
+    const unlocked = stringList(g.unlocked);
+    const smokehouse = unlocked.includes('smokehouse');
+    const rand = seededRandom(SaveSettings.penguinSeed);
+    const used = new Set<number>();
+    const old = Array.isArray(g.workers) ? (g.workers as unknown[]) : [];
+    g.workers = old.map((w, i) => {
+      let name = Math.floor(rand() * PenguinNames.tr.length);
+      while (used.has(name)) name = (name + 1) % PenguinNames.tr.length;
+      used.add(name);
+      return {
+        id: i + 1,
+        name,
+        role: i === 0 || !smokehouse ? 'carrier' : 'smoker',
+        trait: TraitList[Math.floor(rand() * TraitList.length)]?.id ?? 'balanced',
+        level: 1,
+        xp: 0,
+        look: randomLook(rand),
+        price: 0,
+        carried: (w as Partial<WorkerData> | null)?.carried ?? [],
+      };
+    });
+    if (unlocked.includes('penguin2') && !unlocked.includes('market')) unlocked.push('market');
+    const paid = { ...((g.unlockPaid ?? {}) as Record<string, number>) };
+    const refund = n0(paid.penguin2);
+    delete paid.penguin2;
+    g.unlocked = unlocked;
+    g.unlockPaid = paid;
+    g.coins = n0(g.coins) + refund;
+    g.market = { offers: [], day: 0, refreshIn: 0, nextId: 1, nextPenguin: old.length + 1 };
+    return { ...s, saveVersion: 6, game: g };
+  },
   // v3 (Demo 2/3): no clock, day totals, buffs, threat gear, igloo level or sleep. sanitizeGame fills them
   // (day 1, mid-morning, igloo level 1, not rested, empty cave and camp, no journal pages). v4 saves from earlier
   // Demo 4 stages get the same defaults.
@@ -175,9 +220,11 @@ function sanitizeGame(raw: unknown): GameState {
   for (const u of StationUpgradeList) {
     stationUpgrades[u.id] = Math.min(Math.max(Math.floor(num(rawSt[u.id], 1)), 1), UpgradeMaxLevel);
   }
-  const workers: WorkerData[] = Array.isArray(g.workers)
-    ? g.workers.map((w) => ({ carried: fishList((w as Partial<WorkerData> | null)?.carried) }))
-    : [];
+  const workers = sanitizeWorkers(g.workers);
+  const market = sanitizeMarket(g.market, workers);
+  // The hut always has room for the penguins it holds.
+  let hutLevel = Math.min(Math.max(Math.floor(num(g.hutLevel, 1)), 1), Hut.capacity.length);
+  while (hutLevel < Hut.capacity.length && (Hut.capacity[hutLevel - 1] as number) < workers.length) hutLevel++;
 
   return {
     coins: num(g.coins, 0),
@@ -254,7 +301,66 @@ function sanitizeGame(raw: unknown): GameState {
         : null,
     codex: sanitizeCodex(g.codex, seen),
     orders: sanitizeOrders(g.orders),
+    hutLevel,
+    market,
   };
+}
+
+const isRole = (v: unknown): v is RoleId => typeof v === 'string' && v in RoleById;
+const isTrait = (v: unknown): v is TraitId => typeof v === 'string' && v in TraitById;
+
+function sanitizeLook(raw: unknown): PenguinLook {
+  const l = (raw ?? {}) as Partial<Record<string, unknown>>;
+  const hat = typeof l.hat === 'number' && Number.isInteger(l.hat) && l.hat >= -1 && l.hat < PenguinLooks.hats ? l.hat : -1;
+  const scarf = typeof l.scarf === 'number' && Number.isInteger(l.scarf) && l.scarf >= 0 && l.scarf < PenguinLooks.scarves ? l.scarf : 0;
+  return { hat, scarf };
+}
+
+function isWorkerItem(v: unknown): v is WorkerItem {
+  if (isFishItem(v)) return true;
+  const g = v as GoodItem;
+  return !!g && typeof g === 'object' && (g.kind === 'crystal' || g.kind === 'plate') && typeof g.price === 'number' && g.price >= 0;
+}
+
+/** Penguins (GDD §24): broken fields fall back one by one; a penguin is never dropped. */
+function sanitizeWorkers(raw: unknown): WorkerData[] {
+  if (!Array.isArray(raw)) return [];
+  const ids = new Set<number>();
+  return raw.map((r, i) => {
+    const w = (r ?? {}) as Partial<Record<string, unknown>>;
+    let id = Math.floor(n0(w.id));
+    if (id <= 0 || ids.has(id)) id = 1000 + i;
+    ids.add(id);
+    const xp = n0(w.xp);
+    return {
+      id,
+      name: typeof w.name === 'number' && Number.isInteger(w.name) && w.name >= 0 && w.name < PenguinNames.tr.length ? w.name : i % PenguinNames.tr.length,
+      role: isRole(w.role) ? w.role : 'carrier',
+      trait: isTrait(w.trait) ? w.trait : 'balanced',
+      level: levelForXp(xp),
+      xp,
+      look: sanitizeLook(w.look),
+      price: Math.floor(n0(w.price)),
+      carried: Array.isArray(w.carried) ? w.carried.filter(isWorkerItem) : [],
+    };
+  });
+}
+
+function sanitizeMarket(raw: unknown, workers: WorkerData[]): MarketState {
+  const m = createMarketState();
+  const g = (raw ?? {}) as Partial<Record<string, unknown>>;
+  if (Array.isArray(g.offers)) {
+    for (const o of g.offers as Array<Partial<Record<string, unknown>> | null>) {
+      if (!o || !isRole(o.role) || !isTrait(o.trait) || typeof o.name !== 'number') continue;
+      m.offers.push({ id: Math.floor(n0(o.id)), name: Math.floor(n0(o.name)) % PenguinNames.tr.length, role: o.role, trait: o.trait, look: sanitizeLook(o.look) });
+    }
+  }
+  m.offers = m.offers.slice(0, 4);
+  m.day = Math.floor(n0(g.day));
+  m.refreshIn = n0(g.refreshIn);
+  m.nextId = Math.max(Math.floor(n0(g.nextId)), ...m.offers.map((o) => o.id + 1), 1);
+  m.nextPenguin = Math.max(Math.floor(n0(g.nextPenguin)), ...workers.map((w) => w.id + 1), 1);
+  return m;
 }
 
 /** Brings older saves up to SAVE_VERSION. Returns null for unreadable or future saves. */

@@ -21,6 +21,7 @@ export type SfxId =
   | 'iceBreak'
   | 'penguinStep'
   | 'penguinFlap'
+  | 'levelUp'
   | 'smokeCrackle'
   | 'netSplash'
   | 'crystalChime'
@@ -104,6 +105,8 @@ export const Sfx: Record<SfxId, SfxDef> = {
   iceBreak: { layers: [N([2500, 400], 0.7, 0.2, 'bandpass', { q: 0.8 }), N([900, 200], 1.0, 0.14, 'lowpass', { at: 0.2, attack: 0.05 })], minGap: 0.5 },
   // Town life (quiet, world)
   penguinStep: { layers: [N([900, 500], 0.04, 0.035, 'lowpass')], minGap: 0.12, world: true },
+  // A penguin reaches a new level (GDD §24): a short rising chirp, heard near it.
+  levelUp: { layers: [880, 1175, 1568].map((f, i) => T([f, f * 1.02], 0.18, 0.07, { at: i * 0.08, wave: 'triangle' })), minGap: 0.5, world: true },
   penguinFlap: { layers: [N([1200, 900], 0.08, 0.03, 'bandpass')], minGap: 0.3, world: true },
   smokeCrackle: { layers: [N([3000, 2800], 0.03, 0.045, 'highpass')], minGap: 0.08, world: true },
   netSplash: { layers: [N([2000, 500], 0.25, 0.09, 'lowpass'), T([500, 200], 0.12, 0.05)], minGap: 0.3, world: true },

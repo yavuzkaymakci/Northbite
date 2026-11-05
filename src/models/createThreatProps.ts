@@ -12,7 +12,7 @@ import { flat, mesh } from './materials';
  * Snowy slope rising west of the walk area: piled boulders that grow taller away from the yard, rocky outcrops,
  * and a pale chute where avalanches come down (`chuteZ`). One draw call.
  */
-export function createSlope(area: RectArea, chuteZ: number): THREE.Mesh {
+export function createSlope(area: RectArea, chuteZ: number, hollow?: RectArea): THREE.Mesh {
   const g = new THREE.Group();
   const rand = seededRandom(23);
   const snow = flat(Palette.snow);
@@ -24,6 +24,8 @@ export function createSlope(area: RectArea, chuteZ: number): THREE.Mesh {
     const z = range(rand, area.minZ, area.maxZ);
     const k = (area.maxX - x) / w; // 0 at the foot, 1 far up
     const r = range(rand, 2.4, 3.6);
+    // Keep the Ice Cave clear (its own walls are modelled separately).
+    if (hollow && x > hollow.minX - r * 0.6 && x < hollow.maxX + r && z > hollow.minZ - r * 0.5 && z < hollow.maxZ + r * 0.5) continue;
     const b = mesh(new THREE.IcosahedronGeometry(r, 1), rand() < 0.15 ? ice : snow, x, -r * 0.35 + k * 6.5, z);
     b.scale.set(1, range(rand, 0.55, 0.9), range(rand, 0.9, 1.3));
     b.rotation.y = rand() * 6;
@@ -33,6 +35,7 @@ export function createSlope(area: RectArea, chuteZ: number): THREE.Mesh {
     const x = range(rand, area.minX + 2, area.maxX - 1);
     const z = range(rand, area.minZ, area.maxZ);
     if (Math.abs(z - chuteZ) < 2.4) continue;
+    if (hollow && x > hollow.minX - 1.5 && z > hollow.minZ - 1.5 && z < hollow.maxZ + 1.5) continue;
     const k = (area.maxX - x) / w;
     const r = range(rand, 0.7, 1.3);
     const o = mesh(new THREE.IcosahedronGeometry(r, 0), rock, x, k * 6.5 + r * 0.4, z);
@@ -223,3 +226,13 @@ export function createHandTorch(): THREE.Mesh {
 
 /** Top of the hand torch in its own space (flame base). */
 export const HAND_TORCH_TIP = 0.57;
+
+/** Pickaxe for mining crystals (held in the right hand, head at the far end). */
+export function createPickaxe(): THREE.Mesh {
+  const g = new THREE.Group();
+  g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 5), flat(Palette.wood), 0, 0.2, 0));
+  const head = mesh(new THREE.ConeGeometry(0.05, 0.6, 4), flat(Palette.reel), 0, 0.62, 0.05);
+  head.rotation.z = Math.PI / 2;
+  g.add(head);
+  return bake(g);
+}

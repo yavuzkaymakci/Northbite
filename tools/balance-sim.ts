@@ -18,6 +18,10 @@ import { carryCapacity, fishingMods, upgradeCost, type FishingMods } from '../sr
 import { Sleep } from '../src/content/igloo';
 import { SleepFeel } from '../src/settings';
 import { applyComfortUnlock, canSleepAt, payout, peaceScore, wakeRested } from '../src/systems/Rest';
+import { Camp as CampCfg, Cave as CaveCfg } from '../src/content/land';
+import { CampLayout, CaveLayout } from '../src/content/zones';
+import { CaveLogic, GuestLogic, KitchenLogic } from '../src/systems/LandLogic';
+import { findPage, mainPagesDue } from '../src/systems/StoryLogic';
 import { DayCycle } from '../src/systems/DayCycle';
 import { DayFeel } from '../src/settings';
 import { scaledPrice, Tuning } from '../src/content/tuning';
@@ -30,6 +34,7 @@ import {
   rollChest,
   scareReward,
   stealFrom,
+  stealPlates,
   ThreatDirector,
   threatsUnlocked,
   type BearTargetId,
@@ -43,6 +48,7 @@ const REACTION = 0.3; // seconds the bot needs to react to a tug or a bite
 const DETOUR = 1.2; // real paths are longer than straight lines (obstacles, imperfect steering)
 const DAWDLE = 1.0; // seconds lost per decision (looking around, small corrections)
 const PASS: Vec2 = { x: -11.6, z: -1.2 };
+const BRIDGE: Vec2 = { x: 10.9, z: -1.1 };
 const THREAT_REACTION = 1.0; // seconds before the bot drops what it does after a threat warning
 const C = IceShore.counter;
 
@@ -107,6 +113,8 @@ interface Customer {
   want: number;
   got: number;
   bill: number;
+  /** Part of the bill that was smoked fish. */
+  smoked: number;
   takeTimer: number;
 }
 
@@ -146,8 +154,19 @@ interface Result {
   earned: number;
   /** Peace tips paid (included in `earned`). */
   tips: number;
+  /** Income by line (GDD §16), including tips: counter sales of raw / smoked fish, the camp, the cave. */
+  income: Income;
+  /** `income` at 60 minutes. */
+  income60?: Income;
   nightsSlept: number;
   threat: ThreatStats;
+}
+
+interface Income {
+  raw: number;
+  smoked: number;
+  camp: number;
+  cave: number;
 }
 
 /** A bear or avalanche in progress (sim view: just the times that matter). */
@@ -175,6 +194,7 @@ class Sim {
     upgradesBought: [],
     earned: 0,
     tips: 0,
+    income: { raw: 0, smoked: 0, camp: 0, cave: 0 },
     nightsSlept: 0,
     threat: { window: 0, earned: 0, bears: 0, blocked: 0, lostCoins: 0, maxLoss: 0, penguinHides: 0, scareCoins: 0, avalanches: 0, chestCoins: 0 },
   };
@@ -184,6 +204,15 @@ class Sim {
   private debt = 0;
   private debtPos: Vec2 | null = null;
   private readonly tipCarry = { value: 0 };
+  // Lands (GDD §15)
+  private readonly caveLogic: CaveLogic;
+  private readonly kitchenLogic: KitchenLogic;
+  private readonly guests: GuestLogic;
+  private bench = false;
+  private kitchen = false;
+  private tents = 0;
+  private attendant = false;
+  private serveTimer = 0;
   private readonly customers: Customer[] = [];
   private spawnTimer = 0.5;
   private net: NetLogic | null = null;
@@ -199,6 +228,9 @@ class Sim {
     const s = this.state;
     this.day = new DayCycle(s, () => DayFeel.dayLength.medium, this.rand);
     this.director = new ThreatDirector(this.rand);
+    this.caveLogic = new CaveLogic(s);
+    this.kitchenLogic = new KitchenLogic(s);
+    this.guests = new GuestLogic(s, this.rand);
     const store = (node: WorkStore['node'], o: Partial<WorkStore>): WorkStore => ({
       node,
       enabled: () => true,
@@ -233,8 +265,9 @@ class Sim {
     return fishingMods(this.state, { night: d.isNight, aurora: d.auroraActive, rareBonus: d.rareFishBonus });
   }
 
+  /** Room for fish (crystals on the back take places too). */
   get capacity(): number {
-    return carryCapacity(this.state);
+    return carryCapacity(this.state) - this.state.carriedCrystals;
   }
 
   /** Advances the town (customers, net, smokehouse, helpers) for `sec` seconds. */
@@ -249,6 +282,7 @@ class Sim {
       this.updateCustomers(dt);
       this.net?.update(dt);
       this.smoker?.update(dt);
+      this.updateLands(dt);
       for (const w of this.workers) w.update(dt, this.ctx, this.workers);
     }
   }
@@ -266,6 +300,7 @@ class Sim {
           want: cfg.buyMin + Math.floor(this.rand() * (cfg.buyMax - cfg.buyMin + 1)),
           got: 0,
           bill: 0,
+          smoked: 0,
           takeTimer: 0,
         });
       }
@@ -278,6 +313,9 @@ class Sim {
       this.state.pile += value;
       this.result.earned += value;
       this.result.tips += pay.tip;
+      const smokedShare = c.bill > 0 ? c.smoked / c.bill : 0;
+      this.result.income.smoked += value * smokedShare;
+      this.result.income.raw += value * (1 - smokedShare);
       if (threatsUnlocked(this.state)) this.result.threat.earned += value;
       this.customers.shift();
       for (const n of this.customers) n.arriveAt = Math.max(n.arriveAt, this.t + C.queueSpacing / CustomerFeel.walkSpeed);
@@ -293,6 +331,7 @@ class Sim {
     c.takeTimer = CustomerFeel.takeInterval;
     c.got++;
     c.bill += item.price;
+    if (item.kind === 'smoked') c.smoked += item.price;
     this.state.stats.sold++;
     if (item.kind === 'smoked') this.smokedSold++;
     if (this.result.firstSale < 0) this.result.firstSale = this.t + CustomerFeel.flightTime;
@@ -327,6 +366,7 @@ class Sim {
       counter: s.counter.length,
       smokeOut: this.smoker ? s.smoker.output.length : null,
       penguins: out.map((w) => w.carried.length),
+      plates: this.kitchen ? s.camp.plates.length : null,
     });
     const penguin = out[pick.penguin] ?? null;
     const a = bearApproach(pick.id, penguin ? { x: penguin.x, z: penguin.z } : null);
@@ -363,6 +403,12 @@ class Sim {
         th.penguin.scare(Threats.bear.penguinHide, this.ctx);
         this.result.threat.penguinHides++;
       }
+      return;
+    }
+    if (th.target === 'plates') {
+      const value = stealPlates(s.camp.plates, this.rand).reduce((v, p) => v + p, 0);
+      this.result.threat.lostCoins += value;
+      this.result.threat.maxLoss = Math.max(this.result.threat.maxLoss, value);
       return;
     }
     const list = th.target === 'basket' ? s.basket : th.target === 'counter' ? s.counter : s.smoker.output;
@@ -422,8 +468,19 @@ class Sim {
   // ---------- player actions (each advances time) ----------
 
   walkTo(p: Vec2): void {
-    let d = dist(this.pos, p);
-    if (inYard(this.pos) !== inYard(p)) d = dist(this.pos, PASS) + dist(PASS, p);
+    // Through the yard pass and the camp bridge when going between areas.
+    const stops: Vec2[] = [this.pos];
+    const area = (q: Vec2) => (inYard(q) ? 0 : q.x > 11 ? 2 : 1);
+    const a = area(this.pos);
+    const b = area(p);
+    if (a !== b) {
+      if (a === 0 || b === 0) stops.push(PASS);
+      if (a === 2 || b === 2) stops.push(BRIDGE);
+      if (a === 2) stops.splice(1, stops.length - 1, ...stops.slice(1).reverse());
+    }
+    stops.push(p);
+    let d = 0;
+    for (let i = 1; i < stops.length; i++) d += dist(stops[i - 1] as Vec2, stops[i] as Vec2);
     this.advance((d * DETOUR) / Economy.player.walkSpeed + DAWDLE);
     this.pos = { ...p };
   }
@@ -467,6 +524,14 @@ class Sim {
         this.state.workers.push(data);
         this.workers.push(new WorkerBrain(data, this.workers.length, home.x, home.z));
       } else if (e.kind === 'igloo' || e.kind === 'decoration') applyComfortUnlock(this.state, e);
+      else if (e.kind === 'land') {
+        if (e.part === 'crystalBench') {
+          this.bench = true;
+          this.caveLogic.benchBuilt();
+        } else if (e.part === 'kitchen') this.kitchen = true;
+        else if (e.part === 'attendant') this.attendant = true;
+        else this.tents++;
+      }
       else if (e.kind === 'station' && e.station === 'net') this.net = new NetLogic(this.state, this.rand);
       else if (e.kind === 'station' && e.station === 'smokehouse') this.smoker = new SmokerLogic(this.state);
     }
@@ -511,6 +576,7 @@ class Sim {
     const hole = holes.reduce((a, b) => (dist(this.pos, a) < dist(this.pos, b) ? a : b));
     this.walkTo({ x: hole.x, z: hole.z + 1.3 });
     while (this.state.carried.length < this.capacity) {
+      if (this.state.carried.length === 0 && this.mineRunDue()) return;
       const r = fishSession(this.rand, this.mods);
       this.advance(r.time);
       if (this.debt > 0) return; // a threat warning: go deal with it
@@ -550,6 +616,8 @@ class Sim {
         this.takeFrom(s.smoker.output, Infinity);
       }
     }
+    // The camp kitchen gets smoked fish when it runs low.
+    if (this.kitchen && s.carried.some((f) => f.kind === 'smoked') && s.camp.input.length <= 2) this.campRun();
     if (s.carried.length > 0) {
       this.walkTo(C.dropPoint);
       const room = Economy.counter.capacity - s.counter.length;
@@ -568,6 +636,113 @@ class Sim {
     this.state.pile = 0;
   }
 
+  /** All coin piles with something on them (counter, cave, camp), nearest first-ish. */
+  collectAll(): void {
+    const s = this.state;
+    if (s.cave.pile > 0) {
+      this.walkTo(CaveLayout.pile);
+      this.advance(0.6);
+      s.coins += s.cave.pile;
+      s.cave.pile = 0;
+    }
+    this.collectPile();
+    if (s.camp.pile > 0) {
+      this.walkTo(CampLayout.pile);
+      this.advance(0.6);
+      s.coins += s.camp.pile;
+      s.camp.pile = 0;
+    }
+  }
+
+  // ---------- lands (GDD §15) ----------
+
+  private updateLands(dt: number): void {
+    const s = this.state;
+    for (const id of mainPagesDue(s)) findPage(s, id);
+    if (!s.regions.includes('iceCave')) return;
+    const ev = this.caveLogic.update(dt, this.bench);
+    if (ev.sold) this.result.income.cave += ev.sold.value + ev.sold.tip;
+    if (!s.regions.includes('hotSpring')) return;
+    if (this.kitchen) this.kitchenLogic.update(dt);
+    for (const pay of this.guests.update(dt, this.tents, this.kitchen, peaceScore(s))) this.result.income.camp += pay.value + pay.tip;
+    // The attendant hands out platters; so does the player while standing at the rack (`serving`).
+    this.serveTimer -= dt;
+    if ((this.attendant || this.serving) && this.serveTimer <= 0 && s.camp.plates.length > 0) {
+      const g = this.guests.nextToServe();
+      if (g) {
+        this.serveTimer = this.serving ? 0.3 : CampCfg.attendantServeInterval;
+        const pay = this.guests.serve(g, s.camp.plates.pop() as number, this.tents);
+        this.result.income.camp += pay.value + pay.tip;
+      }
+    }
+  }
+
+  private serving = false;
+
+  private readyVeins(): number[] {
+    return CaveLayout.veins.map((_, i) => i).filter((i) => this.caveLogic.veinReady(i));
+  }
+
+  /** Mining is worth a trip: enough veins have grown back and the bench is running low (or the first crystal). */
+  mineRunDue(): boolean {
+    const s = this.state;
+    if (!s.regions.includes('iceCave') || s.carried.length > 0) return false;
+    if (s.cave.mined === 0) return true;
+    return this.bench && s.cave.input <= 2 && this.readyVeins().length >= 3;
+  }
+
+  /** Walks the cave, mining ready veins until the back is full, then loads the bench. */
+  mineRun(): void {
+    const s = this.state;
+    for (;;) {
+      const ready = this.readyVeins();
+      const room = carryCapacity(s) - s.carried.length - s.carriedCrystals;
+      if (ready.length === 0 || room <= 0) break;
+      const i = ready.reduce((a, b) => (dist(this.pos, CaveLayout.veins[a] as Vec2) <= dist(this.pos, CaveLayout.veins[b] as Vec2) ? a : b));
+      this.walkTo(CaveLayout.veins[i] as Vec2);
+      this.advance(CaveCfg.mineTime + REACTION);
+      s.carriedCrystals += Math.min(this.caveLogic.mine(i), room);
+      if (!this.bench) break;
+    }
+    if (this.bench && s.carriedCrystals > 0) {
+      this.walkTo(CaveLayout.bench.input);
+      const n = Math.min(s.carriedCrystals, CaveCfg.bench.inputCapacity - s.cave.input);
+      s.carriedCrystals -= n;
+      s.cave.input += n;
+      this.advance(n * 0.15);
+    }
+    if (s.cave.pile > 0) this.collectAll();
+  }
+
+  /** Smoked fish on the back go to the camp kitchen when it is running low; the bot serves the queue while there. */
+  campRun(): void {
+    const s = this.state;
+    const k = CampLayout.kitchen;
+    this.walkTo(k.input);
+    const room = CampCfg.kitchen.inputCapacity - s.camp.input.length;
+    let moved = 0;
+    for (let i = s.carried.length - 1; i >= 0 && moved < room; i--) {
+      if (s.carried[i]?.kind !== 'smoked') continue;
+      s.camp.input.push(s.carried.splice(i, 1)[0] as FishItem);
+      moved++;
+    }
+    this.advance(moved * 0.15);
+    if (!this.attendant && s.camp.plates.length > 0) {
+      this.walkTo(k.output);
+      this.serving = true;
+      this.advance(Math.min(s.camp.plates.length, this.guests.queue.length) * 0.4 + 1);
+      this.serving = false;
+    }
+    if (s.camp.pile > 0) {
+      this.walkTo(CampLayout.pile);
+      this.advance(0.6);
+      s.coins += s.camp.pile;
+      s.camp.pile = 0;
+    }
+  }
+
+  // ---------- player actions (each advances time) ----------
+
   run(): Result {
     const o = this.opts;
     let idleDone = false;
@@ -577,6 +752,7 @@ class Sim {
         this.goSleep();
         continue;
       }
+      if (!this.result.income60 && this.t >= 60 * 60) this.result.income60 = { ...this.result.income };
       if (o.idleAfter && !idleDone && isDone(this.state, o.idleAfter)) {
         idleDone = true;
         const pile0 = this.state.pile;
@@ -596,8 +772,14 @@ class Sim {
         continue;
       }
       const next = this.available()[0];
-      if (next && this.state.pile > 0 && this.state.coins + this.state.pile >= next.cost) {
-        this.collectPile();
+      const s = this.state;
+      const piles = s.pile + s.cave.pile + s.camp.pile;
+      if (next && piles > 0 && s.coins + piles >= next.cost) {
+        this.collectAll();
+        continue;
+      }
+      if (this.mineRunDue()) {
+        this.mineRun();
         continue;
       }
       // Grab the basket on the way when no penguin does it.
@@ -616,8 +798,9 @@ class Sim {
 
 const fmt = (sec: number | undefined) => {
   if (sec === undefined) return '   —  ';
-  const m = Math.floor(sec / 60);
-  const s = Math.round(sec % 60);
+  const total = Math.round(sec);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
   return `${String(m).padStart(2)}:${String(s).padStart(2, '0')}`;
 };
 const median = (xs: number[]) => {
@@ -626,7 +809,7 @@ const median = (xs: number[]) => {
 };
 
 const RUNS = Number(process.argv[2] ?? 12);
-const ORDER = ['hole2', 'net', 'hut', 'smokeYard', 'smokehouse', 'hole3', 'penguin2', 'igloo2', 'igloo3', 'igloo4'];
+const ORDER = ['hole2', 'net', 'hut', 'smokeYard', 'smokehouse', 'hole3', 'penguin2', 'igloo2', 'igloo3', 'igloo4', 'iceCave', 'crystalBench', 'hotSpring', 'tent1', 'kitchen', 'tent2', 'tent3', 'attendant'];
 const DECOR = ['flagpole', 'doormat', 'snowman', 'sled', 'lanterns', 'dryingRack', 'iceSculpture'];
 const TARGET: Record<string, string> = {
   hole2: '~2 dk',
@@ -639,11 +822,19 @@ const TARGET: Record<string, string> = {
   igloo2: '~8 dk',
   igloo3: '~18 dk',
   igloo4: '~32 dk',
+  iceCave: '~26 dk (tapu)',
+  crystalBench: '~26 dk',
+  hotSpring: '~38 dk (tapu)',
+  tent1: '~38 dk',
+  kitchen: '—',
+  tent2: '—',
+  tent3: '—',
+  attendant: '~45 dk',
 };
 
 function unlockTable(upgrades: boolean): void {
   const results: Result[] = [];
-  for (let i = 0; i < RUNS; i++) results.push(new Sim({ seed: 1000 + i, upgrades, endAt: 45 * 60, threats: 'active' }).run());
+  for (let i = 0; i < RUNS; i++) results.push(new Sim({ seed: 1000 + i, upgrades, endAt: 60 * 60, threats: 'active' }).run());
   console.log(`\n## Açılış süreleri — ${upgrades ? 'yükseltme alan bot' : 'yükseltme almayan bot'} (${RUNS} koşu, medyan [min–maks], oyun içi süre)`);
   console.log('| Açılış | Hedef | Medyan | Aralık |');
   console.log('|---|---|---|---|');
@@ -674,6 +865,36 @@ function idleTest(after: string, label: string): void {
   console.log(
     `| ${label} | ${median(gains)} coin | ${Math.min(...gains)}–${Math.max(...gains)} | ${median(sold)} balık (${median(smoked)} tütsü) |`,
   );
+}
+
+/** Income lines (GDD §16): where the coins come from at 60 and 90 minutes; no line above 70% or below 10%. */
+function incomeTable(): void {
+  const runs: Result[] = [];
+  for (let i = 0; i < RUNS; i++) runs.push(new Sim({ seed: 5000 + i, upgrades: true, endAt: 90 * 60, threats: 'active' }).run());
+  console.log(`\n## Gelir kolları (${RUNS} koşu, yükseltme alan bot, tehditler aktif)`);
+  console.log('| Süre | Toplam | Balık (çiğ + tütsü) | – çiğ | – tütsü | Kamp (tabak + kira) | Mağara (heykelcik) | Kontrol |');
+  console.log('|---|---|---|---|---|---|---|---|');
+  for (const [label, pick] of [
+    ['60 dk', (r: Result) => r.income60 ?? r.income],
+    ['90 dk', (r: Result) => r.income],
+  ] as const) {
+    const sum = { raw: 0, smoked: 0, camp: 0, cave: 0 };
+    for (const r of runs) {
+      const inc = pick(r);
+      sum.raw += inc.raw;
+      sum.smoked += inc.smoked;
+      sum.camp += inc.camp;
+      sum.cave += inc.cave;
+    }
+    const total = sum.raw + sum.smoked + sum.camp + sum.cave;
+    const pct = (v: number) => (v / total) * 100;
+    const lines = [pct(sum.raw + sum.smoked), pct(sum.camp), pct(sum.cave)];
+    const ok = lines.every((p) => p <= 70) && lines.every((p) => p >= 10);
+    console.log(
+      `| ${label} | ${Math.round(total / RUNS)} | %${lines[0]?.toFixed(0)} | %${pct(sum.raw).toFixed(0)} | %${pct(sum.smoked).toFixed(0)} | %${lines[1]?.toFixed(0)} | %${lines[2]?.toFixed(0)} | ${ok ? 'tamam (%10–70)' : 'SINIR DIŞI'} |`,
+    );
+  }
+  console.log('Üç kol: balık (tezgâh), kamp (tabak, çadır kirası, bahşiş), mağara (heykelcik + bahşiş). Kontrol 90 dk için bağlayıcı; 60. dakikada kamp yeni açılmış olur.');
 }
 
 /** Sleep and peace (GDD §14): what the "well rested" buff adds to income over the same real play time. */
@@ -851,6 +1072,7 @@ if (process.argv[3] !== 'reel') {
   idleTest('smokehouse', 'Tütsühane açılınca');
   threatTable();
   sleepTable();
+  incomeTable();
 }
 reelTable();
 baitTable();

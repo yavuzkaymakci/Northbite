@@ -94,6 +94,8 @@ export class Avalanche {
     private readonly labels: WorldLabels,
     private readonly banner: Banner,
     private readonly buildings: ThreatBuildings,
+    /** A buried chest was opened (journal page, GDD §15). */
+    private readonly onChestOpened: () => void,
   ) {
     this.pileMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), flat(Palette.snow), A.pileXs.length + 4);
     this.pileMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -389,6 +391,7 @@ export class Avalanche {
       c.open = 0.001;
       this.coins.rewardFrom(this.v.set(root.position.x, 0.6, root.position.z), c.coins);
       vibrate(HapticsSettings.chest);
+      this.onChestOpened();
       this.banner.show(tf('chestCoins', { n: c.coins }), 'good');
       this.fx.splash(root.position.x, 0.6, root.position.z, 12, 2.4);
     }

@@ -22,7 +22,7 @@ export class HUD {
   private target = 0;
   private lastText = '';
 
-  constructor(overlay: HTMLElement, onSettings: () => void) {
+  constructor(overlay: HTMLElement, onSettings: () => void, onJournal: () => void) {
     const bar = document.createElement('div');
     bar.className = 'hud-bar';
 
@@ -45,7 +45,13 @@ export class HUD {
     gear.setAttribute('aria-label', t('settingsOpen'));
     gear.innerHTML = `<svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M13.6 3h4.8l.7 3.4 2.4 1 2.9-1.9 3.4 3.4-1.9 2.9 1 2.4 3.4.7v4.8l-3.4.7-1 2.4 1.9 2.9-3.4 3.4-2.9-1.9-2.4 1-.7 3.4h-4.8l-.7-3.4-2.4-1-2.9 1.9-3.4-3.4 1.9-2.9-1-2.4L3 18.4v-4.8l3.4-.7 1-2.4-1.9-2.9 3.4-3.4 2.9 1.9 2.4-1zM16 11a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg>`;
     onTap(gear, onSettings);
-    right.append(this.fpsEl, gear);
+    // Captain's journal (GDD §15).
+    const book = document.createElement('button');
+    book.className = 'hud-gear hud-book';
+    book.setAttribute('aria-label', t('journalOpen'));
+    book.innerHTML = `<svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M6 5c3-1 7-1 10 1 3-2 7-2 10-1v21c-3-1-7-1-10 1-3-2-7-2-10-1zm2 2v16c2.5-.4 5-.2 7 .9V7.6C13 6.6 10.5 6.5 8 7zm16 0c-2.5-.5-5-.4-7 .6v16.3c2-1.1 4.5-1.3 7-.9z"/></svg>`;
+    onTap(book, onJournal);
+    right.append(this.fpsEl, book, gear);
     bar.append(this.coinPill, right);
 
     this.hintEl = document.createElement('div');

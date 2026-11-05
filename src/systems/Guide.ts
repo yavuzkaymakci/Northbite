@@ -30,6 +30,8 @@ export class Guide {
     private readonly paused: () => boolean,
     /** The bed, while the one-time "go to bed" hint is on (night); null otherwise. */
     private readonly bed: () => { x: number; z: number } | null,
+    /** Ice Cave chain (GDD §15): the crystal bench while carrying crystals, or a ready vein when the bench is idle. */
+    private readonly land: () => { x: number; z: number } | null,
   ) {
     this.arrow = createGuideArrow();
     this.arrow.visible = false;
@@ -46,7 +48,7 @@ export class Guide {
 
   private pickTarget(): { x: number; z: number } | null {
     const s = this.state;
-    if (this.stack.isFull) return C.dropPoint;
+    if (this.stack.isFull) return (s.carriedCrystals > 0 ? this.land() : null) ?? C.dropPoint;
     if (this.fishingActive()) return null;
     const bed = this.bed();
     if (bed) return bed;
@@ -66,6 +68,8 @@ export class Guide {
       return null;
     }
     if (s.pile > 0 && s.coins === 0) return C.coinPile;
+    const land = this.land();
+    if (land) return land;
 
     // Point at the rod bench until the first upgrade is bought (after a couple of unlocks, so it never delays them).
     const anyBought = UpgradeList.some((u) => s.upgrades[u.id] > 1) || s.unlocked.length < 2;

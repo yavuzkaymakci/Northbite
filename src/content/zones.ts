@@ -1,6 +1,7 @@
 // World layout data. Units are world units (~1 m). XZ plane, -Z is "north" (top of the screen).
 // North and east are sea; the Smokehouse yard lies west behind a tree belt, reached through an ice-walled pass.
-// West of the yard a snowy slope rises; avalanches come down it (GDD §13).
+// West of the yard a snowy slope rises; avalanches come down it (GDD §13) and the Ice Cave opens into it (GDD §15).
+// East of the main shore, over a short ice bridge, lies the Hot Spring Camp.
 import { DecorationList, type DecorationId } from './decorations';
 import type { UnlockCostKey } from './economy';
 
@@ -27,7 +28,11 @@ export type UnlockEffect =
   | { kind: 'worker' }
   | { kind: 'building'; building: BuildingId }
   | { kind: 'igloo'; level: number }
-  | { kind: 'decoration'; decoration: DecorationId };
+  | { kind: 'decoration'; decoration: DecorationId }
+  | { kind: 'land'; part: LandPart };
+
+/** Things built inside the lands (GDD §15). */
+export type LandPart = 'crystalBench' | 'kitchen' | 'tent1' | 'tent2' | 'tent3' | 'attendant';
 
 export interface UnlockZoneDef {
   id: string;
@@ -61,7 +66,7 @@ export const IceShore = {
   /** Visible snow/ice slab. Water lies beyond maxX (east) and minZ (north). */
   ground: { minX: -40, maxX: 11, minZ: -12, maxZ: 40 } satisfies RectArea,
   /** Outer limit for walking (includes locked regions; tree belts and walls are colliders inside it). */
-  walkBounds: { minX: -25.4, maxX: 10.3, minZ: -11.3, maxZ: 12 } satisfies RectArea,
+  walkBounds: { minX: -33.6, maxX: 23.4, minZ: -11.3, maxZ: 12 } satisfies RectArea,
   waterLevel: -0.45,
   /** In front of the igloo door (the first-start intro begins here). */
   playerSpawn: { x: -4, z: 0.9 } satisfies Vec2,
@@ -119,9 +124,9 @@ export const IceShore = {
   crates: [
     { x: 8.2, z: 0.8, size: 1.1, stack: 2, rotation: 0.15 },
     { x: 9.3, z: 1.6, size: 1.0, stack: 1, rotation: -0.1 },
-    // Slope nook west of the smokehouse yard
-    { x: -24.3, z: 0.5, size: 1.0, stack: 2, rotation: 0.2 },
-    { x: -24.5, z: -0.6, size: 0.9, stack: 1, rotation: -0.3 },
+    // Slope nook west of the smokehouse yard (north of the avalanche corridor)
+    { x: -24.2, z: -7.6, size: 1.0, stack: 2, rotation: 0.2 },
+    { x: -23.0, z: -8.3, size: 0.9, stack: 1, rotation: -0.3 },
   ],
 
   /** Trees inside the walkable area (they get colliders). */
@@ -163,7 +168,7 @@ export const IceShore = {
     ],
     gaps: [
       { minX: 2.4, maxX: 12, minZ: 12, maxZ: 21.5 },
-      { minX: -40, maxX: -21, minZ: -12, maxZ: 3.5 }, // the slope
+      { minX: -40, maxX: -21, minZ: -12, maxZ: 3.5 }, // the slope and the Ice Cave
     ] satisfies RectArea[],
   },
 
@@ -185,6 +190,8 @@ export const ThreatLayout = {
       basket: { from: { x: -0.8, z: -17 }, stand: { x: -0.5, z: -4.0 } },
       counter: { from: { x: 16, z: 5.5 }, stand: { x: 4.2, z: 2.2 } },
       smokeOut: { from: { x: -15.6, z: -17 }, stand: { x: -13.4, z: -0.2 } },
+      /** Camp platter rack (lowest priority, only when no fire pit covers the camp). */
+      plates: { from: { x: 26, z: -6 }, stand: { x: 18.7, z: -1.8 } },
     },
     /** Collision radius (smaller than the model so it fits the lane east of the smokehouse racks). */
     radius: 0.6,
@@ -211,6 +218,73 @@ export const ThreatLayout = {
   /** Visual slope west of the walk area. */
   slope: { minX: -38, maxX: -25.9, minZ: -12, maxZ: 4 } satisfies RectArea,
 } as const;
+
+/**
+ * Ice Cave (GDD §15): a dark hollow in the slope, entered from the nook west of the smokehouse yard.
+ * Safe ground: bears never go there and avalanches never reach it.
+ */
+export const CaveLayout = {
+  area: { minX: -33.2, maxX: -25.4, minZ: -2.9, maxZ: 2.8 } satisfies RectArea,
+  /** Rock around the cave (also closes the slope behind the widened walk bounds). */
+  walls: [
+    { minX: -34.5, maxX: -25.4, minZ: -12, maxZ: -2.9 },
+    { minX: -34.5, maxX: -25.8, minZ: 2.8, maxZ: 13 },
+    { minX: -34.5, maxX: -33.2, minZ: -2.9, maxZ: 2.8 },
+  ] satisfies RectArea[],
+  /** Crystal veins; `size` 1..3 sets their look and yield (content/land.ts). */
+  veins: [
+    { x: -29.2, z: -1.9, size: 1 },
+    { x: -31.2, z: -0.8, size: 2 },
+    { x: -32.0, z: 1.7, size: 3 },
+    { x: -30.4, z: 2.0, size: 1 },
+    { x: -28.0, z: -0.5, size: 2 },
+    { x: -32.2, z: -2.0, size: 3 },
+  ],
+  /** Crystal bench at the cave mouth: crystals go in on the west rack, statuettes come out on the east rack. */
+  bench: { x: -27.4, z: 2.25, width: 1.8, depth: 0.7, input: { x: -28.6, z: 1.3 }, output: { x: -26.3, z: 1.3 } },
+  /** The collector shows up outside the cave; his coins land on their own pile. */
+  collector: { x: -24.0, z: 0.9 },
+  pile: { x: -22.9, z: 0.2 },
+};
+
+/** Hot Spring Camp (GDD §15): a strip of land east of the shore with a steaming pool, tents and a kitchen. */
+export const CampLayout = {
+  land: { minX: 11, maxX: 24, minZ: -10, maxZ: 2 } satisfies RectArea,
+  /** Colliders around it: open water north and south (`water`: bears swim through), ice ridges beside the bridge. */
+  blockers: [
+    { minX: 10.4, maxX: 25, minZ: -13, maxZ: -9.6, water: true },
+    { minX: 10.4, maxX: 25, minZ: 1.6, maxZ: 13, water: true },
+    { minX: 10.4, maxX: 11.4, minZ: -9.6, maxZ: -2.3, water: false },
+    { minX: 10.4, maxX: 11.4, minZ: 0, maxZ: 1.6, water: false },
+  ],
+  pool: { x: 17.6, z: -4.4, radius: 1.9 },
+  /** Kitchen counter: smoked fish go on the west rack, platters come out on the east rack. */
+  kitchen: { x: 15.4, z: -0.5, width: 2.2, depth: 0.8, input: { x: 13.6, z: -0.6 }, output: { x: 17.4, z: -0.6 } },
+  /** Guests queue east of the platter rack, along +X. */
+  servePoint: { x: 18.4, z: 0.7 },
+  queueSpacing: 1.1,
+  guestSpawn: { x: 25, z: 0.7 },
+  guestExit: { x: 25, z: -1.6 },
+  /** Shared first step away from the queue (keeps guests off the kitchen). */
+  guestStep: { x: 18.7, z: -1.6 },
+  tents: [
+    { x: 13.4, z: -7.6, door: { x: 13.4, z: -6.1 }, via: [{ x: 14.2, z: -2.4 }] },
+    { x: 17.6, z: -8.3, door: { x: 17.6, z: -6.9 }, via: [{ x: 20.4, z: -2.4 }, { x: 20.2, z: -6.8 }] },
+    { x: 21.6, z: -7.6, door: { x: 21.6, z: -6.1 }, via: [{ x: 21.0, z: -2.4 }] },
+  ],
+  attendant: { x: 16.6, z: -1.5, frame: { x: 20.8, z: -2.9 } },
+  pile: { x: 12.6, z: -2.0 },
+  lamps: [
+    { x: 12.2, z: -4.4 },
+    { x: 22.8, z: -3.8 },
+    { x: 14.8, z: 1.2 },
+  ],
+};
+
+/** Captain's journal: the hidden page behind the rocks west of the penguin hut (no guide arrow there). */
+export const StoryLayout = {
+  hidden: { x: -9.4, z: 9.7, radius: 1.0, glowRange: 3.5 },
+};
 
 /** Where each threat building stands (`at`) and where its unlock frame is (`frame`). */
 export const ThreatBuildingSpots: Record<BuildingId, { at: Vec2; frame: Vec2 }> = {
@@ -280,6 +354,21 @@ export const UnlockZones: readonly UnlockZoneDef[] = [
       effects: [{ kind: 'igloo', level }],
     }),
   ),
+  // Lands (GDD §15): the crystal bench in the cave; kitchen, tents and the attendant in the camp.
+  { id: 'crystalBench', x: CaveLayout.bench.x, z: CaveLayout.bench.z - 0.6, size: 2.0, cost: 'crystalBench', requires: [], effects: [{ kind: 'land', part: 'crystalBench' }] },
+  ...CampLayout.tents.map(
+    (tent, i): UnlockZoneDef => ({
+      id: `tent${i + 1}`,
+      x: tent.x,
+      z: tent.z,
+      size: 2.0,
+      cost: `tent${i + 1}` as UnlockCostKey,
+      requires: i === 0 ? [] : [`tent${i}`],
+      effects: [{ kind: 'land', part: `tent${i + 1}` as LandPart }],
+    }),
+  ),
+  { id: 'kitchen', x: CampLayout.kitchen.x, z: CampLayout.kitchen.z, size: 2.2, cost: 'kitchen', requires: [], effects: [{ kind: 'land', part: 'kitchen' }] },
+  { id: 'attendant', ...CampLayout.attendant.frame, size: 1.6, cost: 'attendant', requires: ['kitchen'], effects: [{ kind: 'land', part: 'attendant' }] },
   // Decorations: fixed spots, see content/decorations.ts.
   ...DecorationList.map(
     (d): UnlockZoneDef => ({
@@ -304,6 +393,27 @@ export const Regions: readonly RegionDef[] = [
     gate: { x: -9.2, z: -1.2, size: 2.0 },
     unlockZones: ['smokehouse', 'hole3'],
     tour: { x: -15.5, z: -3.2 },
+  },
+  // Lands bought with a deed (GDD §15): the frame needs the journal page that leads there.
+  {
+    id: 'iceCave',
+    name: { tr: 'Buz Mağarası', en: 'Ice Cave' },
+    cost: 'iceCave',
+    requires: ['smokehouse', 'page1'],
+    wall: { minX: -26.2, maxX: -25.3, minZ: -2.9, maxZ: 1.4, height: 2.6 },
+    gate: { x: -23.6, z: 0.4, size: 1.8 },
+    unlockZones: ['crystalBench'],
+    tour: { x: -29.4, z: 0.2 },
+  },
+  {
+    id: 'hotSpring',
+    name: { tr: 'Kaplıca Kampı', en: 'Hot Spring Camp' },
+    cost: 'hotSpring',
+    requires: ['iceCave', 'page2'],
+    wall: { minX: 10.4, maxX: 11.4, minZ: -2.3, maxZ: 0, height: 2.6 },
+    gate: { x: 8.9, z: -1.1, size: 1.6 },
+    unlockZones: ['tent1', 'kitchen', 'tent2', 'tent3', 'attendant'],
+    tour: { x: 17.2, z: -4 },
   },
 ];
 

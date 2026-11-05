@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Economy } from '../content/economy';
-import { unlockName } from '../content/strings';
+import { getLang, t, unlockName } from '../content/strings';
 import { scaledPrice } from '../content/tuning';
 import { Regions, UnlockZones, type RegionDef, type UnlockZoneDef } from '../content/zones';
 import { HapticsSettings, UnlockFeel } from '../settings';
@@ -95,7 +95,8 @@ export class Unlocks {
     const frame = createUnlockFrame(spot.size);
     frame.root.position.set(spot.x, 0, spot.z);
     this.scene.add(frame.root);
-    const name = spot.region ? unlockName('region') : unlockName(spot.id);
+    // Lands are bought with a deed (GDD §15); the first region is just an ice wall.
+    const name = !spot.region ? unlockName(spot.id) : spot.region.id === 'smokeYard' ? unlockName('region') : `${t('unlock_deed')}: ${spot.region.name[getLang()]}`;
     const label = this.labels.create(
       'unlock-price',
       `${name ? `<div class="unlock-name">${name}</div>` : ''}<div class="unlock-cost"><span class="coin-icon small"></span><span class="unlock-value"></span></div>`,

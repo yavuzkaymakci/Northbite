@@ -194,8 +194,8 @@ Değerler `src/content/` altında: `economy.ts` (oyuncu, tezgâh, müşteri, aç
 | Penguen kulübesi (1. penguen) | 65 | ~6 dk | 6:32 |
 | Buz duvarı → Tütsühane bölgesi | 125 (Demo 4: 140 → 125) | ~10 dk | 10:57 |
 | Tütsühane | 150 (Demo 4: 160 → 150) | 12–15 dk | 14:38 |
-| 3. buz deliği | 220 | 15+ dk | 19:09 |
-| 2. penguen (tütsühaneden sonra) | 300 | 15+ dk | 23:58 |
+| 3. buz deliği | 160 (Demo 4: 220 → 160) | ~22 dk | 22:06 |
+| 2. penguen (tütsühaneden sonra) | 220 (Demo 4: 300 → 220) | ~28 dk | 28:53 |
 
 **Olta yükseltmeleri** (5 seviye, seviye 1 başlangıç; fiyat = `taban × 1.6^(seviye − 1)`):
 
@@ -399,9 +399,33 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **"Yakında" iskele duvarı** durmaya devam eder (Demo 7).
 - **Hikâye:** Eski bir liman kaptanının günlük sayfaları dünyaya dağılmıştır. Bu demoda 6 sayfa: 3'ü ana hedeflerden, 3'ü keşiften (çığ sandığı, ayı ödülü, gizli kayalık). Sayfa = kısa günlük metni (tr/en) + tapu ya da küçük ödül. İlk sayfa tütsühane açılınca gelir ve Buz Mağarası'nı ima eder. HUD'dan açılan "Günlük" sayfası bulunanları gösterir, kalanlar gri "???". Hikâye rehber okun yerine geçmez, onu tamamlar. Hayalî kuzey kasabası; gerçek yerli halklar stereotip biçimde kullanılmaz.
 
+**Uygulama (Demo 4 aşama 4):**
+- Sayılar `content/land.ts` (tapu ve yapı fiyatları, mağara, mutfak, çadır), `content/guests.ts` (turistler) ve `content/story.ts` (sayfalar ve tetikleyiciler); sayfa metinleri `strings.ts`'de. Yerleşim `zones.ts` → `CaveLayout`, `CampLayout`, `StoryLayout`. Saf kurallar `systems/LandLogic.ts` ve `systems/StoryLogic.ts`'de; oyun ve simülasyon ortak kullanır.
+- **Tapu:** Arazi, buz duvarlı bir bölge ve önündeki kilit alanıdır; ön koşulu bir günlük sayfasıdır (`isDone` sayfaları da sayar). Etiketi "Tapu: Buz Mağarası". Açılışta duvar kırılır ve kamera gezdirmesi oynar.
+- **Buz Mağarası** (180, sayfa 1 + tütsühane): Yamaçta, tütsühane bölgesinin batısındaki köşeden girilir. Açık tavanlı, koyu mavi-mor zeminli; kuzey, batı ve güney duvarları kaya ve sarkıtlardan oluşur. 6 kristal damarının 3'ü küçük, 2'si orta, 2'si büyük; büyükler 2 kristal verir.
+  - Damarın üstünde durup basılı tutunca (2 sn) kristal çıkar ve ~60 sn'de yeniden dolar. Oyuncu damar üstünde dururken dokunuşları mağara alır, joystick açılmaz; 40 px sürükleme yürümeye geçer.
+  - Kristaller sırttaki yığının üstüne biner ve kapasiteyi balıkla paylaşır.
+  - Kristal tezgâhı (90): giriş rafı 6, 5 sn/heykelcik, çıkış rafı 6.
+  - Koleksiyoncu ilk kez tezgâhtan 25 sn sonra, sonra her 100 sn'de bir mağara ağzında belirir. 30 sn kalır ve çıkış rafındaki heykelcikleri tek tek alır. Heykelcik 16 coin'dir (+ huzur bahşişi); para mağaranın kendi coin yığınına düşer.
+  - Mağara güvenli bölgedir: ayının hedefi ve yolu yoktur, çığ koridoru mağaraya dokunmaz.
+- **Kaplıca Kampı** (380, sayfa 2 + mağara): Ana kıyının doğusunda, buz köprüyle bağlı yeni bir kara parçası. Kuzey ve güney açık sudur (ayı yüzerek geçer, oyuncu geçemez).
+  - Kampta buharlı kaplıca (instanced buhar), 3 fener, 3 çadır (140 / 240 / 340), mutfak tezgâhı (180) ve kamp görevlisi (400) var.
+  - Mutfakta tütsülenmiş balık 5 sn'de balık tabağına döner. Tabak değeri tütsü × 1.6 ≈ çiğin 4 katı; raflar 6'şar.
+  - Turistler (renkli kıyafet, sırt çantası) ortalama 13 sn'de bir gelir; huzur gelişi %25'e kadar hızlandırır. Mutfak varsa kuyruğa girip tabak bekler (en fazla 50 sn). Sonra boş çadır varsa 75 sn kalıp kira öder (14 coin/dk), yoksa gider.
+  - Oyuncu tabak rafının yanından geçince tabaklar kuyruğa tek tek uçar. Görevli varsa 1.4 sn'de bir kendisi servis eder.
+  - Kamp gece de aynı hızla çalışır. Para kampın kendi coin yığınına düşer; bahşiş nane yeşili.
+  - Ayı için tabak rafı en düşük öncelikli hedeftir ve 1. ateş çukurunun menzili kampı kapsamaz. Kayıp geçicidir: korkutulan ayı tabakları geri bırakır.
+- **Günlük:**
+  - Sayfa 1 tütsühane açılınca, 2 ilk kristalde, 3 ilk serviste gelir. Sayfa 4 ilk açılan çığ sandığından, 5 ilk korkutulan ayıdan, 6 penguen kulübesinin batısındaki kayalıklardan çıkar (rehber ok göstermez; yaklaşınca hafif parlar).
+  - Sayfa bulunduğu anda kaydedilir ve kâğıt kartında gösterilir ("Günlüğe ekle"). Kart açıkken oyun sürer ama yeni tehdit başlamaz.
+  - HUD'daki kitap düğmesi Günlük'ü açar: bulunan sayfalar yeniden okunur, kalanlar "???" ve ipucu satırıyla görünür.
+- **Rehber ok:** Tapu, çadır, mutfak ve görevli çerçevelerini en ucuz karşılanabilir hedef kuralıyla gösterir. Kristal taşınırken tezgâhı gösterir. Oyuncu bölgenin batısındayken ve tezgâh boşken hazır bir damarı gösterir. Sayfalar hedef olmaz.
+
 ## 16. Yeni gelir kolları
 - Değer zinciri: balık → tütsülenmiş balık (2.5×) → Balık tabağı (kamp, ~4×) ve buz heykelciği (mağara, ~6× ama yavaş). Üçü birbirini tamamlar; oyuncu tek gelire bağlı kalmaz.
-- Açılış hedefleri: iglo 2 ~8 dk, ateş çukuru ~13 dk, Buz Mağarası ~22 dk, Kaplıca ~30 dk.
+- Açılış hedefleri (Demo 4 aşama 4'te güncellendi): iglo 2 ~8 dk, 3. delik ~22 dk, Buz Mağarası (tapu + kristal tezgâhı) ~26 dk, 2. penguen ~28 dk, iglo 4 ~32 dk, Kaplıca Kampı (tapu + ilk çadır) ~38 dk, kamp görevlisi ~45 dk.
+- **Simülasyon (yükseltme almayan / alan bot, medyan):** 3. delik 22:06 / 23:07, Buz Mağarası tapusu 25:34 / 26:51, kristal tezgâhı 26:54 / 28:04, 2. penguen 28:53 / 30:20, iglo 4 32:24 / 33:41, kamp tapusu 36:09 / 37:47, ilk çadır 37:11 / 39:11, görevli 45:24 / 47:50.
+- **Gelir dağılımı (yükseltme alan bot):** 60 dk'da balık %64 (çiğ %9, tütsü %55), kamp %11, mağara %25. 90 dk'da balık %57, kamp %17, mağara %27. Hiçbir kol %70'i geçmiyor, %10'un altında da kalmıyor.
 - **Ayar çarpanları:** `priceScale` (tüm açılış ve yükseltme fiyatları) ve `threatScale` (0 = tehdit yok, varsayılan 1) `src/content/tuning.ts` içinde.
 - Simülasyon gece/gündüzü, uyku buff'ını ve tehditleri de modeller; ayı kaybı ve engelleme oranı (aktif ve ilgisiz oyuncu) ile uyku buff'ının gelir etkisini (en fazla ~%12) raporlar.
 
@@ -470,3 +494,14 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **Kayıt (v4):** `iglooLevel`, `decorations` (açılan çerçevelerden yeniden kurulur), `rested` (kalite + bitiş oyun zamanı, gün cinsinden `day − 1 + t`), `sleep` (son uyanılan gün, ipucunun gösterildiği gece, ipucu kapandı mı). Eksik alanlar varsayılana döner: iglo 1, buff yok.
 - **Ayı tüyü** için kullanım hâlâ yok (huzura bağlanması aşama 4–5'te düşünülebilir).
 - **Çizim maliyeti:** İglo seviye 4 + bütün dekorasyonlar + gece ışıklarıyla ölçülen sahne ~99 draw call, ~28k üçgen.
+
+### Demo 4 aşama 4 (araziler, hikâye, gelir kolları) sırasında verilen geçici kararlar
+- **Kamp yeri:** "Kuzeydoğu" için ana kıyının doğusunda (x 11–24, z −10…2) bir kara parçası açıldı. Ana alanla arasında buz köprü var; yürüme sınırı genişledi, çevresi su ve buz sırtı çarpışmalarıyla kapatıldı.
+- **Mağara yeri:** Çığ koridorunun güneyinde, yamacın içinde. Eski kasalar köşenin kuzeyine taşındı. Yamaç kayaları mağara boşluğunu boş bırakıyor. Kameraya bakan güney duvarı içerisi görünsün diye alçak tutuldu.
+- **Coin yığınları:** Mağara ve kampın kendi yığınları var (Koleksiyoncu ve turist paraları buraya düşer). Oyuncu üstünden geçince toplar.
+- **Satıcıya taşıma yok:** Heykelcik ve tabak sırtta taşınmaz. Heykelcikleri Koleksiyoncu raftan alır, tabaklar raftan turiste uçar. Sırtta yalnızca kristal taşınır (balıkla aynı kapasite).
+- **Penguenler** kristal, heykelcik ve tabak taşımaz (`content/workers.ts` → `goods`: ileride iş eklemek için kanca).
+- **Turistler** mutfak yoksa yalnızca boş çadır varken gelir; kira, misafir ayrılınca ödenir. Turistler, Koleksiyoncu'nun konumu ve aktif servisler kaydedilmez. Kaydedilenler: açılan araziler (`regions`), damar dolma süreleri, mağara/mutfak rafları, çadırlar ve görevli (`unlocked`), bulunan sayfalar ve Koleksiyoncu'ya kalan süre.
+- **Fiyat dengesi:** Yeni içerikle 3. delik (220 → 160) ve 2. penguen (300 → 220) ucuzladı, iglo 4 500 → 320 oldu (aşama 3'teki gecikme giderildi). Yükseltme alan bot hedeflerin 1–3 dk gerisinde. Bu bot her açılıştan sonra bir yükseltme de aldığı için daha yavaş ilerliyor; yükseltme almayan bot neredeyse tam hedefte.
+- **Eski kayıtlar:** Tütsühanesi açık eski kayıtlarda 1. sayfa ilk açılışta gelir.
+- **Çizim maliyeti:** Mağarada ~64, kampta ~70 draw call ölçüldü (~29k üçgen). Turistlerin gövdesi bake edildi (kişi başı 5 draw call).

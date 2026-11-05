@@ -134,6 +134,23 @@ export const Palette = {
   tipCoin: 0x5ff2b0,
   sleepFade: 0x0b1430,
 
+  // Lands (GDD §15): Ice Cave and Hot Spring Camp
+  caveFloor: 0x262b5c,
+  caveRock: 0x40467a,
+  caveIce: 0x8c9be0,
+  crystal: 0xa9c8ff,
+  crystalGlow: 0xa27bff,
+  poolWater: 0x45c4d2,
+  collectorCoat: 0x3b2f4f,
+  attendantCoat: 0x47b37a,
+  plate: 0xf4f0e6,
+  garnish: 0x5fae5a,
+  tentRed: 0xd9654a,
+  tentBlue: 0x4a8fd9,
+  tentYellow: 0xe8c25a,
+  journalPaper: 0xf3e6c8,
+  journalInk: 0x4a3626,
+
   // Character creator stage
   creatorSkyTop: 0x1f3c5c,
   creatorSkyLow: 0xd6e8f2,
@@ -153,6 +170,8 @@ export const BeardColors = [0x5e3c27, 0x2b2420, 0xc98e4f, 0xd9d4cc] as const;
 
 // Townsfolk (customers) use their own muted set so the player's character always stands out.
 export const TownJacketColors = [0x6d7f8f, 0x8a6f55, 0x5d7360, 0x7b5866, 0xa39270, 0x4f6478] as const;
+/** Camp tourists: bright, varied clothes and backpacks. */
+export const GuestColors = [0xe2504c, 0x3f8fd2, 0xf2c94c, 0x47b37a, 0x9b6bff, 0x2fa5a0, 0xe07aa8, 0xf28c38] as const;
 export const TownHatColors = [0x9aa7b0, 0x6b5a4a, 0xb89a6a, 0x58707a, 0xc7c1b6, 0x7d6a7a] as const;
 
 export function toCss(color: number): string {

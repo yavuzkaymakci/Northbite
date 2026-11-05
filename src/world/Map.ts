@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { FishingFeel, UnlockFeel, WaterSettings } from '../settings';
-import { Regions, TeaserWalls, ThreatLayout, IceShore as Z, type RectArea } from '../content/zones';
+import { CampLayout, CaveLayout, Regions, TeaserWalls, ThreatLayout, IceShore as Z, type RectArea } from '../content/zones';
 import { easeOutBack } from '../core/Ease';
 import { range, seededRandom } from '../core/Random';
 import { bake } from '../models/bake';
@@ -104,6 +104,8 @@ export class WorldMap implements Walkable {
 
     // Ground, shore and water
     this.group.add(createGround(g, SHORE_INSET));
+    // Patches go on the main slab or the camp land, never on the water between them.
+    const onLand = (x: number, z: number) => (inside(g, x, z) && x <= g.maxX - 0.4) || inside(CampLayout.land, x, z, -0.4);
     this.water = createWater(170, 56, WaterSettings.waveHeight, WaterSettings.waveSpeed);
     this.water.mesh.position.set(0, Z.waterLevel, 0);
     this.group.add(this.water.mesh);
@@ -146,7 +148,13 @@ export class WorldMap implements Walkable {
     }
     this.group.add(createPines(pines));
     // Snowy slope west of the smokehouse yard; avalanches come down its chute (GDD §13).
-    this.group.add(createSlope(ThreatLayout.slope, ThreatLayout.avalanche.pileZ));
+    this.group.add(createSlope(ThreatLayout.slope, ThreatLayout.avalanche.pileZ, CaveLayout.area));
+
+    // Hot Spring Camp land east of the shore (GDD §15): its own slab, with open water and ice ridges around it.
+    this.group.add(createGround(CampLayout.land, SHORE_INSET));
+    for (const b of CampLayout.blockers) {
+      this.colliders.push({ kind: 'rect', minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ, water: b.water });
+    }
 
     // Ice walls: one per region still locked, plus the teaser walls that never open in this demo.
     for (const r of Regions) {
@@ -211,7 +219,10 @@ export class WorldMap implements Walkable {
       Z.holes.every((h) => Math.hypot(x - h.x, z - h.z) > 2.6) &&
       Math.hypot(x - c.x, z - c.z) > 3 &&
       stations.every((s) => Math.hypot(x - s.x, z - s.z) > 2.8) &&
-      !Z.treeWalls.some((w) => inside(w, x, z, 0.8));
+      !Z.treeWalls.some((w) => inside(w, x, z, 0.8)) &&
+      !inside(CaveLayout.area, x, z, 0.5) &&
+      Math.hypot(x - CampLayout.pool.x, z - CampLayout.pool.z) > CampLayout.pool.radius + 1 &&
+      onLand(x, z);
     this.group.add(
       createIcePatches(
         scatter(patchRand, Z.walkBounds, Z.icePatches.count, clearOfStations).map(
@@ -325,9 +336,24 @@ export class WorldMap implements Walkable {
       const s = range(rand, 0.55, 1.0);
       blocks.push({ x, y: range(rand, -0.32, -0.12), z, sx: s * range(rand, 0.9, 1.4), sy: 0.5, sz: s, scale: 1, rotY: range(rand, -0.4, 0.4) });
     };
-    // North edge (z = minZ), then east edge (x = maxX)
+    // North edge (z = minZ), then east edge (x = maxX); the camp land joins the east edge between its ends.
+    const camp = CampLayout.land;
     for (let x = -26; x < g.maxX; x += range(rand, 0.8, 1.3)) add(x, g.minZ - 0.3 + range(rand, -0.1, 0.15));
-    for (let z = g.minZ; z < 30; z += range(rand, 0.8, 1.3)) add(g.maxX + 0.3 + range(rand, -0.15, 0.1), z);
+    for (let z = g.minZ; z < 30; z += range(rand, 0.8, 1.3)) {
+      if (z > camp.minZ - 0.4 && z < camp.maxZ + 0.4) continue;
+      add(g.maxX + 0.3 + range(rand, -0.15, 0.1), z);
+    }
+    // Camp shores: north, east and south.
+    for (let x = camp.minX; x < camp.maxX; x += range(rand, 0.8, 1.3)) {
+      add(x, camp.minZ - 0.3 + range(rand, -0.1, 0.15));
+      add(x, camp.maxZ + 0.3 + range(rand, -0.15, 0.1));
+    }
+    for (let z = camp.minZ; z < camp.maxZ; z += range(rand, 0.8, 1.3)) add(camp.maxX + 0.3 + range(rand, -0.15, 0.1), z);
+    // Ice ridges beside the bridge (the camp blockers that are not water).
+    for (const b of CampLayout.blockers) {
+      if (b.water) continue;
+      for (let z = b.minZ + 0.3; z < b.maxZ; z += 0.7) blocks.push({ x: (b.minX + b.maxX) / 2, y: 0.1, z, sx: 0.9, sy: 0.9, sz: 0.8, scale: 1, rotY: range(rand, -0.3, 0.3) });
+    }
     return blocks;
   }
 
@@ -343,6 +369,7 @@ export class WorldMap implements Walkable {
       const z = north ? g.minZ - dist : range(rand, g.minZ - 10, 28);
       const s = range(rand, 0.5, 1.6);
       const t: InstanceTransform = { x, y: Z.waterLevel, z, scale: s, sy: 0.28, sx: range(rand, 0.8, 1.3), rotY: rand() * 6 };
+      if (inside(CampLayout.land, x, z, 1.5 + s)) continue; // no floes on the camp land
       out.push(t);
       this.floes.push({ t, phase: rand() * Math.PI * 2 });
     }

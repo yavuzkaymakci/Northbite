@@ -120,6 +120,9 @@ export const HapticsSettings = {
   iglooUpgrade: [90, 60, 90, 60, 260] as number[],
   sleep: [30, 80, 30] as number[],
   decoration: [40, 40, 100] as number[],
+  mineTick: 14,
+  crystal: [30, 30, 80] as number[],
+  page: [30, 60, 30, 60, 120] as number[],
 } as const;
 
 export const CarryFeel = {
@@ -286,6 +289,27 @@ export const SleepFeel = {
   chimneyInterval: 0.9,
   upgradeShake: 0.3,
   upgradePuffs: 14,
+} as const;
+
+/** Ice Cave and Hot Spring Camp feel (GDD §15). Balance values live in content/land.ts and guests.ts. */
+export const LandFeel = {
+  /** Stand within this distance of a vein's center (plus its size) to mine it. */
+  veinReach: 0.35,
+  veinRadius: [0.55, 0.75, 0.95],
+  /** Seconds between statuettes the collector picks up while visiting. */
+  collectorBuyInterval: 0.5,
+  /** Player ↔ rack transfers in the lands. */
+  rackRadius: 1.5,
+  transferInterval: 0.15,
+  serveRadius: 1.6,
+  plateFlightTime: 0.55,
+  crystalScale: 0.9,
+  guestScale: 0.95,
+  steamCount: 36,
+  steamRise: 0.55,
+  /** Journal: hidden page glows when the player is near. */
+  pageBob: 0.15,
+  cardMinTime: 0.6,
 } as const;
 
 /**

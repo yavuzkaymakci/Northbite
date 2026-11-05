@@ -23,7 +23,7 @@ export const IglooLevels: readonly IglooLevelDef[] = [
 export const IglooCosts = {
   igloo2: 60,
   igloo3: 150,
-  igloo4: 500,
+  igloo4: 320,
 } as const;
 
 /** "Well rested" buff per sleep quality (index 0 = quality 1). Bonuses add up with other buffs. */

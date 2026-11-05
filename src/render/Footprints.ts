@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { IceShore } from '../content/zones';
+import { CampLayout, IceShore } from '../content/zones';
 import { ThreatFeel } from '../settings';
 import { Palette } from './Palette';
 
@@ -39,7 +39,9 @@ export class Footprints {
 
   /** A left/right pair of paw prints at a point, facing `heading`. Off the ice (in the water) nothing is left. */
   addPair(x: number, z: number, heading: number, step: number): void {
-    if (x > G.maxX - 0.3 || z < G.minZ + 0.3) return;
+    const C = CampLayout.land;
+    const camp = x > C.minX && x < C.maxX - 0.3 && z > C.minZ + 0.3 && z < C.maxZ - 0.3;
+    if (!camp && (x > G.maxX - 0.3 || z < G.minZ + 0.3)) return;
     const side = step % 2 ? 1 : -1;
     const ox = Math.cos(heading) * 0.24 * side;
     const oz = -Math.sin(heading) * 0.24 * side;

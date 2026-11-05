@@ -11,7 +11,12 @@ import { DaySummary } from '../ui/DaySummary';
 import { defaultAppearance, type Appearance } from '../content/appearance';
 import { Sleep } from '../content/igloo';
 import { t, tf } from '../content/strings';
-import { IceShore, TeaserWalls } from '../content/zones';
+import { CaveLayout, IceShore, TeaserWalls, type Vec2 } from '../content/zones';
+import { Cave } from '../systems/Cave';
+import { Camp } from '../systems/Camp';
+import { Story } from '../systems/Story';
+import { GoodsRenderer } from '../render/GoodsRenderer';
+import { Journal, PageCard } from '../ui/Journal';
 import { Player } from '../entities/Player';
 import { CameraRig } from '../render/CameraRig';
 import { CoinRenderer } from '../render/CoinRenderer';
@@ -103,6 +108,11 @@ export class Game {
   private readonly igloo: Igloo;
   private readonly decorations: Decorations;
   private readonly sleep: SleepSequence;
+  private readonly cave: Cave;
+  private readonly camp: Camp;
+  private readonly story: Story;
+  private readonly journal: Journal;
+  private readonly goods = new GoodsRenderer();
 
   private running = false;
   private rafId = 0;
@@ -118,7 +128,12 @@ export class Game {
 
     this.labels = new WorldLabels(overlay);
     this.settings = new SettingsPanel(overlay, () => this.openCreator('edit'));
-    this.hud = new HUD(overlay, () => this.settings.open(this.appearance.name, peaceScore(this.state)));
+    this.hud = new HUD(
+      overlay,
+      () => this.settings.open(this.appearance.name, peaceScore(this.state)),
+      () => this.journal.open(this.state.story.pages),
+    );
+    this.journal = new Journal(overlay);
     this.joystick = new Joystick(overlay);
     this.input = new Input(this.joystick);
     this.creator = new CharacterCreator(container, this.renderer.canvas);
@@ -155,7 +170,7 @@ export class Game {
     this.day = new DayCycle(s, () => DayFeel.dayLength[DayFeel.defaultLength]);
     this.atmosphere = new Atmosphere(this.scene, this.rig.camera, lights, sky, this.world.waterMaterial, this.snow, this.day);
     this.wasNight = this.day.isNight;
-    this.scene.add(this.snow.mesh, this.fx.group, this.fishRenderer.group, this.coinRenderer.mesh);
+    this.scene.add(this.snow.mesh, this.fx.group, this.fishRenderer.group, this.coinRenderer.mesh, this.goods.group);
 
     // Gameplay systems
     this.stack = new CarryStack(s, this.player, this.labels);
@@ -172,7 +187,6 @@ export class Game {
       () => ({ night: this.day.isNight, aurora: this.day.auroraActive, rareBonus: this.day.rareFishBonus }),
       () => this.banner.show(t('auroraBuff'), 'good'),
     );
-    this.router = new TouchRouter(this.renderer.canvas, this.joystick, this.fishing);
     this.selling = new Selling(s, this.player, this.stack, this.fx);
     this.net = new NetStation(this.scene, s, this.player, this.stack, this.fx, this.labels, this.world, this.appear);
     if (s.unlocked.includes('net')) this.net.build(false);
@@ -181,6 +195,10 @@ export class Game {
     this.workers = new Workers(this.scene, s, this.world, this.net, this.smoker, this.selling);
     this.coins = new CoinSystem(s, this.player);
     this.customers = new Customers(this.scene, this.selling, this.coins, s, () => this.day.customerRate);
+    this.cave = new Cave(this.scene, s, this.player, this.stack, this.world, this.fx, this.labels, this.banner, this.coins, this.appear);
+    this.camp = new Camp(this.scene, s, this.player, this.stack, this.world, this.fx, this.labels, this.coins, this.appear);
+    // The fishing mini-game and mining on a crystal vein take touches before the joystick.
+    this.router = new TouchRouter(this.renderer.canvas, this.joystick, [this.fishing, this.cave]);
     this.threats = new Threats({
       scene: this.scene,
       overlay,
@@ -197,6 +215,9 @@ export class Game {
       labels: this.labels,
       banner: this.banner,
       appear: this.appear,
+      onBearScared: () => this.story.event('bearScared'),
+      onChestOpened: () => this.story.event('avalancheChest'),
+      campPlates: () => (this.state.unlocked.includes('kitchen') ? this.state.camp.plates.length : null),
     });
     this.unlocks = new Unlocks(this.scene, s, this.player, this.coins, this.labels, this.appear, (spot) => this.onUnlock(spot));
     this.regionOpening = new RegionOpening(this.world, this.rig, this.fx, this.player, this.unlocks, () => this.save());
@@ -212,7 +233,13 @@ export class Game {
       this.bench,
       () => this.regionOpening.active || this.intro.active || this.sleep.active,
       () => (this.sleepHintActive ? IceShore.bed : null),
+      () => this.landTarget(),
     );
+    // Journal pages (GDD §15): a found page can open a new deed frame.
+    this.story = new Story(this.scene, s, this.player, this.fx, new PageCard(overlay), () => {
+      this.unlocks.refresh(true);
+      this.save();
+    });
     for (const tw of TeaserWalls) {
       const sign = this.labels.create('teaser-sign', t('comingSoon'));
       sign.anchor.set(tw.sign.x, 1.95, tw.sign.z);
@@ -332,8 +359,18 @@ export class Game {
       holding: !locked && (this.joystick.activePointer !== null || this.input.reelKey),
       night: this.day.isNight,
       fishing: this.fishing.active,
+      quiet: this.story.reading,
     });
     if (this.igloo.update(dt, elapsed, locked, () => this.threats.sleepBlocker())) this.fallAsleep();
+    this.cave.update(dt, moving, !locked && this.input.reelKey);
+    if (this.cave.swinging) {
+      const pose = this.player.pose;
+      pose.armsForward = 1;
+      pose.armRaise = 0.6 + Math.sin(elapsed * 9) * 0.6;
+      pose.lean = 0.1 + Math.sin(elapsed * 9) * 0.1;
+    }
+    this.camp.update(dt, elapsed);
+    this.story.update(dt, elapsed);
     this.sleep.update(dt);
 
     this.updateDay(dt);
@@ -346,8 +383,11 @@ export class Game {
     this.snow.update(dt, elapsed, this.rig.focusPoint);
     this.guide.update(elapsed);
 
+    this.goods.begin();
     this.fishRenderer.begin();
-    this.stack.render(this.fishRenderer, elapsed);
+    this.stack.render(this.fishRenderer, elapsed, this.goods);
+    this.cave.render(this.goods, elapsed);
+    this.camp.render(this.fishRenderer, this.goods);
     this.selling.render(this.fishRenderer);
     this.customers.render(this.fishRenderer);
     this.fishing.render(this.fishRenderer, elapsed);
@@ -356,6 +396,7 @@ export class Game {
     this.workers.render(this.fishRenderer);
     this.threats.render(this.fishRenderer, elapsed, (flames) => this.igloo.addFlames(flames, elapsed));
     this.fishRenderer.end();
+    this.goods.end();
 
     this.coinRenderer.begin();
     this.coins.render(this.coinRenderer, elapsed);
@@ -404,6 +445,27 @@ export class Game {
     if (ev.stormEnded) this.banner.show(t('stormOver'), 'info');
   }
 
+  /**
+   * Ice Cave chain for the guide arrow (GDD §15): the bench while carrying crystals; a ready vein when the bench is
+   * idle and the player is on the yard side of the map.
+   */
+  private landTarget(): Vec2 | null {
+    const s = this.state;
+    if (!s.unlocked.includes('crystalBench')) return null;
+    if (s.carriedCrystals > 0) return CaveLayout.bench.input;
+    if (s.carried.length > 0 || s.cave.input > 0 || this.player.state.x > -11) return null;
+    let best: Vec2 | null = null;
+    let bestD = Infinity;
+    CaveLayout.veins.forEach((v, i) => {
+      const d = Math.hypot(v.x - this.player.state.x, v.z - this.player.state.z);
+      if (this.cave.logic.veinReady(i) && d < bestD) {
+        bestD = d;
+        best = v;
+      }
+    });
+    return best;
+  }
+
   /** The bed hint points the guide arrow at the bed on its night, until the player has slept once. */
   private get sleepHintActive(): boolean {
     const s = this.state.sleep;
@@ -438,6 +500,9 @@ export class Game {
         applyComfortUnlock(this.state, e);
         this.igloo.upgrade(e.level);
         this.banner.show(tf('iglooUpgraded', { n: e.level }), 'good');
+      } else if (e.kind === 'land') {
+        if (e.part === 'crystalBench') this.cave.buildBench(true);
+        else this.camp.build(e.part, true);
       } else if (e.kind === 'decoration') {
         applyComfortUnlock(this.state, e);
         this.decorations.build(e.decoration, true);

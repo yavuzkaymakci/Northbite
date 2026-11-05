@@ -3,7 +3,8 @@ import { FishById, type FishId } from '../content/fish';
 import { UpgradeList, UpgradeMaxLevel } from '../content/upgrades';
 import { SaveSettings } from '../settings';
 import { sanitizeAppearance, type Appearance } from '../content/appearance';
-import { createGameState, type FishItem, type GameState, type WorkerData } from './GameState';
+import { Pages } from '../content/story';
+import { createCampState, createCaveState, createGameState, type FishItem, type GameState, type WorkerData } from './GameState';
 
 export const SAVE_VERSION = 4;
 
@@ -40,7 +41,8 @@ const migrations: Record<number, (s: AnySave) => AnySave> = {
     return { ...s, saveVersion: 3, game: { ...g, carried: addKind(g.carried), counter: addKind(g.counter) } };
   },
   // v3 (Demo 2/3): no clock, day totals, buffs, threat gear, igloo level or sleep. sanitizeGame fills them
-  // (day 1, mid-morning, igloo level 1, not rested). v4 saves from earlier Demo 4 stages get the same defaults.
+  // (day 1, mid-morning, igloo level 1, not rested, empty cave and camp, no journal pages). v4 saves from earlier
+  // Demo 4 stages get the same defaults.
   3: (s) => ({ ...s, saveVersion: 4 }),
 };
 
@@ -73,6 +75,12 @@ function sanitizeGame(raw: unknown): GameState {
   const threats = (g.threats ?? {}) as Partial<Record<string, unknown>>;
   const rested = (g.rested ?? null) as Partial<Record<string, unknown>> | null;
   const sleep = (g.sleep ?? {}) as Partial<Record<string, unknown>>;
+  const cave = (g.cave ?? {}) as Partial<Record<string, unknown>>;
+  const camp = (g.camp ?? {}) as Partial<Record<string, unknown>>;
+  const story = (g.story ?? {}) as Partial<Record<string, unknown>>;
+  const caveBase = createCaveState();
+  const campBase = createCampState();
+  const veins = Array.isArray(cave.veins) ? cave.veins : [];
   const unlocked = stringList(g.unlocked);
   // The igloo level also follows from the upgrade frames already paid (older saves have no field).
   let igloo = Math.floor(num(g.iglooLevel, 1));
@@ -124,6 +132,24 @@ function sanitizeGame(raw: unknown): GameState {
         ? { quality: Math.min(Math.max(Math.floor(rested.quality), 1), 4), until: rested.until }
         : null,
     sleep: { lastDay: num(sleep.lastDay, 0), hintDay: num(sleep.hintDay, 0), hintDone: sleep.hintDone === true },
+    cave: {
+      veins: caveBase.veins.map((d, i) => num(veins[i], d)),
+      input: Math.floor(num(cave.input, 0)),
+      output: Math.floor(num(cave.output, 0)),
+      progress: Math.min(num(cave.progress, 0), 1),
+      collectorIn: num(cave.collectorIn, caveBase.collectorIn),
+      pile: num(cave.pile, 0),
+      mined: num(cave.mined, 0),
+    },
+    camp: {
+      input: fishList(camp.input).filter((f) => f.kind === 'smoked'),
+      plates: Array.isArray(camp.plates) ? camp.plates.filter((v): v is number => typeof v === 'number' && v >= 0) : campBase.plates,
+      progress: Math.min(num(camp.progress, 0), 1),
+      pile: num(camp.pile, 0),
+      served: num(camp.served, 0),
+    },
+    carriedCrystals: Math.floor(num(g.carriedCrystals, 0)),
+    story: { pages: stringList(story.pages).filter((id) => Pages.some((p) => p.id === id)) },
   };
 }
 

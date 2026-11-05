@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { Stations } from '../content/stations';
 import { t, tf } from '../content/strings';
 import { Threats as T } from '../content/threats';
-import { IceShore, ThreatBuildingSpots, ThreatLayout, type Vec2 } from '../content/zones';
+import { Camp } from '../content/land';
+import { CampLayout, IceShore, ThreatBuildingSpots, ThreatLayout, type Vec2 } from '../content/zones';
 import { HapticsSettings, PlayerFeel, ThreatFeel as F } from '../settings';
 import { damp } from '../core/Time';
 import type { FishItem, GameState } from '../core/GameState';
@@ -24,13 +25,17 @@ import { FlightList } from './Flights';
 import type { NetStation } from './NetStation';
 import type { Smokehouse } from './Smokehouse';
 import type { ThreatBuildings } from './ThreatBuildings';
-import { bearApproach, bearRoute, scareReward, stealFrom, type BearTargetId } from './ThreatLogic';
+import { bearApproach, bearRoute, scareReward, stealFrom, stealPlates, type BearTargetId } from './ThreatLogic';
 import type { WorkerBrain } from './WorkerBrain';
 import type { Workers } from './Workers';
 
 type Phase = 'off' | 'warning' | 'approach' | 'bait' | 'sniff' | 'grab' | 'retreat' | 'flee';
 
 const G = IceShore.ground;
+const inCamp = (x: number, z: number) => {
+  const c = CampLayout.land;
+  return x > c.minX && x < c.maxX + 0.2 && z > c.minZ - 0.2 && z < c.maxZ + 0.2;
+};
 const BAIT_STAND: Vec2 = { x: ThreatBuildingSpots.baitTrap.at.x, z: ThreatBuildingSpots.baitTrap.at.z - 1.1 };
 
 interface Loot {
@@ -54,6 +59,8 @@ export interface BearDeps {
   /** Static colliders the bear walks around (snow piles excluded: it wades through them). */
   colliders: () => readonly Collider[];
   isPile: (c: Collider) => boolean;
+  /** A bear was scared away (journal page, GDD §15). */
+  onScared: () => void;
 }
 
 /**
@@ -71,6 +78,8 @@ export class Bear {
   private path: Vec2[] = [];
   private fullPath: Vec2[] = [];
   private loot: Loot[] = [];
+  /** Platters taken from the camp rack (they vanish into the bear; scaring it brings them back). */
+  private plateLoot: number[] = [];
   private scare = 0;
   private usedTorch = false;
   private printStep = 0;
@@ -152,6 +161,7 @@ export class Bear {
     this.body.y = -F.swimDepth;
     this.body.heading = Math.atan2((this.path[0]?.x ?? 0) - a.from.x, (this.path[0]?.z ?? 0) - a.from.z);
     this.loot = [];
+    this.plateLoot = [];
     this.scare = 0;
     this.usedTorch = false;
     this.warnTotal = warning;
@@ -284,6 +294,15 @@ export class Bear {
       list = s.smoker.output;
       takeable = this.d.smoker.takeable();
     }
+    if (this.target === 'plates') {
+      this.plateLoot = stealPlates(s.camp.plates, Math.random);
+      if (this.plateLoot.length > 0) {
+        this.d.banner.show(t('bearStole'), 'warn');
+        this.d.fx.splash(CampLayout.kitchen.output.x, 0.6, CampLayout.kitchen.output.z, 10, 2);
+      }
+      this.setPhase('grab', F.grabTime);
+      return;
+    }
     const stolen = takeable > 0 ? stealFrom(list, takeable, Math.random) : [];
     this.storePoint(this.target, this.w);
     this.mouthPoint(this.v);
@@ -336,6 +355,9 @@ export class Bear {
     }
     this.toMouth.items.length = 0;
     this.loot = [];
+    for (const v of this.plateLoot) if (s.camp.plates.length < Camp.kitchen.outputCapacity) s.camp.plates.push(v);
+    this.plateLoot = [];
+    this.d.onScared();
     const r = scareReward(Math.random);
     this.d.coins.rewardFrom(this.v.set(this.body.x, 0.8, this.body.z), r.coins);
     let text = tf('bearScared', { n: r.coins });
@@ -383,7 +405,8 @@ export class Bear {
     }
     const r = ThreatLayout.bear.radius;
     for (const c of this.d.colliders()) {
-      if (this.d.isPile(c)) continue;
+      // It wades through snow piles and swims through open water.
+      if (this.d.isPile(c) || (c.kind === 'rect' && c.water)) continue;
       if (c.kind === 'circle') pushOutOfCircle(b, r, c);
       else pushOutOfRect(b, r, c);
     }
@@ -438,7 +461,7 @@ export class Bear {
   private updateVisuals(dt: number, time: number): void {
     if (!this.object.visible) return;
     const b = this.body;
-    const onIce = b.x < G.maxX + 0.2 && b.z > G.minZ - 0.2;
+    const onIce = (b.x < G.maxX + 0.2 && b.z > G.minZ - 0.2) || inCamp(b.x, b.z);
     b.y += ((onIce ? 0 : -F.swimDepth) - b.y) * damp(4, dt);
     const moving = this.phase === 'approach' || this.phase === 'retreat' || (this.phase === 'flee' && this.timer < -0.5);
     const target = moving && this.scare <= 0 ? (this.phase === 'flee' ? 1.4 : 1) : 0;
@@ -490,6 +513,7 @@ export class Bear {
     const c = IceShore.counter;
     if (id === 'basket') return out.set(IceShore.net.basket.x, 0.4, IceShore.net.basket.z);
     if (id === 'smokeOut') return out.set(IceShore.smokehouse.output.x, RACK_TOP_Y + 0.1, IceShore.smokehouse.output.z);
+    if (id === 'plates') return out.set(CampLayout.kitchen.output.x, 0.5, CampLayout.kitchen.output.z);
     return out.set(c.x, COUNTER_TOP_Y + 0.1, c.z);
   }
 }

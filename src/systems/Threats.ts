@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { t } from '../content/strings';
 import { Threats as T } from '../content/threats';
-import type { BuildingId } from '../content/zones';
+import { ThreatLayout, type BuildingId } from '../content/zones';
 import { DebugSettings } from '../settings';
 import type { GameState } from '../core/GameState';
 import type { Player } from '../entities/Player';
@@ -23,7 +23,7 @@ import type { CoinSystem } from './Coins';
 import type { NetStation } from './NetStation';
 import type { Smokehouse } from './Smokehouse';
 import { ThreatBuildings } from './ThreatBuildings';
-import { bearApproach, bearDeterred, bearWarning, pickBearTarget, ThreatDirector, type ThreatKind } from './ThreatLogic';
+import { bearApproach, bearDeterred, bearWarning, pickBearTarget, pitsNear, ThreatDirector, type ThreatKind } from './ThreatLogic';
 import type { Workers } from './Workers';
 
 export interface ThreatDeps {
@@ -42,6 +42,11 @@ export interface ThreatDeps {
   labels: WorldLabels;
   banner: Banner;
   appear: Appear;
+  /** Journal hooks (GDD §15): first scared bear, first avalanche chest. */
+  onBearScared: () => void;
+  onChestOpened: () => void;
+  /** Platters on the camp rack, or null when the camp has no kitchen. */
+  campPlates: () => number | null;
 }
 
 export interface ThreatInput {
@@ -51,6 +56,8 @@ export interface ThreatInput {
   holding: boolean;
   night: boolean;
   fishing: boolean;
+  /** No new threat may start (a journal page is on screen). */
+  quiet: boolean;
 }
 
 /**
@@ -73,13 +80,14 @@ export class Threats {
   constructor(private readonly d: ThreatDeps) {
     d.scene.add(this.footprints.mesh, this.flames.mesh);
     this.buildings = new ThreatBuildings(d.scene, d.state, d.player, d.stack, d.world, d.labels, d.appear);
-    this.avalanche = new Avalanche(d.scene, d.state, d.player, d.world, d.workers, d.coins, d.fx, d.rig, d.labels, d.banner, this.buildings);
+    this.avalanche = new Avalanche(d.scene, d.state, d.player, d.world, d.workers, d.coins, d.fx, d.rig, d.labels, d.banner, this.buildings, d.onChestOpened);
     this.bear = new Bear({
       ...d,
       footprints: this.footprints,
       buildings: this.buildings,
       colliders: () => d.world.colliders,
       isPile: (c) => this.avalanche.isPile(c),
+      onScared: d.onBearScared,
     });
     this.arrow = new ThreatArrow(d.overlay);
     this.torch = createHandTorch();
@@ -114,7 +122,7 @@ export class Threats {
     this.buildings.update(dt);
     this.footprints.update(dt);
     if (!input.locked) {
-      if (!this.active) this.maybeStart(dt, input.night);
+      if (!this.active && !input.quiet) this.maybeStart(dt, input.night);
       this.bear.update(dt, time, input.holding);
       this.avalanche.update(dt, time);
     }
@@ -176,6 +184,8 @@ export class Threats {
       counter: d.state.counter.length,
       smokeOut: d.smoker.isBuilt ? d.smoker.takeable() : null,
       penguins: out.map((b) => b.carried.length),
+      // The camp's platter rack counts only when no fire pit covers it.
+      plates: d.campPlates() !== null && pitsNear(d.state, ThreatLayout.bear.approaches.plates.stand) === 0 ? d.campPlates() : null,
     });
     const penguin = out[target.penguin] ?? null;
     const stand = bearApproach(target.id, penguin ? { x: penguin.x, z: penguin.z } : null).stand;

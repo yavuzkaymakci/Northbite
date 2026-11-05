@@ -1,6 +1,6 @@
 import type { Joystick } from '../ui/Joystick';
 
-/** Something that can claim touches ahead of the joystick (the fishing mini-game). */
+/** Something that can claim touches ahead of the joystick (the fishing mini-game, mining crystals). */
 export interface TouchClaimer {
   /** True while touches should go to the claimer instead of the joystick. */
   wantsTouches(): boolean;
@@ -11,7 +11,7 @@ export interface TouchClaimer {
 }
 
 interface Owned {
-  owner: 'joystick' | 'claimer';
+  owner: 'joystick' | TouchClaimer;
   startX: number;
   startY: number;
 }
@@ -23,7 +23,8 @@ export class TouchRouter {
   constructor(
     private readonly surface: HTMLElement,
     private readonly joystick: Joystick,
-    private readonly claimer: TouchClaimer,
+    /** Asked in order; the first one that wants touches gets them. */
+    private readonly claimers: readonly TouchClaimer[],
   ) {
     surface.addEventListener('pointerdown', this.onDown);
     surface.addEventListener('pointermove', this.onMove);
@@ -52,10 +53,11 @@ export class TouchRouter {
   private onDown = (e: PointerEvent): void => {
     e.preventDefault();
     if (!this.enabledValue) return;
-    if (this.claimer.wantsTouches()) {
+    const claimer = this.claimers.find((c) => c.wantsTouches());
+    if (claimer) {
       this.capture(e.pointerId);
-      this.owned.set(e.pointerId, { owner: 'claimer', startX: e.clientX, startY: e.clientY });
-      this.claimer.touchDown(e.pointerId, e.clientX, e.clientY);
+      this.owned.set(e.pointerId, { owner: claimer, startX: e.clientX, startY: e.clientY });
+      claimer.touchDown(e.pointerId, e.clientX, e.clientY);
       return;
     }
     if (this.joystick.tryBegin(e.pointerId, e.clientX, e.clientY)) {
@@ -72,7 +74,7 @@ export class TouchRouter {
       this.joystick.move(e.pointerId, e.clientX, e.clientY);
       return;
     }
-    if (this.claimer.touchMove(e.pointerId, e.clientX, e.clientY) === 'release') {
+    if (o.owner.touchMove(e.pointerId, e.clientX, e.clientY) === 'release') {
       o.owner = 'joystick';
       this.joystick.adopt(e.pointerId, o.startX, o.startY, e.clientX, e.clientY);
       // If the joystick is already driven by another finger, this touch simply ends up unowned.
@@ -89,7 +91,7 @@ export class TouchRouter {
     if (!o) return;
     this.owned.delete(id);
     if (o.owner === 'joystick') this.joystick.end(id);
-    else this.claimer.touchUp(id);
+    else o.owner.touchUp(id);
     if (this.surface.hasPointerCapture(id)) this.surface.releasePointerCapture(id);
   }
 

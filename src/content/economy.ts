@@ -1,5 +1,6 @@
 import { DecorationCosts } from './decorations';
 import { IglooCosts } from './igloo';
+import { LandCosts } from './land';
 
 // Balance values (GDD §8). Fish prices live in content/fish.ts, stations in stations.ts, workers in workers.ts,
 // rod upgrades in upgrades.ts. Numbers are tuned with `npm run sim` (tools/balance-sim.ts).
@@ -26,8 +27,8 @@ export const Economy = {
     hut: 65,
     smokeRegion: 125,
     smokehouse: 150,
-    thirdHole: 220,
-    secondPenguin: 300,
+    thirdHole: 160,
+    secondPenguin: 220,
     // Threat buildings (GDD §13); optional, shown once the smokehouse is open.
     torchStand: 40,
     baitTrap: 70,
@@ -39,6 +40,8 @@ export const Economy = {
     // Igloo levels and decorations (GDD §14); the numbers live in igloo.ts / decorations.ts.
     ...IglooCosts,
     ...DecorationCosts,
+    // Lands (GDD §15); the numbers live in land.ts.
+    ...LandCosts,
   },
 } as const;
 

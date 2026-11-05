@@ -6,7 +6,7 @@ import type { FishItem, GameState } from '../core/GameState';
 // Visual-free threat rules (GDD §13), shared by the game and the balance sim. No Three.js or DOM here.
 
 export type ThreatKind = 'bear' | 'avalanche';
-export type BearTargetId = 'basket' | 'counter' | 'smokeOut' | 'penguin';
+export type BearTargetId = 'basket' | 'counter' | 'smokeOut' | 'penguin' | 'plates';
 
 export const FIRE_PITS: readonly BuildingId[] = ['firePit1', 'firePit2', 'firePit3'];
 
@@ -50,11 +50,13 @@ export interface BearScents {
   smokeOut: number | null;
   /** Fish carried by each penguin that is out and about (hiding ones excluded). */
   penguins: readonly number[];
+  /** Platters on the camp rack; null when there is no kitchen or a fire pit covers the camp. */
+  plates: number | null;
 }
 
 /**
  * Where the bear goes: the basket, then the counter, then the smokehouse output rack, then the penguin carrying
- * the most fish. With nothing to smell it still visits the counter (and leaves empty-handed).
+ * the most fish, last the camp's platter rack. With nothing to smell it still visits the counter (and leaves).
  */
 export function pickBearTarget(s: BearScents): { id: BearTargetId; penguin: number } {
   if (s.basket) return { id: 'basket', penguin: -1 };
@@ -64,7 +66,9 @@ export function pickBearTarget(s: BearScents): { id: BearTargetId; penguin: numb
   for (let i = 0; i < s.penguins.length; i++) {
     if (best < 0 || (s.penguins[i] as number) > (s.penguins[best] as number)) best = i;
   }
-  return best >= 0 ? { id: 'penguin', penguin: best } : { id: 'counter', penguin: -1 };
+  if (best >= 0) return { id: 'penguin', penguin: best };
+  if (s.plates) return { id: 'plates', penguin: -1 };
+  return { id: 'counter', penguin: -1 };
 }
 
 /** Built fire pits within reach of a point. */
@@ -116,6 +120,15 @@ export function bearRoute(points: readonly Vec2[]): Vec2[] {
     out.push({ x: p.x, z: p.z });
   }
   return out;
+}
+
+/** Platters the bear grabs from the camp rack: half (rounded up), value-capped like fish. Removes them from `list`. */
+export function stealPlates(list: number[], rand: () => number): number[] {
+  const fake = list.map((price) => ({ species: 'capelin' as const, kg: 0, kind: 'smoked' as const, price }));
+  const stolen = stealFrom(fake, fake.length, rand);
+  list.length = 0;
+  for (const f of fake) list.push(f.price);
+  return stolen.map((f) => f.price);
 }
 
 /**

@@ -11,6 +11,8 @@ export interface CircleCollider {
 
 export interface RectCollider extends RectArea {
   kind: 'rect';
+  /** Open water: blocks walking, but bears swim through it. */
+  water?: boolean;
 }
 
 export type Collider = CircleCollider | RectCollider;

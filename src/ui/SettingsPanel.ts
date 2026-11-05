@@ -4,14 +4,23 @@ import { onTap } from './tap';
 
 type PrefKey = keyof Prefs;
 
+type Choice = { key: PrefKey; label: StringKey; options: ReadonlyArray<[string, StringKey | null]> };
+const ON_OFF: ReadonlyArray<[string, StringKey]> = [['true', 'on'], ['false', 'off']];
 /** Segmented choices per setting: value → label. */
-const CHOICES: ReadonlyArray<{ key: PrefKey; label: StringKey; options: ReadonlyArray<[string, StringKey | null]> }> = [
-  { key: 'threats', label: 'settingsThreats', options: [['true', 'on'], ['false', 'off']] },
+const CHOICES: readonly Choice[] = [
+  { key: 'threats', label: 'settingsThreats', options: ON_OFF },
   { key: 'dayLength', label: 'settingsDayLength', options: [['short', 'dayShort'], ['medium', 'dayMedium'], ['long', 'dayLong']] },
-  { key: 'vibration', label: 'settingsVibration', options: [['true', 'on'], ['false', 'off']] },
+  { key: 'vibration', label: 'settingsVibration', options: ON_OFF },
   // Language names are written in their own language.
   { key: 'lang', label: 'settingsLanguage', options: [['tr', null], ['en', null]] },
 ];
+/** Display (GDD §22). */
+const DISPLAY: readonly Choice[] = [
+  { key: 'quality', label: 'settingsQuality', options: [['low', 'qualityLow'], ['medium', 'qualityMedium'], ['high', 'qualityHigh']] },
+  { key: 'reduceMotion', label: 'settingsReduceMotion', options: ON_OFF },
+];
+const DEBUG: readonly Choice[] = [{ key: 'showFps', label: 'settingsFps', options: ON_OFF }];
+const BOOL_KEYS: readonly PrefKey[] = ['threats', 'vibration', 'reduceMotion', 'showFps'];
 const LANG_NAMES: Record<string, string> = { tr: 'Türkçe', en: 'English' };
 type VolumeKey = 'master' | 'music' | 'sfx' | 'ambience';
 const VOLUMES: ReadonlyArray<[VolumeKey, StringKey]> = [
@@ -47,11 +56,15 @@ export class SettingsPanel {
   ) {
     this.root = document.createElement('div');
     this.root.className = 'settings-backdrop';
-    const rows = CHOICES.map(
-      (c) => `<div class="settings-row seg-row"><span>${t(c.label)}</span><div class="seg" data-key="${c.key}">${c.options
-        .map(([v, label]) => `<button class="seg-btn" data-v="${v}">${label ? t(label) : LANG_NAMES[v]}</button>`)
-        .join('')}</div></div>`,
-    ).join('');
+    const rowsOf = (list: readonly Choice[]) =>
+      list
+        .map(
+          (c) => `<div class="settings-row seg-row"><span>${t(c.label)}</span><div class="seg" data-key="${c.key}">${c.options
+            .map(([v, label]) => `<button class="seg-btn" data-v="${v}">${label ? t(label) : LANG_NAMES[v]}</button>`)
+            .join('')}</div></div>`,
+        )
+        .join('');
+    const rows = rowsOf(CHOICES);
     this.root.innerHTML = `
       <div class="settings-card">
         <div class="settings-title">${t('settingsTitle')}</div>
@@ -62,6 +75,10 @@ export class SettingsPanel {
         <div class="settings-sub">${t('settingsSound')}</div>
         ${VOLUMES.map(([k, label]) => `<label class="settings-row slider-row"><span>${t(label)}</span><input type="range" min="0" max="100" step="1" data-vol="${k}"></label>`).join('')}
         <div class="settings-row seg-row"><span>${t('soundMute')}</span><div class="seg seg-mute"><button class="seg-btn" data-v="true">${t('on')}</button><button class="seg-btn" data-v="false">${t('off')}</button></div></div>
+        <div class="settings-sub">${t('settingsDisplay')}</div>
+        ${rowsOf(DISPLAY)}
+        <div class="settings-sub">${t('settingsDebug')}</div>
+        ${rowsOf(DEBUG)}
         <button class="settings-btn primary">${t('settingsEditCharacter')}</button>
         <button class="settings-btn close">${t('creatorClose')}</button>
       </div>`;
@@ -69,7 +86,7 @@ export class SettingsPanel {
     this.peaceEl = this.root.querySelector('.settings-peace') as HTMLElement;
     this.titleRow = this.root.querySelector('.settings-title-row') as HTMLElement;
     this.titleEl = this.root.querySelector('.settings-player-title') as HTMLElement;
-    for (const seg of this.root.querySelectorAll<HTMLElement>('.seg')) {
+    for (const seg of this.root.querySelectorAll<HTMLElement>('.seg[data-key]')) {
       const key = seg.dataset.key as PrefKey;
       for (const btn of seg.querySelectorAll<HTMLElement>('.seg-btn')) {
         const value = btn.dataset.v as string;
@@ -130,8 +147,9 @@ export class SettingsPanel {
   private choose(key: PrefKey, value: string): void {
     const p = this.prefs;
     if (!p) return;
-    if (key === 'threats' || key === 'vibration') p[key] = value === 'true';
+    if (BOOL_KEYS.includes(key)) (p as unknown as Record<string, boolean>)[key] = value === 'true';
     else if (key === 'dayLength') p.dayLength = value as Prefs['dayLength'];
+    else if (key === 'quality') p.quality = value as Prefs['quality'];
     else {
       p.lang = value as Prefs['lang'];
       this.lang = value;

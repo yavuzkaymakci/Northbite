@@ -2,6 +2,7 @@ import './style.css';
 import { Game } from './core/Game';
 import { audio } from './audio/AudioEngine';
 import { applyPaletteToCss } from './render/Palette';
+import { Splash } from './ui/Splash';
 
 /** Blocks browser gestures that fight the game: pinch/double-tap zoom, long-press menus, rubber-band scroll. */
 function lockBrowserGestures(): void {
@@ -35,7 +36,13 @@ lockBrowserGestures();
 
 const container = document.getElementById('app');
 if (!container) throw new Error('#app missing');
-const game = new Game(container);
-game.start();
-// Dev-only handle for debugging in the browser console. Stripped from production builds.
-if (import.meta.env.DEV) Object.assign(window, { __game: game, __audio: audio });
+// The splash is painted first; the game is built after that paint (rAF runs before it, the timeout after it).
+const splash = new Splash(container);
+requestAnimationFrame(() =>
+  window.setTimeout(() => {
+    const game = new Game(container);
+    // Dev-only handle for debugging in the browser console. Stripped from production builds.
+    if (import.meta.env.DEV) Object.assign(window, { __game: game, __audio: audio });
+    splash.finish(() => game.start());
+  }, 0),
+);

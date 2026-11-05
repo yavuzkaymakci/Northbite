@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CameraSettings as S } from '../settings';
 import { damp } from '../core/Time';
+import { View } from './Quality';
 
 /** Tilted, near-isometric follow camera with no yaw. Smoothly lerps toward the target. */
 export class CameraRig {
@@ -54,7 +55,8 @@ export class CameraRig {
 
   /** Short camera shake; decays by itself. */
   shake(amount: number): void {
-    this.shakeAmount = Math.max(this.shakeAmount, amount);
+    // "Reduce motion" keeps only a hint of every shake.
+    this.shakeAmount = Math.max(this.shakeAmount, amount * View.shakeScale);
   }
 
   get focusPoint(): THREE.Vector3 {

@@ -12,6 +12,7 @@ import type { FishRenderer } from '../render/FishRenderer';
 import type { GoodsRenderer } from '../render/GoodsRenderer';
 import { createLightPool, NightLights } from '../render/NightLights';
 import { Palette } from '../render/Palette';
+import { View } from '../render/Quality';
 import type { WorldLabel, WorldLabels } from '../ui/WorldLabels';
 import type { WorldMap } from '../world/Map';
 import type { Appear } from './Appear';
@@ -248,7 +249,7 @@ export class Camp {
 
   /** Steam over the pool: soft balls that rise, grow and fade by shrinking. */
   private updateSteam(dt: number, time: number): void {
-    if (this.steam.length < LandFeel.steamCount && Math.random() < dt * 14) {
+    if (this.steam.length < LandFeel.steamCount * View.level.steam && Math.random() < dt * 14) {
       const a = Math.random() * Math.PI * 2;
       const r = Math.random() * L.pool.radius * 0.8;
       this.steam.push({ x: L.pool.x + Math.cos(a) * r, z: L.pool.z + Math.sin(a) * r, age: 0, life: 2.2 + Math.random(), size: 0.25 + Math.random() * 0.2 });

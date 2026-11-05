@@ -147,6 +147,7 @@ export const CoinFeel = {
   arcHeight: 1.2,
   pileVisualMax: 40,
   hudCountSpeed: 8, // HUD counter catch-up rate
+  hudBumpGapMs: 240, // the coin pill bumps at most this often (its animation is 220 ms)
 } as const;
 
 export const UnlockFeel = {
@@ -334,6 +335,50 @@ export const CodexFeel = {
 export const OrderFeel = {
   /** Stand within the board radius this long for the panel to open. */
   openDelay: 0.25,
+} as const;
+
+/**
+ * Graphics quality (GDD §22), chosen in the settings (default medium). `pixelRatio` caps devicePixelRatio; `snow` and
+ * `steam` scale particle counts; `simple` = one aurora curtain and Lambert instead of PBR shading.
+ */
+export const QualitySettings = {
+  levels: {
+    low: { pixelRatio: 1, snow: 0.45, steam: 0.4, simple: true },
+    medium: { pixelRatio: 1.5, snow: 0.8, steam: 0.75, simple: false },
+    high: { pixelRatio: 2, snow: 1, steam: 1, simple: false },
+  },
+  /** Below this FPS for `lowFpsSeconds` in a row, the game offers low quality once. */
+  lowFps: 40,
+  lowFpsSeconds: 5,
+  /** Seconds after start / coming back before FPS is judged (loading hitches). */
+  lowFpsGrace: 8,
+  /** Simple shading also reaches objects built later: the scene is checked this often (s). */
+  shadingRecheck: 2,
+} as const;
+
+/** "Reduce motion" setting (GDD §22): camera shakes and sparkles are scaled down, CSS loops stop. */
+export const MotionSettings = {
+  shakeScale: 0.2,
+  sparkleScale: 0.35,
+} as const;
+
+/** Splash screen before the game (GDD §22). */
+export const SplashFeel = {
+  minMs: 1500,
+  fadeMs: 400,
+  flakes: 14,
+} as const;
+
+/** First-minutes visual hints (GDD §22): shown while play time is below this, or until the action is done. */
+export const TutorialFeel = {
+  seconds: 120,
+  /** The bite alert shows a tapping hand for the first catches. */
+  tapCatches: 3,
+} as const;
+
+/** HUD and labels get darker backgrounds above this night level (0..1) or in a storm. */
+export const ReadabilityFeel = {
+  nightLevel: 0.55,
 } as const;
 
 /**

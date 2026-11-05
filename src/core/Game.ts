@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { CreatorFeel, DayFeel, SaveSettings } from '../settings';
+import { CreatorFeel, DayFeel, QualitySettings, ReadabilityFeel, SaveSettings, TutorialFeel } from '../settings';
+import { applyShading, View } from '../render/Quality';
+import { QualityPrompt } from '../ui/QualityPrompt';
 import { Atmosphere } from '../render/Atmosphere';
 import { DayCycle, type DayEvents } from '../systems/DayCycle';
 import { Decorations } from '../systems/Decorations';
@@ -137,6 +139,14 @@ export class Game {
   private running = false;
   private rafId = 0;
   private autosaveTimer = 0;
+  private readonly qualityPrompt: QualityPrompt;
+  /** Slow-device watch (GDD §22): frames in the current one-second window, seconds in a row below the limit. */
+  private fpsFrames = 0;
+  private fpsWindowStart = -1;
+  private slowFor = 0;
+  private fpsGraceUntil = 0;
+  private shadingTimer = 0;
+  private dimmed = false;
 
   constructor(container: HTMLElement) {
     this.renderer = new Renderer(container);
@@ -153,6 +163,9 @@ export class Game {
     // Sound starts on the first touch (mobile browsers need a gesture), never while muted (GDD §21).
     audio.configure(s.prefs.audio);
     audio.attach();
+    // Quality and "reduce motion" are read by the renderers while the world is built.
+    View.quality = s.prefs.quality;
+    this.applyMotion();
 
     const overlay = document.createElement('div');
     overlay.className = 'ui-layer';
@@ -291,6 +304,11 @@ export class Game {
       this.labels.show(sign, true);
     }
     this.hud.setCoins(this.coins.walletDisplay);
+    this.hud.setFpsVisible(s.prefs.showFps);
+    // The visual hints are for the first minutes only (GDD §22).
+    if (s.stats.playTime >= TutorialFeel.seconds) this.hud.hideHint();
+    this.qualityPrompt = new QualityPrompt(overlay);
+    this.applyQuality();
 
     this.renderer.onResize((w, h) => {
       this.rig.setAspect(w / h);
@@ -353,6 +371,9 @@ export class Game {
     this.running = true;
     audio.setHidden(false);
     this.time.reset();
+    this.fpsWindowStart = -1;
+    this.slowFor = 0;
+    this.fpsGraceUntil = performance.now() + QualitySettings.lowFpsGrace * 1000;
     this.checkOffline();
     this.rafId = requestAnimationFrame(this.frame);
   }
@@ -371,6 +392,7 @@ export class Game {
     if (!this.running) return;
     this.rafId = requestAnimationFrame(this.frame);
     this.time.tick(now);
+    this.watchFps(now);
     // While the creator is open the game world is neither updated nor drawn.
     if (this.creator.isOpen) {
       this.creator.update(this.time.delta, this.time.elapsed);
@@ -441,6 +463,7 @@ export class Game {
     if (this.regionOpening.active) this.regionOpening.update(dt);
     else this.rig.update(dt, this.player.state.x, this.player.state.z);
     this.atmosphere.update(dt, elapsed);
+    this.updateLook(dt);
     this.world.update(dt, elapsed);
     this.fx.update(dt);
     this.snow.update(dt, elapsed, this.rig.focusPoint);
@@ -531,6 +554,65 @@ export class Game {
     return best;
   }
 
+  /**
+   * Quality setting (GDD §22): pixel ratio, snow and steam amounts, one aurora curtain and cheaper shading on low.
+   * Pixel ratio and snow change at once; the shading swap also reaches objects built later (`updateLook`).
+   */
+  private applyQuality(): void {
+    View.quality = this.state.prefs.quality;
+    const L = View.level;
+    this.renderer.setPixelCap(L.pixelRatio);
+    this.snow.setQuality(L.snow);
+    this.atmosphere.setSimple(L.simple);
+    applyShading(this.scene, L.simple);
+  }
+
+  /** "Reduce motion": smaller camera shakes and fewer sparkles (View), CSS loops stop (body class). */
+  private applyMotion(): void {
+    View.reduceMotion = this.state.prefs.reduceMotion;
+    document.body.classList.toggle('reduce-motion', View.reduceMotion);
+  }
+
+  /** Darker HUD and label backgrounds at night and in storms; simple shading for newly built objects. */
+  private updateLook(dt: number): void {
+    const dim = this.atmosphere.nightLevel > ReadabilityFeel.nightLevel || this.atmosphere.stormLevel > 0.5;
+    if (dim !== this.dimmed) {
+      this.dimmed = dim;
+      this.overlay.classList.toggle('dim', dim);
+    }
+    if (!View.level.simple) return;
+    this.shadingTimer -= dt;
+    if (this.shadingTimer <= 0) {
+      this.shadingTimer = QualitySettings.shadingRecheck;
+      applyShading(this.scene, true);
+    }
+  }
+
+  /** A slow device (under 40 FPS for 5 s in a row) is offered low quality once (GDD §22). */
+  private watchFps(now: number): void {
+    const p = this.state.prefs;
+    if (p.qualityAsked || p.quality === 'low' || !this.saveEnabled) return;
+    if (this.fpsWindowStart < 0) this.fpsWindowStart = now;
+    this.fpsFrames++;
+    const span = now - this.fpsWindowStart;
+    if (span < 1000) return;
+    const fps = (this.fpsFrames * 1000) / span;
+    this.fpsFrames = 0;
+    this.fpsWindowStart = now;
+    if (now < this.fpsGraceUntil || this.creator.isOpen || this.intro.active) return;
+    this.slowFor = fps < QualitySettings.lowFps ? this.slowFor + span / 1000 : 0;
+    if (this.slowFor < QualitySettings.lowFpsSeconds || this.qualityPrompt.isOpen) return;
+    p.qualityAsked = true;
+    this.save();
+    this.qualityPrompt.show((yes) => {
+      if (yes) {
+        p.quality = 'low';
+        this.applyQuality();
+      }
+      this.save();
+    });
+  }
+
   /** Music mood and ambience follow the time of day, the place and what happens (GDD §21). */
   private updateSound(dt: number): void {
     const p = this.player.state;
@@ -618,6 +700,9 @@ export class Game {
     const p = this.state.prefs;
     if (key === 'threats' && !p.threats) this.threats.stopAll();
     if (key === 'vibration') setVibration(p.vibration);
+    if (key === 'quality') this.applyQuality();
+    if (key === 'reduceMotion') this.applyMotion();
+    if (key === 'showFps') this.hud.setFpsVisible(p.showFps);
     this.save();
     // UI text is built once; a new language needs a fresh start (the game is saved first).
     if (key === 'lang') window.location.reload();

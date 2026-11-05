@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { swappableMaterials } from './materials';
 
 const bakedMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85 });
+swappableMaterials.add(bakedMaterial);
 const tmpColor = new THREE.Color();
 const tintColor = new THREE.Color();
 

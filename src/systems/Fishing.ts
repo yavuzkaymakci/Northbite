@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { FishById, RarityColor } from '../content/fish';
 import { getLang, t } from '../content/strings';
-import { FishingFeel as F, HapticsSettings } from '../settings';
+import { FishingFeel as F, HapticsSettings, TutorialFeel } from '../settings';
+import { handHint } from '../ui/hints';
 import type { GameState, FishItem } from '../core/GameState';
 import { vibrate } from '../core/Haptics';
 import { damp } from '../core/Time';
@@ -103,7 +104,7 @@ export class FishingSystem implements TouchClaimer {
     this.bobber = createBobber();
     this.bobber.visible = false;
     scene.add(this.bobber, this.line.line);
-    this.alert = labels.create('fish-alert', `<div class="alert-mark">!</div><div class="alert-tap">${t('tapNow')}</div>`);
+    this.alert = labels.create('fish-alert', `<div class="alert-mark">!</div><div class="alert-tap">${t('tapNow')}</div>${handHint('tap')}`);
     this.fullLabel = labels.create('fish-full', t('full'));
     this.toast = labels.create('fish-toast');
     this.card = labels.create('fish-card');
@@ -250,6 +251,8 @@ export class FishingSystem implements TouchClaimer {
     this.hooked = rollFish(Math.random, fishingMods(this.state, this.env()));
     this.fx.splash(this.bobberPos.x, WATER_Y, this.bobberPos.z, 10, 1.7);
     this.fx.ripple(this.bobberPos.x, WATER_Y + 0.01, this.bobberPos.z, 0.7);
+    // The first catches show a tapping hand (GDD §22).
+    this.alert.el.classList.toggle('teach', this.state.stats.caught < TutorialFeel.tapCatches);
     this.labels.pop(this.alert);
     vibrate(HapticsSettings.bite);
   }

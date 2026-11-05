@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createFlatRingGeometry } from '../models/createFishingProps';
 import { Palette } from './Palette';
+import { View } from './Quality';
 
 interface Ripple {
   mesh: THREE.Mesh;
@@ -100,7 +101,8 @@ export class Effects {
 
   /** Golden sparkles (a rare variant fish). */
   sparkle(x: number, y: number, z: number): void {
-    for (let i = 0; i < 6; i++) {
+    const n = Math.max(Math.round(6 * View.sparkleScale), 1);
+    for (let i = 0; i < n; i++) {
       this.addPuff(x + (Math.random() - 0.5) * 0.6, y + Math.random() * 0.4, z + (Math.random() - 0.5) * 0.6, 0.06 + Math.random() * 0.05, 0.6, 0.8, this.sparkColor, 0.05);
     }
   }

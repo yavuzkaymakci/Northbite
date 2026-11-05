@@ -2100,3 +2100,282 @@ body {
   accent-color: var(--jacket);
   touch-action: pan-x;
 }
+
+/* ---------- Demo 6C: splash, hints, quality, reduce motion, night readability (GDD §22) ---------- */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--sky-top-night) 0%, var(--creator-sky-top) 70%, var(--deep-water) 100%);
+  opacity: 1;
+  transition: opacity var(--splash-fade) ease;
+  pointer-events: auto;
+}
+.splash.out {
+  opacity: 0;
+  pointer-events: none;
+}
+.splash-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  animation: splash-in 600ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.splash-logo {
+  width: min(36vw, 150px);
+  height: auto;
+  border-radius: 24%;
+  box-shadow: 0 10px 40px color-mix(in srgb, var(--aurora-green) 30%, transparent);
+}
+.splash-title {
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--snow);
+  text-shadow: 0 2px 12px color-mix(in srgb, var(--aurora-purple) 60%, transparent);
+}
+.splash-snowflake {
+  width: 30px;
+  height: 30px;
+  color: var(--ice);
+  animation: splash-spin 3s linear infinite;
+}
+.splash-flake {
+  position: absolute;
+  top: -20px;
+  border-radius: 50%;
+  background: var(--snow);
+  opacity: 0.75;
+  animation-name: splash-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes splash-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+@keyframes splash-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes splash-fall {
+  to {
+    transform: translate(30px, 110vh);
+  }
+}
+
+/* Tutorial hand (ui/hints.ts) */
+.hint-hand {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 42px;
+  color: var(--snow);
+  pointer-events: none;
+}
+.hint-hand svg {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 2px 3px color-mix(in srgb, var(--ui-ink) 45%, transparent));
+}
+.hint-ring {
+  position: absolute;
+  left: 0;
+  top: -8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--snow) 85%, transparent);
+  opacity: 0;
+}
+.hint-hand.drag {
+  animation: hand-drag 1.8s ease-in-out infinite;
+}
+.hint-hand.drag .hint-ring {
+  opacity: 0.8;
+  left: -2px;
+}
+.hint-hand.tap svg {
+  animation: hand-tap 0.9s ease-in-out infinite;
+}
+.hint-hand.tap .hint-ring {
+  animation: hand-ring 0.9s ease-out infinite;
+}
+.hint-hand.hold svg {
+  animation: hand-hold 1.6s ease-in-out infinite;
+}
+.hint-hand.hold .hint-ring {
+  animation: hand-ring-hold 1.6s ease-in-out infinite;
+}
+@keyframes hand-drag {
+  0%,
+  100% {
+    transform: translate(-22px, 0);
+  }
+  50% {
+    transform: translate(22px, -6px);
+  }
+}
+@keyframes hand-tap {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  45% {
+    transform: translateY(5px) scale(0.92);
+  }
+}
+@keyframes hand-ring {
+  0%,
+  40% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+@keyframes hand-hold {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  20%,
+  75% {
+    transform: translateY(5px) scale(0.93);
+  }
+}
+@keyframes hand-ring-hold {
+  0%,
+  15%,
+  85%,
+  100% {
+    opacity: 0;
+  }
+  25%,
+  75% {
+    opacity: 0.9;
+  }
+}
+
+/* The move hint: hand above, short words below. */
+.hud-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-top: 14px;
+}
+
+/* Bite alert: the tapping hand only for the first catches. */
+.fish-alert .hint-hand {
+  display: none;
+  margin-top: 2px;
+}
+.fish-alert.teach .hint-hand {
+  display: inline-block;
+}
+.gauge-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.gauge-hint .hint-hand {
+  width: 20px;
+  height: 25px;
+  flex: none;
+}
+.gauge-hint .hint-ring {
+  width: 16px;
+  height: 16px;
+  top: -5px;
+  border-width: 2px;
+}
+
+/* FPS readout (Debug setting), readable day and night. */
+.hud-fps {
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--snow);
+  background: color-mix(in srgb, var(--ui-ink) 50%, transparent);
+  opacity: 1;
+}
+.hud-fps.hidden {
+  display: none;
+}
+
+.settings-backdrop.quality-prompt {
+  z-index: 35;
+}
+.quality-text {
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--panel-muted);
+}
+
+/* Night and storm: darker, more solid backgrounds and a soft shadow under light text. */
+.ui-layer.dim .hud-pill,
+.ui-layer.dim .hud-gear,
+.ui-layer.dim .hud-day,
+.ui-layer.dim .hud-torch,
+.ui-layer.dim .hud-rested,
+.ui-layer.dim .hud-hint,
+.ui-layer.dim .stack-count,
+.ui-layer.dim .unlock-price,
+.ui-layer.dim .fish-toast,
+.ui-layer.dim .alert-tap,
+.ui-layer.dim .reel-gauge {
+  background: color-mix(in srgb, var(--sky-top-night) 82%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--snow) 18%, transparent);
+}
+.ui-layer.dim .banner {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--snow) 25%, transparent), 0 6px 18px color-mix(in srgb, var(--sky-top-night) 60%, transparent);
+}
+.ui-layer.dim .banner:not([data-tone]),
+.ui-layer.dim .banner[data-tone='info'] {
+  background: color-mix(in srgb, var(--sky-top-night) 90%, transparent);
+}
+.ui-layer.dim .world-label {
+  text-shadow: 0 1px 3px color-mix(in srgb, var(--sky-top-night) 90%, transparent);
+}
+
+/* "Reduce motion": no looping or bouncy animation, no shake marks; transitions stay short fades. */
+body.reduce-motion *,
+body.reduce-motion *::before,
+body.reduce-motion *::after {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+}
+body.reduce-motion .hint-hand .hint-ring {
+  opacity: 0.8;
+}
+@media (prefers-reduced-motion: reduce) {
+  .splash-flake,
+  .splash-snowflake {
+    animation: none;
+  }
+  .splash-flake {
+    display: none;
+  }
+}
+
+/* Settings and other cards sit above the HUD buttons (banners stay above them). */
+.settings-backdrop {
+  z-index: 20;
+}

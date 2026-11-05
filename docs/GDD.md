@@ -237,7 +237,8 @@ Değerler `src/content/` altında: `economy.ts` (oyuncu, tezgâh, müşteri, aç
 - Sırttaki yığın yürürken hafifçe sallanır.
 - Buz deliğinde su halkaları oluşur.
 - Hafif kar partikülleri yağar.
-- Coin sayacı sayarak artar.
+- Coin sayacı sayarak artar; coin yağarken sayaç kutusu her karede değil, en fazla ~0.25 sn'de bir zıplar.
+- Ses, titreşim ve zıplama aynı anda başlar (kilit açılması, yükseltme, yakalama). Bir olay tek titreşim verir (§17.1).
 
 **Modeller:** Önce tamamen kodla üretilir. İleride gerekirse ücretsiz CC0 low-poly paketler (ör. Kenney, Quaternius) veya Blender ile glTF modellerine geçilir.
 
@@ -280,7 +281,7 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - Ekran açıkken FPS 60'a yakındır; oyun sahnesi çizilmez.
   - Ayarlardan "Karakteri düzenle" çalışır ve ilerlemeyi bozmaz.
   - Model sürükleyince döner; pinch-zoom ve sayfa kayması yoktur.
-- PNG ikonlar (iOS 180×180, Android 192/512) hâlâ eksik; PWA cilası Demo 6'ya kaldı.
+- PNG ikonlar (iOS 180×180, Android 192/512, maskable) Demo 6C'de eklendi (§22).
 
 ### Demo 3 — İlk otomasyon
 - Eşya sistemi (çiğ + tütsülenmiş), balık ağı ve sepet, penguen kulübesi ve penguen işçi (A* ile waypoint), veri odaklı bölge açma (buz duvarı kırılması + kamera gezdirme), Tütsühane bölgesi (tütsühane, 3. delik, 2. penguen), "Yakında" iskele duvarı, olta tezgâhı ve 4 olta yükseltmesi, "Yeni tür!" kartı, save v3, denge simülasyonu
@@ -324,7 +325,7 @@ Her demo **telefondan açılabilen bir link** ile biter.
     - Sipariş geliri toplamın ~%12'sini, altın ve gökkuşağı katkısı ~%3'ü geçmez.
     - Açılış süreleri bozulmaz; ~150 draw call bütçesi korunur.
 
-### Demo 6 — Ses, müzik ve cila (§21)
+### Demo 6 — Ses, müzik ve cila (§21, §22) — BİTTİ
 Üç alt aşamada, her biri ayrı commit:
 - **6A — Ses efektleri:** WebAudio ile sentezlenen efektler (dosya yok), tek AudioContext, grup ses seviyeleri, ilk dokunuşta başlatma, arka planda susma, uzaklığa göre kısılma, sık tetiklenen seslerde sınır.
 - **6B — Müzik ve ambiyans:** Üretken, temposuz kuzey müziği (pad + seyrek pentatonik çanlar + yankı). Gün saatine ve duruma göre değişir: ayı gerilimi, mağara, kamp, uyku, kuzey ışığı. Ambiyans: rüzgâr, dalga, kar. Ayarlarda ses kaydırıcıları ve "Sessiz".
@@ -547,13 +548,28 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **Ambiyans:** Rüzgâr her zaman hafiftir, fırtınada güçlenir. Dalgalar denize yakınken duyulur. Gece daha sessizdir; yürürken kar çıtırtısı gelir.
 - **Ayarlar:** Ana ses, Müzik, Efektler, Ambiyans (0–100) ve "Sessiz"; kaydedilir. Müzik kapalıyken müzik düğümleri durur.
 
+## 22. Görsel cila, kalite ve erişilebilirlik (Demo 6C)
+- **Kalite ayarı** (Ayarlar → Görüntü; varsayılan Orta). Değerler `settings.ts` → `QualitySettings`:
+  - Düşük: piksel oranı 1, kar %45, kaplıca buharı %40, tek kuzey ışığı perdesi, PBR yerine Lambert gölgelendirme.
+  - Orta: piksel oranı en fazla 1.5, kar %80, buhar %75.
+  - Yüksek: piksel oranı en fazla 2, tüm efektler.
+  - Değişiklik anında uygulanır. Sonradan kurulan yapılar da 2 sn içinde sade gölgelendirmeye geçer.
+- **Yavaş cihaz önerisi:** FPS 5 sn üst üste 40'ın altında kalırsa (açılıştan ve arka plandan dönüşten sonraki ilk 8 sn sayılmaz) bir kez "Düşük kaliteye geçilsin mi?" sorulur. Cevap ne olursa olsun bir daha sorulmaz.
+- **FPS sayacı** varsayılan kapalıdır; Ayarlar → Hata ayıklama → "FPS sayacı" ile açılır.
+- **Açılış:** ~1.5 sn splash (ikon, "Northbite", dönen kar tanesi ve yağan kar). İlerleme çubuğu yok. Ardından kayıt varsa oyun, yoksa karakter ekranı gelir. Oyun splash'in arkasında kurulur.
+- **İkonlar ve PWA:** Buz deliği ve oltanın üstünde kuzey ışığı, oyunun paletiyle. `tools/make-icons.mjs` SVG'leri yazar ve Chrome ile PNG'leri üretir: 192, 512, maskable 512 (%80 güvenli alan), apple-touch-icon 180. Manifest ve tema rengi gece mavisidir (`#0E1A3A`), splash arka planıyla aynıdır.
+- **Hareketi azalt** (Ayarlar → Görüntü): Kamera sarsıntıları %20'ye iner, parıltılar %35'e düşer, CSS'teki döngülü ve zıplayan animasyonlar durur. Cihazın "hareketi azalt" ayarı splash'teki karı da kapatır.
+- **Öğretici ipuçları** (ilk 2 dk): Yazı yerine el animasyonu kullanılır. "Sürükle ve yürü" ipucunda el bir halka üzerinde sürükler. İlk 3 yakalamada "!" uyarısında dokunan el, ilk 3 çekişte göstergede basılı tutan el görünür. Rehber ok yerinde kalır. 2 dk'dan uzun oynamış kayıtlarda yürüme ipucu çıkmaz.
+- **Gece okunurluğu:** Gece (gece seviyesi > 0.55) ve fırtınada HUD, etiketler ve banner'lar daha koyu ve dolgun bir arka plana geçer, ince bir açık çerçeve alır, yazılar gölgelenir.
+
 ## 17. Açık sorular
 - Test için kullanılacak telefon: iPhone mu, Android mi? (Web demolarında fark yok, native aşamada önemli)
 - Gelir modelinin kesinleşmesi (çevrimdışı "x2" düğmesi gizli bir yer tutucu olarak hazır)
-- Müzik ve ses kaynakları (ücretsiz paket mi, satın alma mı)
-- Desteklenecek diller (şimdilik Türkçe + İngilizce, ayarlardan seçilir)
 - Ayı tüyünün kullanımı (şimdilik yalnızca sayılıyor; dekorasyon ya da huzurla bağlanabilir)
-- PWA PNG ikonları (iOS 180×180, Android 192/512) Demo 6'ya kaldı; şimdilik yalnızca SVG ikon var.
+- Kalite otomatik seçilmeli mi? Şimdilik varsayılan Orta, yavaş cihaza yalnızca bir kerelik öneri var.
+- Gerçek müzik parçası gerekecek mi? Şimdilik her şey sentez; `MusicDirector.loadTrack(url)` kancası hazır.
+
+**Demo 6C'de kapananlar:** PWA PNG ikonları eklendi. Ses kaynakları sorusu kapandı (dosya yok, WebAudio sentezi). Diller Türkçe + İngilizce olarak kaldı. Ayarlarda "Sessiz" düğmeleri dil seçimini bozuyordu (seçici hatası), düzeltildi. Ayarlar kartı artık HUD düğmelerinin üstünde açılıyor.
 
 ## 17.1 Uygulama kuralları
 Demolar sırasında verilen ve kalıcılaşan kararlar (eskimiş geçici kararlar silindi).
@@ -575,6 +591,8 @@ Demolar sırasında verilen ve kalıcılaşan kararlar (eskimiş geçici kararla
 - Kilit alanının üstünde ne açılacağı yazar ("Balık ağı", "Tapu: Buz Mağarası"...). Para akmadan önce ~0.3 sn durmak gerekir; üstünden yürümek para harcatmaz.
 - "Yeni tür!" kartı yalnızca yaygın olmayan türlerde çıkar (morina ve üstü, gece balıkları dahil). Kapelin sessizce "görülmüş" sayılır.
 - Ayarlar ve karakter dışındaki paneller açıkken oyun sürer; yalnızca karakter ekranı oyunu durdurur. Dil değişince oyun kaydedilip yeniden yüklenir.
+- Katman sırası: HUD < ayarlar kartı < banner < çevrimdışı penceresi < kalite önerisi < splash.
+- Bir olay tek titreşim verir: 70 ms içinde gelen ikinci titreşim düşer. Kilit açılınca önce yapının kendi deseni (iglo, dekorasyon) çalar, genel kilit deseni ancak o yoksa çalar.
 
 **Karakter**
 - Atkı "yok" `scarfColor = -1`'dir; atkı yokken boyunda mont renginde bir yaka görünür. Kukuletanın ayrı rengi yoktur, mont rengini alır.

@@ -44,15 +44,26 @@ export class Snowfall {
     this.fallMul = fallMul;
   }
 
+  private density = 1;
+  private qualityShare = 1;
+
   /** 0..1 share of flakes drawn (the intro thickens the snow a little). */
   setDensity(density: number): void {
-    this.mesh.count = Math.round(S.count * Math.min(Math.max(density, 0), 1));
+    this.density = Math.min(Math.max(density, 0), 1);
+    this.mesh.count = Math.round(S.count * this.density * this.qualityShare);
+  }
+
+  /** Quality setting: share of all flakes that exist at full density. */
+  setQuality(share: number): void {
+    this.qualityShare = share;
+    this.setDensity(this.density);
   }
 
   update(dt: number, time: number, focus: THREE.Vector3): void {
     const spanX = S.areaHalfX * 2;
     const spanZ = S.areaHalfZ * 2;
-    for (let i = 0; i < S.count; i++) {
+    // Only the drawn flakes move (low quality also saves the CPU work).
+    for (let i = 0; i < this.mesh.count; i++) {
       let y = (this.py[i] as number) - (this.speed[i] as number) * this.fallMul * dt;
       if (y < 0) y += S.height;
       this.py[i] = y;

@@ -2,6 +2,7 @@ import { t, tf } from '../content/strings';
 import { CoinFeel } from '../settings';
 import { damp } from '../core/Time';
 import { onTap } from './tap';
+import { handHint } from './hints';
 
 /** Top HUD: coin counter (counts toward its target), FPS readout and the first-move hint. */
 export class HUD {
@@ -21,6 +22,7 @@ export class HUD {
   private shown = 0;
   private target = 0;
   private lastText = '';
+  private bumpAt = -1e9;
 
   private readonly codexBtn: HTMLElement;
   private readonly boardBtn: HTMLElement;
@@ -39,7 +41,8 @@ export class HUD {
     this.coinPill.appendChild(this.coinValue);
 
     this.fpsEl = document.createElement('div');
-    this.fpsEl.className = 'hud-fps';
+    // Off by default; "FPS counter" under Debug in the settings shows it.
+    this.fpsEl.className = 'hud-fps hidden';
     this.fpsEl.textContent = `-- ${t('fps')}`;
 
     const right = document.createElement('div');
@@ -60,7 +63,8 @@ export class HUD {
 
     this.hintEl = document.createElement('div');
     this.hintEl.className = 'hud-hint';
-    this.hintEl.textContent = t('moveHint');
+    // A hand drags over a joystick ring; the words are short (GDD §22).
+    this.hintEl.innerHTML = `${handHint('drag')}<span class="hud-hint-text">${t('moveHint')}</span>`;
 
     // Encyclopedia (fish) and order board buttons in a small column under the gear (GDD §19, §20).
     const side = document.createElement('div');
@@ -139,12 +143,18 @@ export class HUD {
 
   /** The display counts toward this value. */
   setCoinTarget(value: number): void {
-    if (value > this.target) {
+    // One bump per burst of coins: restarting it every frame would only jitter.
+    if (value > this.target && performance.now() - this.bumpAt > CoinFeel.hudBumpGapMs) {
+      this.bumpAt = performance.now();
       this.coinPill.classList.remove('bump');
       void this.coinPill.offsetWidth;
       this.coinPill.classList.add('bump');
     }
     this.target = value;
+  }
+
+  setFpsVisible(on: boolean): void {
+    this.fpsEl.classList.toggle('hidden', !on);
   }
 
   hideHint(): void {
@@ -163,7 +173,7 @@ export class HUD {
     this.frames++;
     this.fpsTimer += dt;
     if (this.fpsTimer >= 0.5) {
-      this.fpsEl.textContent = `${Math.round(this.frames / this.fpsTimer)} ${t('fps')}`;
+      if (!this.fpsEl.classList.contains('hidden')) this.fpsEl.textContent = `${Math.round(this.frames / this.fpsTimer)} ${t('fps')}`;
       this.frames = 0;
       this.fpsTimer = 0;
     }

@@ -241,6 +241,10 @@ function sanitizeGame(raw: unknown): GameState {
       vibration: prefs.vibration !== false,
       lang: prefs.lang === 'tr' || prefs.lang === 'en' ? prefs.lang : '',
       audio: sanitizeAudio(prefs.audio),
+      quality: prefs.quality === 'low' || prefs.quality === 'high' ? prefs.quality : 'medium',
+      reduceMotion: prefs.reduceMotion === true,
+      showFps: prefs.showFps === true,
+      qualityAsked: prefs.qualityAsked === true,
     },
     lastSeenAt: num(g.lastSeenAt, 0),
     offlinePending:

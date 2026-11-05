@@ -161,7 +161,16 @@ export interface Prefs {
   lang: '' | 'tr' | 'en';
   /** Volumes 0..1 and mute (GDD §21). */
   audio: { master: number; music: number; sfx: number; ambience: number; mute: boolean };
+  /** Graphics quality (GDD §22). */
+  quality: QualityId;
+  reduceMotion: boolean;
+  /** FPS readout in the HUD (debug). */
+  showFps: boolean;
+  /** The one-time "switch to low quality?" offer was made. */
+  qualityAsked: boolean;
 }
+
+export type QualityId = 'low' | 'medium' | 'high';
 
 export interface CaveState {
   /** Seconds until each vein (CaveLayout.veins order) has grown back; 0 = ready. */
@@ -252,7 +261,7 @@ export function createGameState(): GameState {
     camp: createCampState(),
     carriedCrystals: 0,
     story: { pages: [] },
-    prefs: { threats: true, dayLength: 'medium', vibration: true, lang: '', audio: { ...AudioMix.defaults, mute: false } },
+    prefs: { threats: true, dayLength: 'medium', vibration: true, lang: '', audio: { ...AudioMix.defaults, mute: false }, quality: 'medium', reduceMotion: false, showFps: false, qualityAsked: false },
     lastSeenAt: 0,
     offlinePending: null,
     codex: createCodexState(),

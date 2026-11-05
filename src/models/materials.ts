@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 
 const cache = new Map<string, THREE.MeshStandardMaterial>();
+/** Shared materials that never change at runtime: low quality may swap them for cheaper twins (render/Quality.ts). */
+export const swappableMaterials = new Set<THREE.Material>();
 
 /** Shared flat-shaded material per color. Do not mutate the returned material; use `uniqueFlat` for that. */
 export function flat(color: number, opts: { roughness?: number; metalness?: number } = {}): THREE.MeshStandardMaterial {
@@ -11,6 +13,7 @@ export function flat(color: number, opts: { roughness?: number; metalness?: numb
   if (!mat) {
     mat = new THREE.MeshStandardMaterial({ color, roughness, metalness, flatShading: true });
     cache.set(key, mat);
+    swappableMaterials.add(mat);
   }
   return mat;
 }

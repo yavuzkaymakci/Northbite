@@ -79,6 +79,7 @@ export class Atmosphere {
     night: 0,
   };
   private readonly aurora: THREE.Group;
+  private readonly auroraSecond: THREE.Mesh;
   private readonly auroraUniforms = {
     uTime: { value: 0 },
     uOpacity: { value: 0 },
@@ -116,9 +117,20 @@ export class Atmosphere {
     b.position.set(6, 9.5, -36);
     b.rotation.z = 0.05;
     this.aurora.add(a, b);
+    this.auroraSecond = b;
     this.aurora.visible = false;
     camera.add(this.aurora);
     scene.add(camera);
+  }
+
+  /** Low quality: a single aurora curtain. */
+  setSimple(simple: boolean): void {
+    this.auroraSecond.visible = !simple;
+  }
+
+  /** Storm fog level 0..1 (smooth). */
+  get stormLevel(): number {
+    return this.storm;
   }
 
   /** 0 = day, 1 = full night (smooth). */

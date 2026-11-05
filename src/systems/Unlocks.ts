@@ -155,9 +155,11 @@ export class Unlocks {
         delete this.state.unlockPaid[spot.id];
         if (spot.region) this.state.regions.push(spot.id);
         else this.state.unlocked.push(spot.id);
-        vibrate(HapticsSettings.unlock);
         sfx('unlock');
         this.onUnlock(spot);
+        // After onUnlock: an igloo level or a decoration buzzes its own pattern first, and this one is then dropped
+        // (one event, one vibration).
+        vibrate(HapticsSettings.unlock);
         if (!spot.region) this.refresh(true, 0.2);
       }
     }

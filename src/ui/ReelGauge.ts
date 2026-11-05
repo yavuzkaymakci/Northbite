@@ -1,4 +1,5 @@
 import { t } from '../content/strings';
+import { handHint } from './hints';
 import { FishingFeel } from '../settings';
 import type { TensionZone } from '../systems/ReelGame';
 import type { WorldLabel, WorldLabels } from './WorldLabels';
@@ -22,7 +23,7 @@ export class ReelGauge {
          <div class="gauge-track"><div class="gauge-progress"></div></div></div>
        <div class="gauge-row"><span class="gauge-name">${t('tensionLabel')}</span>
          <div class="gauge-track tension"><div class="tension-marker"></div></div></div>
-       <div class="gauge-hint">${t('reelHint')}</div>`,
+       <div class="gauge-hint">${handHint('hold')}${t('reelHint')}</div>`,
     );
     this.label.clampX = true;
     const q = <T extends HTMLElement>(sel: string) => this.label.el.querySelector(sel) as T;

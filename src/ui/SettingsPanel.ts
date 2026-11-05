@@ -1,6 +1,7 @@
 import { displayName, t, type StringKey } from '../content/strings';
 import type { Prefs } from '../core/GameState';
 import { onTap } from './tap';
+import { panels } from './PanelManager';
 
 type PrefKey = keyof Prefs;
 
@@ -19,8 +20,11 @@ const DISPLAY: readonly Choice[] = [
   { key: 'quality', label: 'settingsQuality', options: [['low', 'qualityLow'], ['medium', 'qualityMedium'], ['high', 'qualityHigh']] },
   { key: 'reduceMotion', label: 'settingsReduceMotion', options: ON_OFF },
 ];
-const DEBUG: readonly Choice[] = [{ key: 'showFps', label: 'settingsFps', options: ON_OFF }];
-const BOOL_KEYS: readonly PrefKey[] = ['threats', 'vibration', 'reduceMotion', 'showFps'];
+const DEBUG: readonly Choice[] = [
+  { key: 'showFps', label: 'settingsFps', options: ON_OFF },
+  { key: 'debugTools', label: 'settingsDebugTools', options: ON_OFF },
+];
+const BOOL_KEYS: readonly PrefKey[] = ['threats', 'vibration', 'reduceMotion', 'showFps', 'debugTools'];
 const LANG_NAMES: Record<string, string> = { tr: 'Türkçe', en: 'English' };
 type VolumeKey = 'master' | 'music' | 'sfx' | 'ambience';
 const VOLUMES: ReadonlyArray<[VolumeKey, StringKey]> = [
@@ -44,7 +48,6 @@ export class SettingsPanel {
   private prefs: Prefs | null = null;
   /** Language shown as selected (the device language while prefs.lang is ''). */
   private lang = 'tr';
-  private openValue = false;
 
   constructor(
     overlay: HTMLElement,
@@ -110,19 +113,25 @@ export class SettingsPanel {
     const card = this.root.querySelector('.settings-card') as HTMLElement;
     card.addEventListener('pointerdown', (e) => e.stopPropagation());
     onTap(this.root.querySelector('.settings-btn.primary') as HTMLElement, () => {
-      this.close();
+      panels.close('settings', 'done');
       this.onEditCharacter();
     });
-    onTap(this.root.querySelector('.settings-btn.close') as HTMLElement, () => this.close());
-    // Tapping outside the card closes it.
-    this.root.addEventListener('pointerup', (e) => {
-      if (e.target === this.root) this.close();
-    });
+    onTap(this.root.querySelector('.settings-btn.close') as HTMLElement, () => panels.close('settings', 'button'));
     overlay.appendChild(this.root);
+    // Modal; tapping outside the card closes it.
+    panels.register({
+      id: 'settings',
+      kind: 'modal',
+      root: this.root,
+      inside: () => card,
+      outside: true,
+      show: () => this.root.classList.add('open'),
+      hide: () => this.root.classList.remove('open'),
+    });
   }
 
   get opened(): boolean {
-    return this.openValue;
+    return panels.isOpen('settings');
   }
 
   /** `lang` is the language in use (prefs.lang may be '' = device language). */
@@ -135,13 +144,7 @@ export class SettingsPanel {
     this.prefs = prefs;
     this.lang = lang;
     this.render();
-    this.openValue = true;
-    this.root.classList.add('open');
-  }
-
-  close(): void {
-    this.openValue = false;
-    this.root.classList.remove('open');
+    panels.open('settings');
   }
 
   private choose(key: PrefKey, value: string): void {

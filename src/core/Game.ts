@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { CreatorFeel, DayFeel, QualitySettings, ReadabilityFeel, SaveSettings, TutorialFeel } from '../settings';
 import { applyShading, View } from '../render/Quality';
 import { QualityPrompt } from '../ui/QualityPrompt';
+import { panels } from '../ui/PanelManager';
+import { DebugBar, type DebugAction } from '../ui/DebugBar';
+import { DebugTools } from '../settings';
 import { Atmosphere } from '../render/Atmosphere';
 import { DayCycle, type DayEvents } from '../systems/DayCycle';
 import { Decorations } from '../systems/Decorations';
@@ -140,6 +143,7 @@ export class Game {
   private rafId = 0;
   private autosaveTimer = 0;
   private readonly qualityPrompt: QualityPrompt;
+  private readonly debugBar: DebugBar;
   /** Slow-device watch (GDD §22): frames in the current one-second window, seconds in a row below the limit. */
   private fpsFrames = 0;
   private fpsWindowStart = -1;
@@ -163,6 +167,8 @@ export class Game {
     // Sound starts on the first touch (mobile browsers need a gesture), never while muted (GDD §21).
     audio.configure(s.prefs.audio);
     audio.attach();
+    // Every panel opens and closes through one manager (GDD §23): Escape / Android back, outside taps.
+    panels.attach();
     // Quality and "reduce motion" are read by the renderers while the world is built.
     View.quality = s.prefs.quality;
     this.applyMotion();
@@ -255,7 +261,7 @@ export class Game {
     this.cave = new Cave(this.scene, s, this.player, this.stack, this.world, this.fx, this.labels, this.banner, this.coins, this.appear);
     this.camp = new Camp(this.scene, s, this.player, this.stack, this.world, this.fx, this.labels, this.coins, this.appear);
     // The fishing mini-game and mining on a crystal vein take touches before the joystick.
-    this.router = new TouchRouter(this.renderer.canvas, this.joystick, [this.fishing, this.cave]);
+    this.router = new TouchRouter(this.renderer.canvas, this.joystick, [this.fishing, this.cave], (id) => panels.takesPointer(id));
     this.threats = new Threats({
       scene: this.scene,
       overlay,
@@ -308,6 +314,8 @@ export class Game {
     // The visual hints are for the first minutes only (GDD §22).
     if (s.stats.playTime >= TutorialFeel.seconds) this.hud.hideHint();
     this.qualityPrompt = new QualityPrompt(overlay);
+    this.debugBar = new DebugBar(overlay, (a) => this.debugAction(a));
+    this.debugBar.setVisible(s.prefs.debugTools);
     this.applyQuality();
 
     this.renderer.onResize((w, h) => {
@@ -413,7 +421,10 @@ export class Game {
   private update(dt: number, elapsed: number): void {
     // The region camera tour, the first-start intro and falling asleep lock the joystick.
     const locked = this.regionOpening.active || this.intro.active || this.sleep.active;
-    this.router.enabled = !locked;
+    // Panels first: a contextual panel closes when locked or out of its ring, and game touches are off while a modal
+    // or contextual panel is open (turning them off lets go of every held pointer).
+    panels.update(locked);
+    this.router.enabled = !locked && !panels.blocking;
     this.input.update();
     const move = locked ? NO_MOVE : this.input.move;
     const moving = !locked && this.input.active;
@@ -494,6 +505,7 @@ export class Game {
     const left = restedLeft(this.state);
     this.hud.setRested(left > 0 ? (this.state.rested?.quality ?? 0) : 0, Math.ceil((left * DayFeel.dayLength[this.state.prefs.dayLength]) / 60));
     this.hud.update(dt);
+    this.debugBar.update(dt);
     this.labels.update(this.rig.camera, this.renderer.width, this.renderer.height);
     this.threats.updateArrow(this.rig.camera, this.renderer.width, this.renderer.height);
 
@@ -613,6 +625,16 @@ export class Game {
     });
   }
 
+  /** Debug tools (Settings → Debug → Tools). */
+  private debugAction(a: DebugAction): void {
+    const len = DayFeel.dayLength[this.state.prefs.dayLength];
+    if (a === 'coins') this.state.coins += DebugTools.coins;
+    else if (a === 'hour') this.dayEvents(this.day.update(len / 24));
+    else if (a === 'day') this.dayEvents(this.day.update(len));
+    else if (a === 'bear' || a === 'avalanche') this.threats.debugStart(a, this.day.isNight);
+    this.save();
+  }
+
   /** Music mood and ambience follow the time of day, the place and what happens (GDD §21). */
   private updateSound(dt: number): void {
     const p = this.player.state;
@@ -703,6 +725,7 @@ export class Game {
     if (key === 'quality') this.applyQuality();
     if (key === 'reduceMotion') this.applyMotion();
     if (key === 'showFps') this.hud.setFpsVisible(p.showFps);
+    if (key === 'debugTools') this.debugBar.setVisible(p.debugTools);
     this.save();
     // UI text is built once; a new language needs a fresh start (the game is saved first).
     if (key === 'lang') window.location.reload();

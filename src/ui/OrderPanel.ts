@@ -3,7 +3,7 @@ import { getLang, t, tf, type StringKey } from '../content/strings';
 import type { GameState, Order } from '../core/GameState';
 import { orderProgress } from '../systems/OrderLogic';
 import { onTap } from './tap';
-import { sfx } from '../audio/AudioEngine';
+import { panels, type CloseReason } from './PanelManager';
 
 const mmss = (sec: number) => {
   const s = Math.max(Math.ceil(sec), 0);
@@ -26,8 +26,9 @@ export class OrderPanel {
   private readonly list: HTMLElement;
   private readonly swapHint: HTMLElement;
   private atBoard = false;
-  private isOpenValue = false;
   private lastKey = '';
+  /** The board learns how the panel closed (walked off, or dismissed at the board). */
+  onClosed: ((reason: CloseReason) => void) | null = null;
 
   constructor(
     overlay: HTMLElement,
@@ -41,34 +42,44 @@ export class OrderPanel {
     this.list = this.root.querySelector('.order-list') as HTMLElement;
     this.swapHint = this.root.querySelector('.order-swap-hint') as HTMLElement;
     this.root.addEventListener('pointerdown', (e) => e.stopPropagation());
-    onTap(this.root.querySelector('.order-close') as HTMLElement, () => this.close());
+    onTap(this.root.querySelector('.order-close') as HTMLElement, () => panels.close('orders', 'button'));
     overlay.appendChild(this.root);
+    // Contextual (GDD §23): at the board it closes when the player walks off; from the HUD it closes after a while
+    // without touches.
+    panels.register({
+      id: 'orders',
+      kind: 'contextual',
+      root: this.root,
+      show: () => this.root.classList.add('open'),
+      hide: () => this.root.classList.remove('open'),
+      onClose: (reason) => this.onClosed?.(reason),
+    });
   }
 
   get opened(): boolean {
-    return this.isOpenValue;
+    return panels.isOpen('orders');
   }
 
-  /** `atBoard`: standing at the board (delivering works); otherwise a view from the HUD. */
-  open(atBoard: boolean): void {
-    if (this.isOpenValue && this.atBoard === atBoard) return;
-    this.atBoard = atBoard;
-    this.isOpenValue = true;
-    this.lastKey = '';
-    this.root.classList.add('open');
-    this.root.classList.toggle('remote', !atBoard);
-    sfx('panelOpen');
-  }
-
-  close(): void {
-    this.isOpenValue = false;
-    this.root.classList.remove('open');
-    sfx('panelClose');
+  /**
+   * `atBoard`: standing at the board (delivering works, `valid` keeps it open while there); otherwise a view from
+   * the HUD. Calling it again while open switches the mode.
+   */
+  open(atBoard: boolean, valid: (() => boolean) | undefined): boolean {
+    return panels.open('orders', {
+      valid,
+      idle: !atBoard,
+      run: () => {
+        if (this.atBoard === atBoard && this.opened) return;
+        this.atBoard = atBoard;
+        this.lastKey = '';
+        this.root.classList.toggle('remote', !atBoard);
+      },
+    });
   }
 
   /** Redraws when something visible changed (orders, progress, timers in whole seconds). */
   refresh(state: GameState, visible: number): void {
-    if (!this.isOpenValue) return;
+    if (!this.opened) return;
     const o = state.orders;
     const progress = o.active.map((a) => orderProgress(state, a, visible));
     const key = JSON.stringify([o.active.map((a) => [a.id, Math.ceil(a.timeLeft)]), progress, o.refill.map(Math.ceil), Math.ceil(o.rerollIn), this.atBoard]);

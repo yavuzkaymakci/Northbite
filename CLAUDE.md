@@ -64,6 +64,7 @@ tools/       balance-sim.ts (denge simülasyonu; oyunun içerik ve mantık dosya
 - `npm run build` — production build (`dist/`)
 - `npm run preview` — build önizlemesi (`--host` ile)
 - `npm run typecheck` — `tsc --noEmit`
+- `npm run test:panels` — panel stres testleri (headless Chrome; kendi Vite sunucusunu açar). `-- --reduce-motion`, `-- --throttle 6` ve `-- cycles storm` gibi seçenekler alır (GDD §23).
 - `npm run sim` — denge simülasyonu (açılış süreleri, boşta gelir, yükseltme etkileri); `npm run sim -- 20` koşu sayısını, `npm run sim -- 1 reel` yalnızca mini oyun tablolarını verir. Simülasyonun kullandığı mantık dosyaları (`ReelGame`, `FishRoll`, `StationLogic`, `WorkerBrain`, `Pathfinding`, `Upgrades`) Three.js ve DOM içermemeli.
 
 ## Telefonda test

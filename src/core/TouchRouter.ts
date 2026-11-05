@@ -25,6 +25,8 @@ export class TouchRouter {
     private readonly joystick: Joystick,
     /** Asked in order; the first one that wants touches gets them. */
     private readonly claimers: readonly TouchClaimer[],
+    /** False for a touch the game must not use (it just closed a panel). */
+    private readonly gate: (id: number) => boolean = () => true,
   ) {
     surface.addEventListener('pointerdown', this.onDown);
     surface.addEventListener('pointermove', this.onMove);
@@ -52,7 +54,7 @@ export class TouchRouter {
 
   private onDown = (e: PointerEvent): void => {
     e.preventDefault();
-    if (!this.enabledValue) return;
+    if (!this.enabledValue || !this.gate(e.pointerId)) return;
     const claimer = this.claimers.find((c) => c.wantsTouches());
     if (claimer) {
       this.capture(e.pointerId);

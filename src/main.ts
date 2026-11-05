@@ -3,6 +3,7 @@ import { Game } from './core/Game';
 import { audio } from './audio/AudioEngine';
 import { applyPaletteToCss } from './render/Palette';
 import { Splash } from './ui/Splash';
+import { panels } from './ui/PanelManager';
 
 /** Blocks browser gestures that fight the game: pinch/double-tap zoom, long-press menus, rubber-band scroll. */
 function lockBrowserGestures(): void {
@@ -42,7 +43,7 @@ requestAnimationFrame(() =>
   window.setTimeout(() => {
     const game = new Game(container);
     // Dev-only handle for debugging in the browser console. Stripped from production builds.
-    if (import.meta.env.DEV) Object.assign(window, { __game: game, __audio: audio });
+    if (import.meta.env.DEV) Object.assign(window, { __game: game, __audio: audio, __panels: panels });
     splash.finish(() => game.start());
   }, 0),
 );

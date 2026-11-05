@@ -3,6 +3,7 @@ import { FishById, RarityColor } from '../content/fish';
 import { getLang, t } from '../content/strings';
 import { FishingFeel as F, HapticsSettings, TutorialFeel } from '../settings';
 import { handHint } from '../ui/hints';
+import { panels } from '../ui/PanelManager';
 import type { GameState, FishItem } from '../core/GameState';
 import { vibrate } from '../core/Haptics';
 import { damp } from '../core/Time';
@@ -109,6 +110,20 @@ export class FishingSystem implements TouchClaimer {
     this.toast = labels.create('fish-toast');
     this.card = labels.create('fish-card');
     this.card.offsetY = -10;
+    // A card (GDD §23): waits behind a day summary or journal page. Taps go on to fishing (no outside close).
+    panels.register({
+      id: 'fishCard',
+      kind: 'card',
+      root: this.card.el,
+      outside: false,
+      back: false,
+      sound: false,
+      show: () => this.labels.pop(this.card),
+      hide: () => {
+        this.cardTimer = 0;
+        this.labels.show(this.card, false);
+      },
+    });
   }
 
   /** The hole the player should face, if fishing. */
@@ -415,6 +430,12 @@ export class FishingSystem implements TouchClaimer {
    * badge (the very first gold / rainbow gets its own headline), a heavier fish than the record a "New record!" tag.
    */
   private showCard(item: FishItem, firstOfKind: boolean, record: boolean, firstVariant: VariantId | null): void {
+    // A newer catch replaces the card that is up (or waiting).
+    panels.close('fishCard', 'replaced');
+    panels.showCard('fishCard', () => this.fillCard(item, firstOfKind, record, firstVariant));
+  }
+
+  private fillCard(item: FishItem, firstOfKind: boolean, record: boolean, firstVariant: VariantId | null): void {
     const s = FishById[item.species];
     const rarity = s.rarity;
     const head = firstVariant ? t(firstVariant === 'gold' ? 'variantFirstGold' : 'variantFirstRainbow') : firstOfKind ? t('newSpecies') : '';
@@ -427,7 +448,6 @@ export class FishingSystem implements TouchClaimer {
     const big = firstOfKind || !!firstVariant;
     this.card.el.classList.toggle('new-species', big);
     this.cardTimer = F.landArcTime + F.landFlopTime + (big ? 1.6 : record ? 0.8 : 0.2);
-    this.labels.pop(this.card);
   }
 
   private showToast(text: string): void {
@@ -448,7 +468,7 @@ export class FishingSystem implements TouchClaimer {
     if (this.landing) this.card.anchor.set(this.landing.spot.x, 1.2, this.landing.spot.z);
     if (this.cardTimer > 0) {
       this.cardTimer -= dt;
-      if (this.cardTimer <= 0) this.labels.show(this.card, false);
+      if (this.cardTimer <= 0) panels.close('fishCard', 'auto');
     }
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;

@@ -245,6 +245,7 @@ function sanitizeGame(raw: unknown): GameState {
       reduceMotion: prefs.reduceMotion === true,
       showFps: prefs.showFps === true,
       qualityAsked: prefs.qualityAsked === true,
+      debugTools: prefs.debugTools === true,
     },
     lastSeenAt: num(g.lastSeenAt, 0),
     offlinePending:

@@ -168,6 +168,8 @@ export interface Prefs {
   showFps: boolean;
   /** The one-time "switch to low quality?" offer was made. */
   qualityAsked: boolean;
+  /** Debug tools bar (give coins, skip time, threats, panel view). */
+  debugTools: boolean;
 }
 
 export type QualityId = 'low' | 'medium' | 'high';
@@ -261,7 +263,7 @@ export function createGameState(): GameState {
     camp: createCampState(),
     carriedCrystals: 0,
     story: { pages: [] },
-    prefs: { threats: true, dayLength: 'medium', vibration: true, lang: '', audio: { ...AudioMix.defaults, mute: false }, quality: 'medium', reduceMotion: false, showFps: false, qualityAsked: false },
+    prefs: { threats: true, dayLength: 'medium', vibration: true, lang: '', audio: { ...AudioMix.defaults, mute: false }, quality: 'medium', reduceMotion: false, showFps: false, qualityAsked: false, debugTools: false },
     lastSeenAt: 0,
     offlinePending: null,
     codex: createCodexState(),

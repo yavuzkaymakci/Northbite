@@ -26,6 +26,8 @@ const B = IceShore.board;
 export class OrderBoard {
   private built = false;
   private stand = 0;
+  /** Closed by the player at the board: it stays shut until they step away. */
+  private dismissed = false;
   private wasAtBoard = false;
   private readonly mark: WorldLabel;
 
@@ -41,6 +43,9 @@ export class OrderBoard {
     private readonly appear: Appear,
     private readonly panel: OrderPanel,
   ) {
+    panel.onClosed = (reason) => {
+      if (this.atBoard && reason !== 'left') this.dismissed = true;
+    };
     this.mark = labels.create('board-mark', '!');
     this.mark.anchor.set(B.x, 2.75, B.z);
     if (state.unlocked.includes('orderBoard')) this.build(false);
@@ -81,18 +86,18 @@ export class OrderBoard {
   update(dt: number, locked: boolean): void {
     if (!this.built) return;
     updateOrders(this.state, dt, Math.random);
-    // Walking up to the board opens the panel; walking off closes it.
+    // Walking up to the board opens the panel; walking off closes it (the panel manager checks every frame).
     const still = this.player.state.speed01 < FishingFeel.stillSpeed;
     const at = this.atBoard;
-    // A panel opened from the HUD switches to delivering when the player reaches the board (and back).
-    if (this.panel.opened && at !== this.wasAtBoard) this.panel.open(at);
+    // A panel opened from the HUD switches to delivering when the player reaches the board.
+    if (this.panel.opened && at && !this.wasAtBoard) this.panel.open(true, () => this.atBoard);
     this.wasAtBoard = at;
     if (at && !locked) {
       if (still) this.stand += dt;
-      if (this.stand >= OrderFeel.openDelay && !this.panel.opened) this.panel.open(true);
+      if (this.stand >= OrderFeel.openDelay && !this.panel.opened && !this.dismissed) this.panel.open(true, () => this.atBoard);
     } else {
-      if (this.stand > 0 && this.panel.opened) this.panel.close();
       this.stand = 0;
+      if (!at) this.dismissed = false;
     }
     this.panel.refresh(this.state, this.visible);
     this.labels.show(this.mark, this.deliverable && !this.panel.opened);
@@ -100,7 +105,8 @@ export class OrderBoard {
 
   /** The HUD icon: the orders from afar (delivering needs the board). */
   openRemote(): void {
-    this.panel.open(this.atBoard);
+    const at = this.atBoard;
+    this.panel.open(at, at ? () => this.atBoard : undefined);
   }
 
   deliver(id: number): void {

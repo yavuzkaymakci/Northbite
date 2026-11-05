@@ -2,6 +2,7 @@ import { Pages, type PageId } from '../content/story';
 import { t, tf, type StringKey } from '../content/strings';
 import { LandFeel } from '../settings';
 import { onTap } from './tap';
+import { panels } from './PanelManager';
 
 const title = (id: PageId) => t(`${id}Title` as StringKey);
 const text = (id: PageId) => t(`${id}Text` as StringKey);
@@ -15,7 +16,6 @@ export class PageCard {
   private readonly root: HTMLDivElement;
   private readonly titleEl: HTMLElement;
   private readonly textEl: HTMLElement;
-  private shownFor = 0;
   private onClose: (() => void) | null = null;
 
   constructor(overlay: HTMLElement) {
@@ -31,34 +31,54 @@ export class PageCard {
     this.titleEl = this.root.querySelector('.page-title') as HTMLElement;
     this.textEl = this.root.querySelector('.page-text') as HTMLElement;
     (this.root.querySelector('.page-card') as HTMLElement).addEventListener('pointerdown', (e) => e.stopPropagation());
+    const card = this.root.querySelector('.page-card') as HTMLElement;
     onTap(this.root.querySelector('.page-add') as HTMLElement, () => {
       // A short guard so a tap meant for the game does not close the card the moment it appears.
-      if (this.shownFor >= LandFeel.cardMinTime) this.close();
+      if (this.shownForMs >= LandFeel.cardMinTime * 1000) panels.close('page', 'button');
     });
     overlay.appendChild(this.root);
+    // A card (GDD §23): waits its turn behind other cards; the page is already saved when it shows.
+    panels.register({
+      id: 'page',
+      kind: 'card',
+      root: this.root,
+      inside: () => card,
+      guardMs: LandFeel.cardMinTime * 1000,
+      sound: false,
+      show: () => {
+        this.openedAt = performance.now();
+        this.root.classList.add('open');
+      },
+      hide: () => this.root.classList.remove('open'),
+      onClose: () => {
+        const cb = this.onClose;
+        this.onClose = null;
+        cb?.();
+      },
+    });
   }
 
+  private openedAt = 0;
+
+  private get shownForMs(): number {
+    return performance.now() - this.openedAt;
+  }
+
+  /** Showing or waiting in the card queue. */
   get isOpen(): boolean {
-    return this.root.classList.contains('open');
+    return panels.isOpen('page') || panels.isQueued('page');
   }
 
   show(id: PageId, onClose: () => void): void {
-    this.titleEl.textContent = title(id);
-    this.textEl.innerHTML = text(id);
-    this.onClose = onClose;
-    this.shownFor = 0;
-    this.root.classList.add('open');
+    panels.showCard('page', () => {
+      this.titleEl.textContent = title(id);
+      this.textEl.innerHTML = text(id);
+      this.onClose = onClose;
+    });
   }
 
-  update(dt: number): void {
-    if (this.isOpen) this.shownFor += dt;
-  }
-
-  private close(): void {
-    this.root.classList.remove('open');
-    const cb = this.onClose;
-    this.onClose = null;
-    cb?.();
+  update(_dt: number): void {
+    // Kept for the story loop; timing lives in the panel manager now.
   }
 }
 
@@ -82,15 +102,27 @@ export class Journal {
     this.list = this.root.querySelector('.journal-list') as HTMLElement;
     this.reader = this.root.querySelector('.journal-reader') as HTMLElement;
     this.countEl = this.root.querySelector('.journal-count') as HTMLElement;
-    (this.root.querySelector('.journal') as HTMLElement).addEventListener('pointerdown', (e) => e.stopPropagation());
-    onTap(this.root.querySelector('.settings-btn.close') as HTMLElement, () => this.close());
-    this.root.addEventListener('pointerup', (e) => {
-      if (e.target === this.root) this.close();
-    });
+    const sheet = this.root.querySelector('.journal') as HTMLElement;
+    sheet.addEventListener('pointerdown', (e) => e.stopPropagation());
+    onTap(this.root.querySelector('.settings-btn.close') as HTMLElement, () => panels.close('journal', 'button'));
     overlay.appendChild(this.root);
+    // Modal; a tap on the dimmed backdrop closes it.
+    panels.register({
+      id: 'journal',
+      kind: 'modal',
+      root: this.root,
+      inside: () => sheet,
+      outside: true,
+      show: () => this.root.classList.add('open'),
+      hide: () => this.root.classList.remove('open'),
+    });
   }
 
   open(found: readonly string[]): void {
+    panels.open('journal', { run: () => this.fill(found) });
+  }
+
+  private fill(found: readonly string[]): void {
     this.countEl.textContent = tf('journalFound', { n: found.length });
     this.list.innerHTML = '';
     this.reader.classList.remove('open');
@@ -105,7 +137,6 @@ export class Journal {
       if (has) onTap(row, () => this.read(p.id));
       this.list.appendChild(row);
     }
-    this.root.classList.add('open');
   }
 
   private read(id: PageId): void {
@@ -118,7 +149,4 @@ export class Journal {
     this.reader.classList.add('open');
   }
 
-  close(): void {
-    this.root.classList.remove('open');
-  }
 }

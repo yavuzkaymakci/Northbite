@@ -388,3 +388,18 @@ export const ReadabilityFeel = {
 export const DebugSettings = {
   debugForceThreat: 'off' as 'off' | 'bear' | 'avalanche',
 };
+
+/** Panel manager (GDD §23). */
+export const PanelFeel = {
+  /** A panel opened from afar (HUD) closes after this long without a touch. */
+  idleCloseSeconds: 30,
+  /** After closing, the panel is hidden for good after this long (its slide-out time + margin). */
+  hideAfterMs: 450,
+  /** Panel events kept for the debug view. */
+  logSize: 10,
+} as const;
+
+/** Debug tools (Settings → Debug → Tools). */
+export const DebugTools = {
+  coins: 1000,
+} as const;

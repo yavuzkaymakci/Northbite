@@ -338,10 +338,15 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - Splash ve ikonlar düzgündür; ana ekrana eklenince uygulama gibi açılır.
   - Telefonda 60 fps hedefi müzik açıkken de korunur; ~150 draw call bütçesi korunur. typecheck, build ve sim hatasızdır.
 
-### Demo 7 — İskele
-- Ahşap İskele bölgesi ("Yakında" duvarının arkası): tekne, açık su, büyük balıklar, fok işçi
+### Demo 7 — Panel yöneticisi, Penguen Pazarı, İskele (§23–§25)
+Üç alt aşama, her biri ayrı commit (typecheck, build ve sim her aşamada). Sayılar `src/content/` altında (yeni: `roles.ts`, `penguins.ts`, `voyages.ts`, `harbor.ts`), his ayarları `settings.ts` içinde. `priceScale` yeni fiyatlara da uygulanır. Save v5 → v6 göçü yazılır. ~150 draw call ve 60 fps bütçesi korunur.
+- **7A — Panel yöneticisi (§23) — BİTTİ:** Takılı kalan panel hatasının kök nedeni bulundu ve düzeltildi. Bütün paneller tek bir yöneticiden (`ui/PanelManager.ts`) geçiyor. Headless Chrome panel stres testleri var (`npm run test:panels`). Save hâlâ v5 (yeni ayar `debugTools` varsayılanla okunuyor); v5 → v6 göçü 7B'de yazılacak.
+- **7B — Penguen Pazarı ve roller (§24):** İşçi rolleri ve penguen pazarı (ayrıntılar 7B'de yazılacak).
+- **7C — İskele ve seferler (§25):** Ahşap İskele bölgesi ("Yakında" duvarının arkası): tekne, açık su, seferler (ayrıntılar 7C'de yazılacak).
+- **Hata ayıklama araçları** (Ayarlar → Hata ayıklama → Araçlar, varsayılan kapalı): coin ver, zamanı ileri sar (saat/gün), tehdit tetikle, panel durumu göstergesi (7A'da yapıldı). Sefer süresi çarpanı 7C'de eklenecek.
+- **Kabul (7A):** Panel test senaryoları hatasız geçer. Hiçbir panel takılı kalmaz, görünmez dokunuş yutucu katman kalmaz. Bütün paneller tek yöneticiden geçer. typecheck ve build hatasızdır.
 
-### Demo 8 — Yayın
+### Demo 8 — Yayın hazırlığı
 - Capacitor ile Android APK
 - iOS (Mac + Xcode gerekir; TestFlight için Apple Developer üyeliği gerekir)
 
@@ -561,6 +566,72 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **Hareketi azalt** (Ayarlar → Görüntü): Kamera sarsıntıları %20'ye iner, parıltılar %35'e düşer, CSS'teki döngülü ve zıplayan animasyonlar durur. Cihazın "hareketi azalt" ayarı splash'teki karı da kapatır.
 - **Öğretici ipuçları** (ilk 2 dk): Yazı yerine el animasyonu kullanılır. "Sürükle ve yürü" ipucunda el bir halka üzerinde sürükler. İlk 3 yakalamada "!" uyarısında dokunan el, ilk 3 çekişte göstergede basılı tutan el görünür. Rehber ok yerinde kalır. 2 dk'dan uzun oynamış kayıtlarda yürüme ipucu çıkmaz.
 - **Gece okunurluğu:** Gece (gece seviyesi > 0.55) ve fırtınada HUD, etiketler ve banner'lar daha koyu ve dolgun bir arka plana geçer, ince bir açık çerçeve alır, yazılar gölgelenir.
+
+## 23. Panel yönetimi (Demo 7A)
+Bütün paneller tek bir yöneticiden geçer: `ui/PanelManager.ts` (`panels`). Paneller kendi açma/kapama kodlarını tutmaz; kayıt olur, `panels.open / showCard / close` çağırır.
+
+**Kök neden (takılı kalan paneller):**
+1. **Olta tezgâhı paneli ekrandan çıkılamıyordu.** Panel ekranın ~%66'sını kaplıyor ve kapatma düğmesi yoktu; yalnızca tezgâh halkasından yürüyerek kapanıyordu. Joystick ise yalnızca ekranın alt %70'inde başlıyor. 390×844 bir telefonda yürümeye başlanabilecek alan ~35 px'lik bir şeritti; oyuncu çoğu zaman paneli kapatamıyordu.
+2. **Sipariş panosu kapanınca hemen yeniden açılıyordu.** Oyuncu panonun halkasında durduğu sürece "Kapat" basıldığı karede panel tekrar açılıyordu ("kapanmıyor" hissi).
+3. **İki alt panel üst üste binebiliyordu.** Tezgâh halkasındayken HUD'dan pano açılabiliyordu; biri kapanınca öteki altta açık kalıyordu.
+4. Geri tuşu (Android) ve Escape hiçbir paneli kapatmıyordu; Android'de geri tuşu oyundan çıkıyordu.
+
+**Test edilen ve sorun çıkmayan varsayımlar:** Kapanış hiçbir yerde `transitionend`/`animationend` olayına bağlı değildi ("Hareketi azalt" ve arka plan bunu etkilemiyordu). Kapalı alt paneller ekran dışında `pointer-events: auto` ile duruyordu ama ekranda dokunuş yutmuyordu (tarama testi). `pointercancel` ve `lostpointercapture` dokunuş yönlendiricide zaten işleniyordu. Bunlar yine de yöneticiyle sertleştirildi (aşağıda).
+
+**Panel türleri ve kurallar:**
+- **MODAL:** ansiklopedi, günlük, ayarlar, karakter düzenleme, "Sen yokken", kalite önerisi.
+- **BAĞLAMSAL:** olta tezgâhı, sipariş panosu; 7B'de Pazar, 7C'de sefer paneli eklenecek. Halkaya bağlıdır.
+- **KART:** gün özeti, yakalama / "Yeni tür!" kartı, günlük sayfası. Kısa sürelidir, sıraya girer.
+- **ŞERİT:** bildirim banner'ı. Yalnızca olay günlüğüne yazılır.
+- Aynı anda en fazla bir modal ya da bağlamsal panel açık olur. Yeni bağlamsal ya da kullanıcının açtığı modal, açık olanı kapatır. Sistemin açtığı modal ("Sen yokken", kalite önerisi) sıraya girer. Bağlamsal panel açık bir modalı itemez.
+- Kartlar üst üste binmez, sırayla gösterilir; modal açıkken bekler.
+- Kapanma yolları:
+  - × / Kapat düğmesi.
+  - Dışarı dokunma: bağlamsal panellerde ve kartlarda; ayarlar ve günlükte arka plana dokunma. Yakalama kartı dışarı dokunuşla kapanmaz, dokunuşlar balık tutmaya gider.
+  - Escape / Android geri tuşu.
+  - Halkadan çıkma, zorla hareket (itme, ışınlama), kilit (uyku, kamera turu, giriş sahnesi).
+  - Arka plana geçiş: bağlamsal paneller kapanır, modaller açık kalır.
+  - Uzaktan açılan pano 30 sn dokunuşsuz kalırsa kapanır.
+- **Tekrar açılma kuralı:** Halkada dururken kapatılan (×, dışarı dokunma, geri) bağlamsal panel, oyuncu halkadan çıkana kadar yeniden açılmaz.
+- **Dokunuşlar:** Modal ya da bağlamsal panel açıkken oyun dokunuşları (joystick, mini oyun) kapalıdır ve tutulan bütün pointer'lar bırakılır. Paneli dışarı dokunarak kapatan dokunuş oyuna geçmez. Panel kapandığı an oyun dokunuşları geri gelir.
+- **Kapalı panelin garantisi:** Kapanan panel hemen `inert` ve `aria-hidden` olur; CSS'te `[inert]` dokunuş almaz. Kayma süresinden sonra (450 ms, olay değil zamanlayıcı) `visibility: hidden` olur. Ardından otomatik denetim (`audit`) ekranı 6×12 noktada tarar; kapalı bir panel dokunuş yakalıyorsa sorun kaydeder.
+- **Geri tuşu:** Panel açılınca tek bir geçmiş kaydı eklenir. Geri tuşu bu kaydı tüketir ve en üstteki paneli kapatır: modal açıksa önce modal (kartların üstünü örter), yoksa önce kart, sonra bağlamsal panel. Oyun kendisi hiç `history.back()` çağırmaz; testte bu çağrının geçmişi kaydırıp sayfadan çıkardığı görüldü. Yeni oyuncunun karakter ekranı geri tuşuyla kapanmaz.
+- **Hata ayıklama:** Ayarlar → Hata ayıklama → Araçlar açılınca HUD'un altında bir çubuk çıkar: +1000 coin, +1 saat, +1 gün, ayı, çığ ve "Paneller". "Paneller" açık panelleri, kuyruktaki kartları, son 10 panel olayını ve denetim sorunlarını gösterir.
+
+**Envanter:**
+
+| Panel | Tür | Kim açar | Nasıl kapanır |
+|---|---|---|---|
+| Olta tezgâhı (Olta / İstasyonlar / Zaman sekmeleri) | bağlamsal | Tezgâh halkasında 0.2 sn durmak | ×, dışarı, geri, halkadan çıkma, kilit, arka plan |
+| Sipariş panosu | bağlamsal | Pano halkasında durmak; HUD pano düğmesi (uzaktan) | Kapat, dışarı, geri, halkadan çıkma, 30 sn dokunuşsuz (uzaktan), kilit, arka plan |
+| Ansiklopedi | modal | HUD balık düğmesi | Kapat, geri |
+| Günlük | modal | HUD kitap düğmesi | Kapat, arka plana dokunma, geri |
+| Günlük sayfası kartı | kart | Sayfa bulununca (Story) | "Günlüğe ekle", dışarı, geri (ilk 0.6 sn korumalı) |
+| Ayarlar | modal | HUD dişli | Kapat, arka plana dokunma, geri, "Karakteri düzenle" |
+| Karakter düzenleme | modal | Ayarlar → Karakteri düzenle; ilk açılış | Kaydet / ×, geri (yalnızca düzenlemede) |
+| Sen yokken | modal (sıralı) | Açılışta / arka plandan dönüşte | Topla, geri (geri de toplar) |
+| Kalite önerisi | modal (sıralı) | Yavaş cihaz | Evet / Hayır, geri (= Hayır) |
+| Gün özeti | kart | Şafak | Kendiliğinden (4 sn), dokunma, dışarı, geri |
+| Yakalama / "Yeni tür!" kartı | kart | Balık yakalanınca | Kendiliğinden; yeni yakalama eskisinin yerini alır |
+| Bildirim banner'ı | şerit | Çeşitli olaylar | Kendiliğinden (dokunuş almaz) |
+
+**Otomatik testler:** `node tools/panel-test.mjs [cycles storm pairs joystick forced lang] [--reduce-motion] [--throttle N] [--cycles N]` kendi Vite sunucusunu ve headless Chrome'u açar, gerçek dokunuş ve tuş olayları gönderir:
+- Her panel 200 kez açılıp her yoldan kapatılır; bağlamsal panellerde 50 tur.
+- Rastgele 600 dokunuşluk fırtına, iki panel çakışmaları, panel açıkken joystick.
+- Panel açıkken itme, iglo yükseltmesi, uyku, kamera turu, arka plan ve dil değişimi.
+- Her bölümün sonunda: açık ya da kuyrukta panel yok, denetim temiz, oyun dokunuşları açık, tutulan pointer yok.
+
+**7A test sonuçları** (52 kontrol, 390×844 mobil görünüm): normal 52/52, "Hareketi azalt" açık 52/52, sayfa hatası yok. Önceki tam turda CPU 6× yavaşlatılmış koşu, çökme anına kadar 33/33 geçti; çökme, test sürerken kaynak dosyası düzenlenip Vite sayfayı yeniden yüklediği için oldu. Düzeltilmiş kodla yavaşlatılmış koşu yarıda durduruldu.
+
+Testlerin yakaladığı iki hata düzeltildi:
+- `history.back()` kullanan geri tuşu düzeni, panel değişiminde geçmişi kaydırıp sayfadan çıkabiliyordu.
+- Açık bir modalın altında kalan kart, geri tuşuyla modalden önce kapanıyordu.
+
+## 24. İşçiler ve roller (Demo 7B)
+(7B'de doldurulacak. Sayılar `content/roles.ts` ve `content/penguins.ts` içinde olacak.)
+
+## 25. İskele ve seferler (Demo 7C)
+(7C'de doldurulacak. Sayılar `content/voyages.ts` ve `content/harbor.ts` içinde olacak.)
 
 ## 17. Açık sorular
 - Test için kullanılacak telefon: iPhone mu, Android mi? (Web demolarında fark yok, native aşamada önemli)

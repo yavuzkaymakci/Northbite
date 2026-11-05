@@ -1,5 +1,6 @@
 import { DayFeel } from '../settings';
 import { sfx } from '../audio/AudioEngine';
+import { panels } from './PanelManager';
 
 export type BannerTone = 'info' | 'warn' | 'good';
 
@@ -17,6 +18,7 @@ export class Banner {
   show(text: string, tone: BannerTone = 'info', seconds: number = DayFeel.bannerTime): void {
     this.el.textContent = text;
     this.el.dataset.tone = tone;
+    panels.strip('banner', text);
     // Warnings come with their own sound (bear, avalanche, storm); others get a gentle chime.
     if (tone !== 'warn') sfx('banner');
     this.el.classList.remove('show');

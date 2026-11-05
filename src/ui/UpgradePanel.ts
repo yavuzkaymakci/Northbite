@@ -7,7 +7,7 @@ import type { GameState } from '../core/GameState';
 import { stationUpgradeCost, stationUpgradeValue, stationUpgradeVisible } from '../systems/StationUpgrades';
 import { upgradeCost, upgradeValue } from '../systems/Upgrades';
 import { onTap } from './tap';
-import { sfx } from '../audio/AudioEngine';
+import { panels, type CloseReason } from './PanelManager';
 
 const ICONS: Record<UpgradeId, string> = {
   // Spool with line
@@ -62,8 +62,9 @@ export class UpgradePanel {
   private readonly grids: Record<Tab, HTMLDivElement>;
   private readonly tabButtons: Record<Tab, HTMLElement>;
   private tab: Tab = 'rod';
-  private isOpen = false;
   private lastKey = '';
+  /** The rod bench learns how the panel closed (walked off, or dismissed while still on the pad). */
+  onClosed: ((reason: CloseReason) => void) | null = null;
 
   constructor(
     overlay: HTMLElement,
@@ -71,7 +72,7 @@ export class UpgradePanel {
   ) {
     this.root = document.createElement('div');
     this.root.className = 'upgrade-panel';
-    this.root.innerHTML = `<div class="panel-grip"></div><div class="panel-title">${t('benchTitle')}</div>
+    this.root.innerHTML = `<div class="panel-grip"></div><div class="panel-head"><div class="panel-title">${t('benchTitle')}</div><button class="panel-x" aria-label="${t('creatorClose')}">×</button></div>
       <div class="panel-tabs"><button data-tab="rod">${t('tabRod')}</button><button data-tab="stations">${t('tabStations')}</button><button data-tab="time">${t('tabTime')}</button></div>
       <div class="upgrade-grid" data-tab="rod"></div><div class="upgrade-grid" data-tab="stations"></div><div class="upgrade-grid" data-tab="time"></div>`;
     const q = <T extends HTMLElement>(sel: string) => this.root.querySelector(sel) as T;
@@ -81,7 +82,17 @@ export class UpgradePanel {
     for (const u of UpgradeList) this.addCard('rod', u.id, ICONS[u.id], u.name[getLang()], this.grids.rod);
     for (const u of StationUpgradeList) this.addCard('station', u.id, STATION_ICONS[u.id], u.name[getLang()], this.grids[u.tab]);
     this.showTab('rod');
+    onTap(q('.panel-x'), () => panels.close('bench', 'button'));
     overlay.appendChild(this.root);
+    // Contextual (GDD §23): opens on the bench pad; the manager closes it when the player leaves the pad.
+    panels.register({
+      id: 'bench',
+      kind: 'contextual',
+      root: this.root,
+      show: () => this.root.classList.add('open'),
+      hide: () => this.root.classList.remove('open'),
+      onClose: (reason) => this.onClosed?.(reason),
+    });
   }
 
   private addCard(kind: UpgradeKind, id: string, icon: string, name: string, grid: HTMLDivElement): void {
@@ -111,13 +122,15 @@ export class UpgradePanel {
       root.classList.add('pressed');
       e.stopPropagation();
     });
-    root.addEventListener('pointerleave', () => {
+    const cancel = () => {
       downOnCard = false;
       root.classList.remove('pressed');
-    });
+    };
+    root.addEventListener('pointerleave', cancel);
+    root.addEventListener('pointercancel', cancel);
     root.addEventListener('pointerup', () => {
       root.classList.remove('pressed');
-      if (downOnCard && this.isOpen) this.onBuy(kind, id);
+      if (downOnCard && this.opened) this.onBuy(kind, id);
       downOnCard = false;
     });
     grid.appendChild(root);
@@ -132,23 +145,19 @@ export class UpgradePanel {
   }
 
   get opened(): boolean {
-    return this.isOpen;
+    return panels.isOpen('bench');
   }
 
-  open(state: GameState): void {
-    if (this.isOpen) return;
-    this.isOpen = true;
-    this.lastKey = '';
-    this.refresh(state);
-    this.root.classList.add('open');
-    sfx('panelOpen');
-  }
-
-  close(): void {
-    if (!this.isOpen) return;
-    this.isOpen = false;
-    this.root.classList.remove('open');
-    sfx('panelClose');
+  /** `valid`: the player is still on the pad. False when a modal is open (the bench waits). */
+  open(state: GameState, valid: () => boolean): boolean {
+    if (this.opened) return true;
+    return panels.open('bench', {
+      valid,
+      run: () => {
+        this.lastKey = '';
+        this.refresh(state);
+      },
+    });
   }
 
   /** Re-renders levels, effects, prices and affordability when something changed. */

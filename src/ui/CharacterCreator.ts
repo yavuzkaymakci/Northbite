@@ -18,6 +18,7 @@ import { addLighting } from '../render/Lighting';
 import { Palette, toCss } from '../render/Palette';
 import { flat, mesh } from '../models/materials';
 import { Snowfall } from '../render/Snowfall';
+import { panels } from './PanelManager';
 import { onTap } from './tap';
 
 type Tab = 'skin' | 'jacket' | 'headwear' | 'beard' | 'scarf' | 'name';
@@ -160,6 +161,31 @@ export class CharacterCreator {
     onTap(this.startBtn, () => this.finish(true));
     onTap(this.closeBtn, () => this.finish(false));
     container.appendChild(this.root);
+    // Modal (GDD §23). Back / Escape closes it only when editing (a new player has to press "Start").
+    panels.register({
+      id: 'creator',
+      kind: 'modal',
+      root: this.root,
+      back: () => this.root.classList.contains('edit'),
+      sound: false,
+      show: () => {
+        this.openValue = true;
+        this.root.classList.add('open');
+      },
+      hide: () => {
+        this.openValue = false;
+        this.dragId = null;
+        this.root.classList.remove('open');
+        (document.activeElement as HTMLElement | null)?.blur?.();
+      },
+      onClose: (reason) => {
+        // Closed by back: same as "×" (nothing saved).
+        if (reason === 'done' || !this.onDone) return;
+        const done = this.onDone;
+        this.onDone = null;
+        done(null);
+      },
+    });
 
     canvas.addEventListener('pointerdown', this.onDown);
     canvas.addEventListener('pointermove', this.onMove);
@@ -173,22 +199,21 @@ export class CharacterCreator {
 
   /** Opens with a copy of `appearance`. `onDone` gets the result, or null when closed without saving (edit only). */
   show(mode: CreatorMode, appearance: Appearance, onDone: (a: Appearance | null) => void): void {
-    this.draft = { ...appearance };
-    this.onDone = onDone;
-    this.openValue = true;
-    this.root.classList.toggle('edit', mode === 'edit');
-    this.subtitle.textContent = t(mode === 'edit' ? 'creatorEditSubtitle' : 'creatorSubtitle');
-    this.startBtn.textContent = t(mode === 'edit' ? 'creatorSave' : 'creatorStart');
-    applyAppearance(this.model, this.draft);
-    this.setTab('skin');
-    this.root.classList.add('open');
+    panels.open('creator', {
+      run: () => {
+        this.draft = { ...appearance };
+        this.onDone = onDone;
+        this.root.classList.toggle('edit', mode === 'edit');
+        this.subtitle.textContent = t(mode === 'edit' ? 'creatorEditSubtitle' : 'creatorSubtitle');
+        this.startBtn.textContent = t(mode === 'edit' ? 'creatorSave' : 'creatorStart');
+        applyAppearance(this.model, this.draft);
+        this.setTab('skin');
+      },
+    });
   }
 
   hide(): void {
-    this.openValue = false;
-    this.dragId = null;
-    this.root.classList.remove('open');
-    (document.activeElement as HTMLElement | null)?.blur?.();
+    panels.close('creator', 'done');
   }
 
   resize(w: number, h: number): void {

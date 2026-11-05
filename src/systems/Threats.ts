@@ -106,6 +106,11 @@ export class Threats {
     return null;
   }
 
+  /** Debug tools: start a bear or an avalanche now (no chance roll, no fire-pit deterrence). */
+  debugStart(kind: ThreatKind, night: boolean): void {
+    if (!this.active) this.begin(kind, night, true);
+  }
+
   /** Threats switched off in the settings: whatever runs ends at once. */
   stopAll(): void {
     this.bear.stop();

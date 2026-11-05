@@ -6,7 +6,7 @@ import { createFishGeometry } from '../models/createFish';
 import { Palette, toCss } from '../render/Palette';
 import { CodexFeel } from '../settings';
 import { onTap } from './tap';
-import { sfx } from '../audio/AudioEngine';
+import { panels } from './PanelManager';
 
 /**
  * Fish encyclopedia (GDD §19): a full-screen sheet sliding up from the bottom. The grid shows every species (grey
@@ -25,7 +25,6 @@ export class Codex {
   private readonly mainMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.55, metalness: 0.1 });
   private readonly bellyMat = new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.6 });
   private state: GameState | null = null;
-  private openValue = false;
 
   constructor(overlay: HTMLElement) {
     this.scene.background = new THREE.Color(Palette.codexBg);
@@ -54,12 +53,22 @@ export class Codex {
     this.detail = this.root.querySelector('.codex-detail') as HTMLElement;
     this.countEl = this.root.querySelector('.codex-count') as HTMLElement;
     this.root.addEventListener('pointerdown', (e) => e.stopPropagation());
-    onTap(this.root.querySelector('.codex-close') as HTMLElement, () => this.close());
+    onTap(this.root.querySelector('.codex-close') as HTMLElement, () => panels.close('codex', 'button'));
     overlay.appendChild(this.root);
+    panels.register({
+      id: 'codex',
+      kind: 'modal',
+      root: this.root,
+      show: () => this.root.classList.add('open'),
+      hide: () => {
+        this.fish.visible = false;
+        this.root.classList.remove('open', 'detail-open');
+      },
+    });
   }
 
   get isOpen(): boolean {
-    return this.openValue;
+    return panels.isOpen('codex');
   }
 
   resize(w: number, h: number): void {
@@ -68,19 +77,13 @@ export class Codex {
   }
 
   open(state: GameState): void {
-    this.state = state;
-    this.openValue = true;
-    state.codex.fresh = [];
-    this.renderGrid();
-    this.root.classList.add('open');
-    sfx('panelOpen');
-  }
-
-  close(): void {
-    this.openValue = false;
-    this.fish.visible = false;
-    this.root.classList.remove('open', 'detail-open');
-    sfx('panelClose');
+    panels.open('codex', {
+      run: () => {
+        this.state = state;
+        state.codex.fresh = [];
+        this.renderGrid();
+      },
+    });
   }
 
   update(dt: number): void {

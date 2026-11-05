@@ -21,7 +21,9 @@ import { applyComfortUnlock, canSleepAt, payout, peaceScore, wakeRested } from '
 import { Camp as CampCfg, Cave as CaveCfg } from '../src/content/land';
 import { CampLayout, CaveLayout } from '../src/content/zones';
 import { CaveLogic, GuestLogic, KitchenLogic } from '../src/systems/LandLogic';
-import { stationValue } from '../src/systems/StationUpgrades';
+import { stationUpgradeCost, stationUpgradeVisible, stationValue } from '../src/systems/StationUpgrades';
+import { StationUpgradeList, type StationUpgradeId } from '../src/content/stationUpgrades';
+import { applyOffline } from '../src/systems/Offline';
 import { findPage, mainPagesDue } from '../src/systems/StoryLogic';
 import { DayCycle } from '../src/systems/DayCycle';
 import { DayFeel } from '../src/settings';
@@ -128,6 +130,8 @@ interface Options {
   endAt: number;
   /** How the bot treats bears and avalanches: 'active' answers every warning, 'ignore' never does, 'off' = no threats. */
   threats: 'active' | 'ignore' | 'off';
+  /** Also buy station and time upgrades (GDD §18) with the same "one per unlock, under 30% of the goal" rule. */
+  stationUpgrades?: boolean;
   /** 'on' sleeps every night (well rested buff), 'noBuff' sleeps but gets no buff (only skips nights), default off. */
   sleep?: 'on' | 'noBuff' | 'off';
 }
@@ -150,17 +154,30 @@ interface ThreatStats {
 interface Result {
   unlocks: Record<string, number>;
   firstSale: number;
-  upgradesBought: Array<{ id: UpgradeId; level: number; t: number }>;
+  upgradesBought: Array<{ id: string; level: number; t: number }>;
   idle?: { pileGain: number; sold: number; smokedSold: number };
   earned: number;
   /** Peace tips paid (included in `earned`). */
   tips: number;
   /** Income by line (GDD §16), including tips: counter sales of raw / smoked fish, the camp, the cave. */
   income: Income;
+  /** Game state copies when the automation stages open (offline report), with the income rate right after. */
+  snapshots: Partial<Record<OfflineStage, Snapshot>>;
   /** `income` at 60 minutes. */
   income60?: Income;
   nightsSlept: number;
   threat: ThreatStats;
+}
+
+type OfflineStage = 'hut' | 'smokehouse' | 'attendant';
+const OFFLINE_STAGES: OfflineStage[] = ['hut', 'smokehouse', 'attendant'];
+
+interface Snapshot {
+  state: GameState;
+  t: number;
+  earnedAt: number;
+  /** Active income per hour over the 20 minutes after the stage opened. */
+  perHour?: number;
 }
 
 interface Income {
@@ -196,6 +213,7 @@ class Sim {
     earned: 0,
     tips: 0,
     income: { raw: 0, smoked: 0, camp: 0, cave: 0 },
+    snapshots: {},
     nightsSlept: 0,
     threat: { window: 0, earned: 0, bears: 0, blocked: 0, lostCoins: 0, maxLoss: 0, penguinHides: 0, scareCoins: 0, avalanches: 0, chestCoins: 0 },
   };
@@ -510,6 +528,7 @@ class Sim {
     this.advance(UnlockFeel.startDelay + UnlockFeel.fillTime);
     this.state.coins -= u.cost;
     this.result.unlocks[u.id] = this.t;
+    if ((OFFLINE_STAGES as string[]).includes(u.id)) this.pendingSnapshot = u.id as OfflineStage;
     this.boughtSinceUnlock = 0;
     if (u.region) {
       this.state.regions.push(u.id);
@@ -540,20 +559,28 @@ class Sim {
 
   /** Upgrade levels bought since the last unlock (the bot buys one between unlocks, like an "optional" spend). */
   boughtSinceUnlock = 0;
+  /** An automation stage just opened: copy the state once the unlock is applied. */
+  private pendingSnapshot: OfflineStage | null = null;
 
-  /** Cheapest upgrade worth buying now: affordable and small next to the next unlock goal. */
-  upgradeToBuy(): UpgradeId | null {
+  /** Total income so far (counter sales, camp, cave). */
+  get totalEarned(): number {
+    return this.result.earned + this.result.income.camp + this.result.income.cave;
+  }
+
+  /** Cheapest upgrade worth buying now (rod, and station/time upgrades when enabled): affordable and small next to the next unlock goal. */
+  upgradeToBuy(): { kind: 'rod' | 'station'; id: string; cost: number } | null {
     if (this.boughtSinceUnlock >= 1) return null;
     const next = this.available()[0];
     const goal = next ? next.cost : Infinity;
-    let best: UpgradeId | null = null;
-    let bestCost = Infinity;
-    for (const u of UpgradeList) {
-      const cost = upgradeCost(u.id, this.state.upgrades[u.id]);
-      if (cost === null || cost > this.state.coins || cost > goal * 0.3) continue;
-      if (cost < bestCost) {
-        bestCost = cost;
-        best = u.id;
+    let best: { kind: 'rod' | 'station'; id: string; cost: number } | null = null;
+    const consider = (kind: 'rod' | 'station', id: string, cost: number | null) => {
+      if (cost === null || cost > this.state.coins || cost > goal * 0.3) return;
+      if (!best || cost < best.cost) best = { kind, id, cost };
+    };
+    for (const u of UpgradeList) consider('rod', u.id, upgradeCost(u.id, this.state.upgrades[u.id]));
+    if (this.opts.stationUpgrades) {
+      for (const u of StationUpgradeList) {
+        if (stationUpgradeVisible(this.state, u)) consider('station', u.id, stationUpgradeCost(u.id, this.state.stationUpgrades[u.id]));
       }
     }
     return best;
@@ -561,11 +588,12 @@ class Sim {
 
   buyUpgrades(): void {
     this.walkTo(IceShore.bench.pad);
-    for (let id = this.upgradeToBuy(); id; id = this.upgradeToBuy()) {
-      const cost = upgradeCost(id, this.state.upgrades[id]) as number;
-      this.state.coins -= cost;
-      this.state.upgrades[id]++;
-      this.result.upgradesBought.push({ id, level: this.state.upgrades[id], t: this.t });
+    for (let pick = this.upgradeToBuy(); pick; pick = this.upgradeToBuy()) {
+      this.state.coins -= pick.cost;
+      let level: number;
+      if (pick.kind === 'rod') level = ++this.state.upgrades[pick.id as UpgradeId];
+      else level = ++this.state.stationUpgrades[pick.id as StationUpgradeId];
+      this.result.upgradesBought.push({ id: pick.id, level, t: this.t });
       this.boughtSinceUnlock++;
       this.advance(0.6);
     }
@@ -754,6 +782,13 @@ class Sim {
         continue;
       }
       if (!this.result.income60 && this.t >= 60 * 60) this.result.income60 = { ...this.result.income };
+      if (this.pendingSnapshot) {
+        this.result.snapshots[this.pendingSnapshot] = { state: structuredClone(this.state), t: this.t, earnedAt: this.totalEarned };
+        this.pendingSnapshot = null;
+      }
+      for (const snap of Object.values(this.result.snapshots)) {
+        if (snap && snap.perHour === undefined && this.t >= snap.t + 1200) snap.perHour = ((this.totalEarned - snap.earnedAt) / (this.t - snap.t)) * 3600;
+      }
       if (o.idleAfter && !idleDone && isDone(this.state, o.idleAfter)) {
         idleDone = true;
         const pile0 = this.state.pile;
@@ -871,8 +906,8 @@ function idleTest(after: string, label: string): void {
 /** Income lines (GDD §16): where the coins come from at 60 and 90 minutes; no line above 70% or below 10%. */
 function incomeTable(): void {
   const runs: Result[] = [];
-  for (let i = 0; i < RUNS; i++) runs.push(new Sim({ seed: 5000 + i, upgrades: true, endAt: 90 * 60, threats: 'active' }).run());
-  console.log(`\n## Gelir kolları (${RUNS} koşu, yükseltme alan bot, tehditler aktif)`);
+  for (let i = 0; i < RUNS; i++) runs.push(new Sim({ seed: 5000 + i, upgrades: true, stationUpgrades: true, endAt: 90 * 60, threats: 'active' }).run());
+  console.log(`\n## Gelir kolları (${RUNS} koşu, olta + istasyon yükseltmesi alan bot, tehditler aktif)`);
   console.log('| Süre | Toplam | Balık (çiğ + tütsü) | – çiğ | – tütsü | Kamp (tabak + kira) | Mağara (heykelcik) | Kontrol |');
   console.log('|---|---|---|---|---|---|---|---|');
   for (const [label, pick] of [
@@ -896,6 +931,64 @@ function incomeTable(): void {
     );
   }
   console.log('Üç kol: balık (tezgâh), kamp (tabak, çadır kirası, bahşiş), mağara (heykelcik + bahşiş). Kontrol 90 dk için bağlayıcı; 60. dakikada kamp yeni açılmış olur.');
+}
+
+/** Offline earnings (GDD §18): 8 hours away at each automation stage, against active play over the same time. */
+function offlineTable(): void {
+  const runs: Result[] = [];
+  for (let i = 0; i < RUNS; i++) runs.push(new Sim({ seed: 6000 + i, upgrades: true, stationUpgrades: true, endAt: 75 * 60, threats: 'active' }).run());
+  const away = 8 * 3600;
+  const labels: Record<OfflineStage, string> = { hut: 'Ağ + 1. penguen', smokehouse: '+ tütsühane', attendant: '+ kamp (görevli)' };
+  console.log(`\n## Çevrimdışı gelir — 8 saat yokluk (${RUNS} koşu, medyan; aşama açıldığı anki durum)`);
+  console.log('| Aşama | Sayılan süre | Çevrimdışı coin | Aktif coin/sa (sonraki 20 dk) | Oran (aynı süre aktif oyuna) | Maks. Zaman yükseltmesi (8 sa, %70) | Oran |');
+  console.log('|---|---|---|---|---|---|---|');
+  for (const stage of OFFLINE_STAGES) {
+    const base: number[] = [];
+    const maxed: number[] = [];
+    const perHour: number[] = [];
+    const counted: number[] = [];
+    for (const r of runs) {
+      const snap = r.snapshots[stage];
+      if (!snap || snap.perHour === undefined) continue;
+      const a = structuredClone(snap.state);
+      const resA = applyOffline(a, away, seededRandom(1));
+      const b = structuredClone(snap.state);
+      b.stationUpgrades.offlineCap = 5;
+      b.stationUpgrades.offlineRate = 5;
+      const resB = applyOffline(b, away, seededRandom(1));
+      base.push(resA.coins);
+      counted.push(resA.seconds);
+      maxed.push(resB.coins);
+      perHour.push(snap.perHour);
+    }
+    if (base.length === 0) continue;
+    const h = median(counted) / 3600;
+    const rate = median(perHour);
+    const ratio = (coins: number, hours: number) => `%${Math.round((coins / (rate * hours)) * 100)}`;
+    console.log(
+      `| ${labels[stage]} | ${h} sa | ${median(base)} | ${Math.round(rate)} | ${ratio(median(base), h)} | ${median(maxed)} | ${ratio(median(maxed), 8)} |`,
+    );
+  }
+  console.log('Hedef: üst sınırdaki bir çevrimdışı oturum, aynı süre aktif oyunun en fazla ~%35\'i.');
+}
+
+/** Station upgrades and the Demo 4 unlock targets: the same bot with and without them. */
+function stationUpgradeTimings(): void {
+  const ids = ['hole3', 'penguin2', 'igloo4', 'iceCave', 'crystalBench', 'hotSpring', 'tent1', 'attendant'];
+  const med = (station: boolean) => {
+    const rs: Result[] = [];
+    for (let i = 0; i < RUNS; i++) rs.push(new Sim({ seed: 1000 + i, upgrades: true, stationUpgrades: station, endAt: 60 * 60, threats: 'active' }).run());
+    return Object.fromEntries(ids.map((id) => [id, median(rs.map((r) => r.unlocks[id]).filter((x): x is number => x !== undefined))]));
+  };
+  const rod = med(false);
+  const all = med(true);
+  console.log(`\n## İstasyon yükseltmelerinin açılış sürelerine etkisi (${RUNS} koşu, medyan)`);
+  console.log('| Açılış | Hedef | Yalnız olta yükseltmesi | Olta + istasyon | Fark |');
+  console.log('|---|---|---|---|---|');
+  for (const id of ids) {
+    const d = (all[id] as number) - (rod[id] as number);
+    console.log(`| ${id} | ${TARGET[id]} | ${fmt(rod[id])} | ${fmt(all[id])} | ${d >= 0 ? '+' : '−'}${fmt(Math.abs(d)).trim()} |`);
+  }
 }
 
 /** Sleep and peace (GDD §14): what the "well rested" buff adds to income over the same real play time. */
@@ -1074,6 +1167,8 @@ if (process.argv[3] !== 'reel') {
   threatTable();
   sleepTable();
   incomeTable();
+  stationUpgradeTimings();
+  offlineTable();
 }
 reelTable();
 baitTable();

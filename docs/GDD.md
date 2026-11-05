@@ -442,6 +442,16 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **"Sen yokken…" penceresi:** Geçen süre, sayarak artan coin, "Üst sınır: X saat" ve tek büyük "Topla" düğmesi var. Coin doğrudan cüzdana eklenir; coin yığınlarına dokunulmaz. Toplanmamış tutar kaydedilir ve pencere yeniden açılır. "x2" düğmesi gelecekteki ödüllü reklam için gizli bir yer tutucudur (`settings.ts` → `OfflineFeel.showOfflineBoost`).
 - **Hile sınırı:** Son görülme zamanı gelecekteyse (saat geri alınmış) gelir verilmez ve zaman düzeltilir. Çok uzun yokluklar yalnızca üst sınır kadar sayılır.
 
+- **Simülasyon** (`npm run sim`, 8 saat yokluk, aşamanın açıldığı anki durum, medyan):
+
+| Aşama | Taban (2 sa, %50) | Aktif oyuna oranı | Zaman yükseltmeleri tam (8 sa, %70) | Oranı |
+|---|---|---|---|---|
+| Ağ + 1. penguen | 1322 | %21 | 7389 | %29 |
+| + tütsühane | 2323 | %22 | 13019 | %31 |
+| + kamp (görevli) | 6294 | %28 | 35078 | %38 |
+
+  Formül, sim'deki boşta kalma testiyle örtüşüyor (tütsühane aşamasında saatte ~2300 değer). Çevrimdışı gelir aktif oyunu hiçbir durumda geçmiyor. Yalnızca en uç durumda (kamp yeni açılmışken bütün Zaman yükseltmeleri alınmış) ~%35 hedefinin biraz üstüne çıkıyor; bu durumda dengeyi çadır kirası belirliyor (çadırlar çevrimiçi de aynı darboğaz).
+
 ## 18.1 İstasyon ve zaman yükseltmeleri (Demo 5A)
 - Olta tezgâhındaki panel sekmelidir: **Olta | İstasyonlar | Zaman** (`content/stationUpgrades.ts`). Her yükseltmenin 5 seviyesi var; Sv1 içerikteki varsayılan değerdir. Sonraki seviye taban × 1.6^(seviye − 1) × `priceScale`.
 - **İstasyonlar:**

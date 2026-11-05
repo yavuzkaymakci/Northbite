@@ -19,6 +19,7 @@ const SHAPES: Record<DecorationId, { r: number } | { hx: number; hz: number } | 
   lanterns: { r: 0.15 },
   dryingRack: { hx: 0.9, hz: 0.15 },
   iceSculpture: { r: 0.55 },
+  fishWeight: { r: 0.5 },
 };
 
 /** Decorations at their fixed spots (GDD §14). Lit ones (lanterns, drying-rack lamp) glow at night. */

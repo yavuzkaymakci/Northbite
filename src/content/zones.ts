@@ -17,7 +17,7 @@ export interface RectArea {
   maxZ: number;
 }
 
-export type StationId = 'net' | 'hut' | 'smokehouse';
+export type StationId = 'net' | 'hut' | 'smokehouse' | 'orderBoard';
 
 /** Threat buildings (GDD §13); their positions are in `ThreatBuildingSpots`. */
 export type BuildingId = 'torchStand' | 'baitTrap' | 'firePit1' | 'firePit2' | 'firePit3' | 'snowFence' | 'watchtower';
@@ -73,6 +73,8 @@ export const IceShore = {
 
   /** Igloo center; its size per level is in content/igloo.ts. The upgrade frame stands east of it. */
   igloo: { x: -4, z: -4, radius: 2.3, tunnelLength: 1.6, tunnelWidth: 1.5, upgradeFrame: { x: -1.0, z: -6.8 } },
+  /** Order board between the igloo and the counter (GDD §20); its panel opens within `radius`. */
+  board: { x: -1.2, z: 2.9, radius: 1.9 },
   /** Bed ring in front of the igloo door (sleep), with the stove / fireplace (level 2+) and lamp (level 3+) beside it. */
   bed: { x: -4, z: 1.45, radius: 0.85, stove: { x: -5.6, z: 1.5 }, lamp: { x: -2.6, z: 1.9 } },
 
@@ -369,8 +371,10 @@ export const UnlockZones: readonly UnlockZoneDef[] = [
   ),
   { id: 'kitchen', x: CampLayout.kitchen.x, z: CampLayout.kitchen.z, size: 2.2, cost: 'kitchen', requires: [], effects: [{ kind: 'land', part: 'kitchen' }] },
   { id: 'attendant', ...CampLayout.attendant.frame, size: 1.6, cost: 'attendant', requires: ['kitchen'], effects: [{ kind: 'land', part: 'attendant' }] },
-  // Decorations: fixed spots, see content/decorations.ts.
-  ...DecorationList.map(
+  // Order board (GDD §20): cheap, once the smokehouse is open.
+  { id: 'orderBoard', x: -1.2, z: 2.9, size: 1.6, cost: 'orderBoard', requires: ['smokehouse'], effects: [{ kind: 'station', station: 'orderBoard' }] },
+  // Decorations: fixed spots, see content/decorations.ts (reward pieces have no frame).
+  ...DecorationList.filter((d) => !d.reward).map(
     (d): UnlockZoneDef => ({
       id: d.id,
       x: d.at.x,

@@ -485,12 +485,13 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - Ağ varyant yakalamaz.
 - **Rekor:** Yeni kg rekorunda yakalama kartında "Yeni rekor!" çıkar (ilk yakalamada çıkmaz).
 - **Koleksiyon ödülleri** (her biri bir kez):
-  - 3 tür: coin
-  - 5 tür: "Usta oltacı" unvanı (ayarlar panelindeki profilde görünür) ve nadir yem (bir süre büyük balık şansı +%50)
+  - 3 tür: 10 coin
+  - 5 tür: "Usta oltacı" unvanı (ayarlar panelindeki profilde görünür) ve nadir yem (120 sn boyunca büyük balık şansı +%25)
   - 7 tür: "Balık ağırlığı" heykeli (dekorasyon, huzur verir)
-  - İlk altın ve ilk gökkuşağı: ayrı coin ödülleri
+  - İlk altın: 50 coin; ilk gökkuşağı: 75 coin
   - Ödüller şeritle duyurulur ve sayfa açıkken de görünür.
 - Eski kayıtlarda daha önce yakalanmış türler (`seen`) keşfedilmiş sayılır; sayaç ve rekorları sıfırdan başlar.
+- **Denge (sim):** Varyantların olta değerine katkısı %2.4–3.0. Erken coin ödülleri ilk açılışları öne çekiyordu (ilk gece gelen "5 tür" yemi en büyük etkiydi); ödüller küçültüldü, nadir yem kısaltıldı. Açılış süreleri 5A hedeflerine ±1–2 dk yakın.
 
 ## 20. Sipariş panosu (Demo 5B)
 - **Pano:** İglo ile tezgâh arasında, tezgâhın yanında duran ahşap bir pano; üstünde kâğıt parçaları vardır. Tütsühaneden sonra ucuz bir kilit alanıyla gelir. Teslim edilebilir sipariş varsa üstünde sarı ünlem görünür. Rehber ok siparişleri hedef almaz.
@@ -509,6 +510,12 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **Yenile:** Bir siparişi ücretsiz değiştirir; sonra 3 dk bekleme başlar.
 - **İlk sipariş** çok kolaydır ("2 çiğ balık").
 - **Denge hedefi:** Siparişler toplam gelirin en fazla ~%10–12'si olur; ana kazanç tezgâhta kalır.
+- **Sim:**
+  - Siparişler 60 dk'da toplam gelirin %5.8'ini, 90 dk'da %5.4'ünü getiriyor.
+  - Siparişe giden eşyanın tezgâhtaki satış değeri ödülün ~%58'i; net kazanç pozitif.
+  - Bot çiğ, kg, tür, gece ve heykelcik siparişlerini çoğunlukla tamamlıyor.
+  - Altın balık siparişi uzun sürüyor (medyan ~17 dk; süre 30–40 dk).
+  - Tütsü ve tabak siparişlerini bot az tamamlıyor, çünkü tütsüyü tezgâha ya da mutfağa önce bırakıyor. Oyuncu bunları raftan / sırttan seçerek teslim eder.
 
 ## 17. Açık sorular
 - Test için kullanılacak telefon: iPhone mu, Android mi? (Web demolarında fark yok, native aşamada önemli)

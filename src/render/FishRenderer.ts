@@ -18,6 +18,13 @@ export class FishRenderer {
   private readonly colors = new Map<FishId, { main: THREE.Color; belly: THREE.Color }>();
   /** Smoked fish: dark orange-brown, keeping a hint of the species color. */
   private readonly smokedColors = new Map<FishId, { main: THREE.Color; belly: THREE.Color }>();
+  /** Colour variants (GDD §19): gold, and rainbow that slides between aurora green and purple. */
+  private readonly gold = { main: new THREE.Color(Palette.goldFish), belly: new THREE.Color(Palette.goldBelly) };
+  private readonly goldSmoked = { main: new THREE.Color(Palette.smokedFish).lerp(new THREE.Color(Palette.goldFish), 0.55), belly: new THREE.Color(Palette.goldBelly) };
+  private readonly rainbowA = new THREE.Color(Palette.rainbowA);
+  private readonly rainbowB = new THREE.Color(Palette.rainbowB);
+  private readonly rainbow = { main: new THREE.Color(), belly: new THREE.Color(Palette.white) };
+  private time = 0;
   private readonly scaleM = new THREE.Matrix4();
   private readonly tmp = new THREE.Matrix4();
 
@@ -56,8 +63,10 @@ export class FishRenderer {
     return FishRenderer.lengthOf(item) * 0.26;
   }
 
-  begin(): void {
+  /** `time` drives the rainbow variant's colour slide. */
+  begin(time = 0): void {
     this.count = 0;
+    this.time = time;
   }
 
   /** `matrix` places a unit fish; the item's length (× `scale`) is applied here. */
@@ -65,7 +74,12 @@ export class FishRenderer {
     if (this.count >= MAX_FISH) return;
     const len = FishRenderer.lengthOf(item) * scale;
     this.tmp.multiplyMatrices(matrix, this.scaleM.makeScale(len, len, len));
-    const c = (item.kind === 'smoked' ? this.smokedColors : this.colors).get(item.species);
+    let c = (item.kind === 'smoked' ? this.smokedColors : this.colors).get(item.species);
+    if (item.variant === 'gold') c = item.kind === 'smoked' ? this.goldSmoked : this.gold;
+    else if (item.variant === 'rainbow') {
+      this.rainbow.main.copy(this.rainbowA).lerp(this.rainbowB, 0.5 + 0.5 * Math.sin(this.time * 2.2 + this.count * 0.7));
+      c = this.rainbow;
+    }
     this.main.setMatrixAt(this.count, this.tmp);
     this.belly.setMatrixAt(this.count, this.tmp);
     if (c) {

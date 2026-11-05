@@ -49,6 +49,7 @@ export class Effects {
   private readonly smokeColor = new THREE.Color(Palette.smoke);
   private readonly steamColor = new THREE.Color(Palette.steam);
   private readonly snowColor = new THREE.Color(Palette.snow);
+  private readonly sparkColor = new THREE.Color(Palette.coin);
 
   constructor() {
     const ringGeo = createFlatRingGeometry(1, 0.86, 28);
@@ -95,6 +96,13 @@ export class Effects {
   /** Faint steam wisp over smoked fish. */
   steam(x: number, y: number, z: number): void {
     this.addPuff(x, y, z, 0.08, 0.35, 1.1, this.steamColor);
+  }
+
+  /** Golden sparkles (a rare variant fish). */
+  sparkle(x: number, y: number, z: number): void {
+    for (let i = 0; i < 6; i++) {
+      this.addPuff(x + (Math.random() - 0.5) * 0.6, y + Math.random() * 0.4, z + (Math.random() - 0.5) * 0.6, 0.06 + Math.random() * 0.05, 0.6, 0.8, this.sparkColor, 0.05);
+    }
   }
 
   /** Snow cloud (avalanche, shoveling): a white ball that rolls along and settles. */

@@ -19,6 +19,12 @@ import { Story } from '../systems/Story';
 import { GoodsRenderer } from '../render/GoodsRenderer';
 import { Journal, PageCard } from '../ui/Journal';
 import { OfflinePanel } from '../ui/OfflinePanel';
+import { Codex } from '../ui/Codex';
+import { OrderPanel } from '../ui/OrderPanel';
+import { OrderBoard } from '../systems/OrderBoard';
+import { grantReward, rewardsDue } from '../systems/CodexLogic';
+import type { DecorationId } from '../content/decorations';
+import type { StringKey } from '../content/strings';
 import { Economy } from '../content/economy';
 import { applyOffline } from '../systems/Offline';
 import { offlineCapHours } from '../systems/StationUpgrades';
@@ -119,6 +125,9 @@ export class Game {
   private readonly journal: Journal;
   private readonly goods = new GoodsRenderer();
   private readonly offline: OfflinePanel;
+  private readonly codex: Codex;
+  private readonly orderPanel: OrderPanel;
+  private readonly board: OrderBoard;
 
   private running = false;
   private rafId = 0;
@@ -150,8 +159,16 @@ export class Game {
     );
     this.hud = new HUD(
       overlay,
-      () => this.settings.open(this.appearance.name, peaceScore(this.state), this.state.prefs, getLang()),
+      () => this.settings.open(this.appearance.name, peaceScore(this.state), this.state.prefs, getLang(), this.state.codex.title ? t('titleMaster') : ''),
       () => this.journal.open(this.state.story.pages),
+      () => this.codex.open(this.state),
+      () => this.board.openRemote(),
+    );
+    this.codex = new Codex(overlay);
+    this.orderPanel = new OrderPanel(
+      overlay,
+      (id) => this.board.deliver(id),
+      (id) => this.board.swap(id),
     );
     this.journal = new Journal(overlay);
     this.offline = new OfflinePanel(overlay);
@@ -250,6 +267,7 @@ export class Game {
       () => (this.sleepHintActive ? IceShore.bed : null),
       () => this.landTarget(),
     );
+    this.board = new OrderBoard(this.scene, s, this.player, this.stack, this.world, this.fx, this.labels, this.banner, this.appear, this.orderPanel);
     // Journal pages (GDD §15): a found page can open a new deed frame.
     this.story = new Story(this.scene, s, this.player, this.fx, new PageCard(overlay), () => {
       this.unlocks.refresh(true);
@@ -265,6 +283,7 @@ export class Game {
     this.renderer.onResize((w, h) => {
       this.rig.setAspect(w / h);
       this.creator.resize(w, h);
+      this.codex.resize(w, h);
     });
     this.rig.snapTo(this.player.state.x, this.player.state.z);
 
@@ -345,6 +364,13 @@ export class Game {
       return;
     }
     this.update(this.time.delta, this.time.elapsed);
+    // The encyclopedia covers the screen: the world keeps running but only its little model scene is drawn.
+    this.overlay.classList.toggle('codex-open', this.codex.isOpen);
+    if (this.codex.isOpen) {
+      this.codex.update(this.time.delta);
+      this.renderer.render(this.codex.scene, this.codex.camera);
+      return;
+    }
     this.renderer.render(this.scene, this.rig.camera);
   };
 
@@ -375,7 +401,7 @@ export class Game {
       holding: !locked && (this.joystick.activePointer !== null || this.input.reelKey),
       night: this.day.isNight,
       fishing: this.fishing.active,
-      quiet: this.story.reading,
+      quiet: this.story.reading || this.codex.isOpen,
     });
     if (this.igloo.update(dt, elapsed, locked, () => this.threats.sleepBlocker())) this.fallAsleep();
     this.cave.update(dt, moving, !locked && this.input.reelKey);
@@ -387,6 +413,8 @@ export class Game {
     }
     this.camp.update(dt, elapsed);
     this.story.update(dt, elapsed);
+    this.board.update(dt, locked);
+    this.updateCodex(dt);
     this.sleep.update(dt);
 
     this.updateDay(dt);
@@ -400,7 +428,7 @@ export class Game {
     this.guide.update(elapsed);
 
     this.goods.begin();
-    this.fishRenderer.begin();
+    this.fishRenderer.begin(elapsed);
     this.stack.render(this.fishRenderer, elapsed, this.goods);
     this.cave.render(this.goods, elapsed);
     this.camp.render(this.fishRenderer, this.goods);
@@ -419,6 +447,7 @@ export class Game {
     this.coinRenderer.end();
 
     this.hud.setCoinTarget(this.coins.walletDisplay);
+    this.hud.setSideButtons(this.state.codex.fresh.length > 0, this.board.isBuilt, this.board.deliverable);
     this.hud.setTorches(this.threats.buildings.isBuilt('torchStand') ? this.state.threats.torches : -1);
     const left = restedLeft(this.state);
     this.hud.setRested(left > 0 ? (this.state.rested?.quality ?? 0) : 0, Math.ceil((left * DayFeel.dayLength[this.state.prefs.dayLength]) / 60));
@@ -481,6 +510,18 @@ export class Game {
       }
     });
     return best;
+  }
+
+  /** Rare bait runs down while playing; collection rewards are handed out once (GDD §19). */
+  private updateCodex(dt: number): void {
+    const c = this.state.codex;
+    c.rareBait = Math.max(c.rareBait - dt, 0);
+    for (const id of rewardsDue(this.state)) {
+      const r = grantReward(this.state, id);
+      this.banner.show(tf(`reward_${id}` as StringKey, { c: r.coins }), 'good', 5);
+      if (r.decoration) this.decorations.build(r.decoration as DecorationId, true);
+      this.save();
+    }
   }
 
   /** The bed hint points the guide arrow at the bed on its night, until the player has slept once. */
@@ -560,6 +601,7 @@ export class Game {
         applyComfortUnlock(this.state, e);
         this.decorations.build(e.decoration, true);
       }
+      else if (e.station === 'orderBoard') this.board.build(true);
       else if (e.station === 'net') this.net.build(true);
       else if (e.station === 'hut') this.world.buildHut(this.appear);
       else if (e.station === 'smokehouse') this.smoker.build(true);

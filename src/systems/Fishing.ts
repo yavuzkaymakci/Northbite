@@ -20,6 +20,8 @@ import { arcPoint } from './Flights';
 import { ReelGame } from './ReelGame';
 import { fishingMods, type FishingEnv } from './Upgrades';
 import { TimeOfDay } from '../content/time';
+import { recordCatch } from './CodexLogic';
+import type { VariantId } from '../content/codex';
 
 export interface FishingHole {
   id: string;
@@ -305,11 +307,11 @@ export class FishingSystem implements TouchClaimer {
       this.onAuroraBuff();
     }
     this.stack.hiddenTop++;
-    // Every species is recorded as seen; common ones (capelin) get no "New species!" card (GDD §2.1).
-    const first = !this.state.seen.includes(hooked.item.species);
-    if (first) this.state.seen.push(hooked.item.species);
-    const firstOfKind = first && FishById[hooked.item.species].rarity !== 'common';
-    vibrate(firstOfKind ? HapticsSettings.newSpecies : HapticsSettings.catch);
+    // Encyclopedia (GDD §19): every species is recorded; common ones (capelin) get no "New species!" card.
+    const rec = recordCatch(this.state, hooked.item);
+    const firstOfKind = rec.isNew && FishById[hooked.item.species].rarity !== 'common';
+    vibrate(firstOfKind || rec.firstVariant ? HapticsSettings.newSpecies : HapticsSettings.catch);
+    if (hooked.item.variant) this.fx.sparkle(this.bobberPos.x, WATER_Y + 0.4, this.bobberPos.z);
 
     const p = this.player.state;
     const fwdX = Math.sin(p.heading);
@@ -325,7 +327,7 @@ export class FishingSystem implements TouchClaimer {
     };
     this.fx.splash(this.bobberPos.x, WATER_Y, this.bobberPos.z, 14, 2.2);
     this.fx.ripple(this.bobberPos.x, WATER_Y + 0.01, this.bobberPos.z, 0.9);
-    this.showCard(hooked.item, firstOfKind);
+    this.showCard(hooked.item, firstOfKind, rec.record, rec.firstVariant);
   }
 
   private snap(): void {
@@ -389,17 +391,23 @@ export class FishingSystem implements TouchClaimer {
     }
   }
 
-  /** Catch card; the first fish of a species gets the bigger "New species!" version and stays longer. */
-  private showCard(item: FishItem, firstOfKind: boolean): void {
+  /**
+   * Catch card; the first fish of a species gets the bigger "New species!" version and stays longer. Variants show a
+   * badge (the very first gold / rainbow gets its own headline), a heavier fish than the record a "New record!" tag.
+   */
+  private showCard(item: FishItem, firstOfKind: boolean, record: boolean, firstVariant: VariantId | null): void {
     const s = FishById[item.species];
     const rarity = s.rarity;
-    this.card.el.innerHTML = `${firstOfKind ? `<div class="card-new">${t('newSpecies')}</div>` : ''}
-      <div class="card-name">${s.name[getLang()]}</div>
+    const head = firstVariant ? t(firstVariant === 'gold' ? 'variantFirstGold' : 'variantFirstRainbow') : firstOfKind ? t('newSpecies') : '';
+    const badge = item.variant ? `<span class="card-variant ${item.variant}">${t(item.variant === 'gold' ? 'variantGold' : 'variantRainbow')}</span>` : '';
+    this.card.el.innerHTML = `${head ? `<div class="card-new${item.variant ? ` ${item.variant}` : ''}">${head}</div>` : ''}
+      <div class="card-name">${s.name[getLang()]}${badge}</div>
       <div class="card-kg">${item.kg.toFixed(2)} ${t('kg')} · <span class="card-price">${item.price}</span></div>
-      <div class="card-rarity">${t(`rarity_${rarity}`)}</div>`;
+      <div class="card-rarity">${t(`rarity_${rarity}`)}</div>${record ? `<div class="card-record">${t('newRecord')}</div>` : ''}`;
     this.card.el.style.setProperty('--rarity', toCss(Palette[RarityColor[rarity]]));
-    this.card.el.classList.toggle('new-species', firstOfKind);
-    this.cardTimer = F.landArcTime + F.landFlopTime + (firstOfKind ? 1.6 : 0.2);
+    const big = firstOfKind || !!firstVariant;
+    this.card.el.classList.toggle('new-species', big);
+    this.cardTimer = F.landArcTime + F.landFlopTime + (big ? 1.6 : record ? 0.8 : 0.2);
     this.labels.pop(this.card);
   }
 

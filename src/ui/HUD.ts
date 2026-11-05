@@ -22,7 +22,11 @@ export class HUD {
   private target = 0;
   private lastText = '';
 
-  constructor(overlay: HTMLElement, onSettings: () => void, onJournal: () => void) {
+  private readonly codexBtn: HTMLElement;
+  private readonly boardBtn: HTMLElement;
+  private lastDots = '';
+
+  constructor(overlay: HTMLElement, onSettings: () => void, onJournal: () => void, onCodex: () => void, onBoard: () => void) {
     const bar = document.createElement('div');
     bar.className = 'hud-bar';
 
@@ -58,6 +62,22 @@ export class HUD {
     this.hintEl.className = 'hud-hint';
     this.hintEl.textContent = t('moveHint');
 
+    // Encyclopedia (fish) and order board buttons in a small column under the gear (GDD §19, §20).
+    const side = document.createElement('div');
+    side.className = 'hud-side';
+    this.codexBtn = document.createElement('button');
+    this.codexBtn.className = 'hud-gear hud-small hud-codex';
+    this.codexBtn.setAttribute('aria-label', t('codexOpen'));
+    this.codexBtn.innerHTML = `<svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M4 16c4-6 10-8 16-6l6-4v20l-6-4c-6 2-12 0-16-6zm17-1.5a1.5 1.5 0 1 0 0 .01z"/></svg><span class="hud-dot"></span>`;
+    onTap(this.codexBtn, onCodex);
+    this.boardBtn = document.createElement('button');
+    this.boardBtn.className = 'hud-gear hud-small hud-board hidden';
+    this.boardBtn.setAttribute('aria-label', t('boardOpen'));
+    this.boardBtn.innerHTML = `<svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M5 6h22v16H5zm2 2v12h18V8zm2 2h6v4H9zm8 0h6v2h-6zm0 4h6v2h-6zM8 22h2v6H8zm14 0h2v6h-2z"/></svg><span class="hud-dot"></span>`;
+    onTap(this.boardBtn, onBoard);
+    side.append(this.codexBtn, this.boardBtn);
+    overlay.appendChild(side);
+
     this.dayEl = document.createElement('div');
     this.dayEl.className = 'hud-day';
     this.torchEl = document.createElement('div');
@@ -69,6 +89,16 @@ export class HUD {
     chips.className = 'hud-chips';
     chips.append(this.dayEl, this.torchEl, this.restedEl);
     overlay.append(bar, chips, this.hintEl);
+  }
+
+  /** Red dots: a newly found species, an order that can be delivered. The board button shows once the board exists. */
+  setSideButtons(codexDot: boolean, boardBuilt: boolean, boardDot: boolean): void {
+    const key = `${codexDot}|${boardBuilt}|${boardDot}`;
+    if (key === this.lastDots) return;
+    this.lastDots = key;
+    this.codexBtn.classList.toggle('dot', codexDot);
+    this.boardBtn.classList.toggle('hidden', !boardBuilt);
+    this.boardBtn.classList.toggle('dot', boardDot);
   }
 
   /** "Well rested" chip: quality and minutes left (quality 0 hides it). */

@@ -318,6 +318,24 @@ export const OfflineFeel = {
   showOfflineBoost: false,
 } as const;
 
+/** Fish encyclopedia's model view (GDD §19). */
+export const CodexFeel = {
+  fov: 30,
+  distance: 3.4,
+  /** The camera looks this far below the fish, so the model sits in the upper part of the screen. */
+  lookBelow: 0.6,
+  spin: 0.9,
+  fishSize: 1.7,
+  /** Share of the screen width the model may take. */
+  widthShare: 0.7,
+} as const;
+
+/** Order board (GDD §20). Balance values live in content/orders.ts. */
+export const OrderFeel = {
+  /** Stand within the board radius this long for the panel to open. */
+  openDelay: 0.25,
+} as const;
+
 /**
  * Temporary test switch: 'bear' or 'avalanche' starts that threat a few seconds after loading (and again after each
  * one ends), ignoring play time, the smokehouse requirement and threatScale. Keep it 'off' in commits.

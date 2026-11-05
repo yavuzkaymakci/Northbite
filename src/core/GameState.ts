@@ -1,4 +1,6 @@
+import type { VariantId } from '../content/codex';
 import type { FishId } from '../content/fish';
+import type { OrderExtra, OrderKind } from '../content/orders';
 import { TimeOfDay } from '../content/time';
 import type { UpgradeId } from '../content/upgrades';
 import type { StationUpgradeId } from '../content/stationUpgrades';
@@ -11,6 +13,8 @@ export interface FishItem {
   kg: number;
   kind: ItemKind;
   price: number;
+  /** Rare colour variant (GDD §19): only the look and the value differ. */
+  variant?: VariantId;
 }
 
 export interface SmokerState {
@@ -82,6 +86,67 @@ export interface GameState {
   lastSeenAt: number;
   /** Offline coins worked out but not collected yet (the window shows again until "Collect"). */
   offlinePending: { coins: number; seconds: number; capped: boolean } | null;
+  /** Fish encyclopedia (GDD §19). Discovered species are `seen`. */
+  codex: CodexState;
+  /** Order board (GDD §20). */
+  orders: OrdersState;
+}
+
+export interface SpeciesRecord {
+  count: number;
+  /** Heaviest catch in kg (0 = unknown, e.g. caught before the encyclopedia existed). */
+  bestKg: number;
+  /** In-game day of the first catch (0 = unknown). */
+  firstDay: number;
+}
+
+export interface CodexState {
+  species: Partial<Record<FishId, SpeciesRecord>>;
+  /** Species caught in each colour variant. */
+  variants: Record<VariantId, FishId[]>;
+  /** Collection rewards already given. */
+  rewards: string[];
+  /** "Master angler" title (5 species). */
+  title: boolean;
+  /** Seconds of rare bait left (counts only while playing). */
+  rareBait: number;
+  /** Species discovered since the encyclopedia was last opened (red dot on the HUD icon). */
+  fresh: FishId[];
+}
+
+export interface Order {
+  id: number;
+  kind: OrderKind;
+  /** Pieces, or kg for a 'kg' order. */
+  amount: number;
+  /** For 'species' orders. */
+  species?: FishId;
+  /** Real seconds left (only counted while playing). */
+  timeLeft: number;
+  /** Coins on delivery (priceScale already applied). */
+  reward: number;
+  extra: OrderExtra | null;
+}
+
+export interface OrdersState {
+  active: Order[];
+  /** Seconds until each empty slot gets an order. */
+  refill: number[];
+  /** Seconds until the "swap" button works again. */
+  rerollIn: number;
+  nextId: number;
+  /** The easy first order was handed out. */
+  firstGiven: boolean;
+  /** Orders delivered (stats). */
+  done: number;
+}
+
+export function createCodexState(): CodexState {
+  return { species: {}, variants: { gold: [], rainbow: [] }, rewards: [], title: false, rareBait: 0, fresh: [] };
+}
+
+export function createOrdersState(): OrdersState {
+  return { active: [], refill: [], rerollIn: 0, nextId: 1, firstGiven: false, done: 0 };
 }
 
 export type DayLengthId = 'short' | 'medium' | 'long';
@@ -187,6 +252,8 @@ export function createGameState(): GameState {
     prefs: { threats: true, dayLength: 'medium', vibration: true, lang: '' },
     lastSeenAt: 0,
     offlinePending: null,
+    codex: createCodexState(),
+    orders: createOrdersState(),
   };
 }
 

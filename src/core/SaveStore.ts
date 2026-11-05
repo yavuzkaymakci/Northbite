@@ -5,7 +5,20 @@ import { StationUpgradeList } from '../content/stationUpgrades';
 import { SaveSettings } from '../settings';
 import { sanitizeAppearance, type Appearance } from '../content/appearance';
 import { Pages } from '../content/story';
-import { createCampState, createCaveState, createGameState, type FishItem, type GameState, type WorkerData } from './GameState';
+import { OrderTemplates } from '../content/orders';
+import {
+  createCampState,
+  createCaveState,
+  createCodexState,
+  createGameState,
+  createOrdersState,
+  type CodexState,
+  type FishItem,
+  type GameState,
+  type Order,
+  type OrdersState,
+  type WorkerData,
+} from './GameState';
 
 export const SAVE_VERSION = 5;
 
@@ -57,8 +70,59 @@ function isFishItem(v: unknown): v is FishItem {
     f.species in FishById &&
     (f.kind === 'raw' || f.kind === 'smoked') &&
     typeof f.kg === 'number' &&
-    typeof f.price === 'number'
+    typeof f.price === 'number' &&
+    (f.variant === undefined || f.variant === 'gold' || f.variant === 'rainbow')
   );
+}
+
+const isFishId = (v: unknown): v is FishId => typeof v === 'string' && v in FishById;
+const fishIds = (v: unknown): FishId[] => (Array.isArray(v) ? v.filter(isFishId) : []);
+const n0 = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0);
+
+/** Encyclopedia: older saves have only `seen`; those species count as discovered with unknown records. */
+function sanitizeCodex(raw: unknown, seen: FishId[]): CodexState {
+  const c = createCodexState();
+  const g = (raw ?? {}) as Partial<Record<string, unknown>>;
+  const species = (g.species ?? {}) as Record<string, Partial<Record<string, unknown>> | undefined>;
+  for (const id of seen) {
+    const r = species[id] ?? {};
+    c.species[id] = { count: Math.floor(n0(r.count)), bestKg: n0(r.bestKg), firstDay: Math.floor(n0(r.firstDay)) };
+  }
+  const variants = (g.variants ?? {}) as Partial<Record<string, unknown>>;
+  c.variants = { gold: fishIds(variants.gold), rainbow: fishIds(variants.rainbow) };
+  c.rewards = stringList(g.rewards);
+  c.title = g.title === true;
+  c.rareBait = n0(g.rareBait);
+  c.fresh = fishIds(g.fresh).filter((id) => seen.includes(id));
+  return c;
+}
+
+function sanitizeOrders(raw: unknown): OrdersState {
+  const o = createOrdersState();
+  const g = (raw ?? {}) as Partial<Record<string, unknown>>;
+  const kinds = OrderTemplates.map((t) => t.kind as string);
+  if (Array.isArray(g.active)) {
+    for (const a of g.active as Array<Partial<Order> | null>) {
+      if (!a || !kinds.includes(a.kind as string) || typeof a.amount !== 'number' || a.amount <= 0) continue;
+      if (a.kind === 'species' && !isFishId(a.species)) continue;
+      o.active.push({
+        id: Math.floor(n0(a.id)),
+        kind: a.kind as Order['kind'],
+        amount: a.amount,
+        ...(a.species ? { species: a.species } : {}),
+        timeLeft: n0(a.timeLeft),
+        reward: Math.floor(n0(a.reward)),
+        extra: a.extra === 'rareBait' || a.extra === 'fur' || a.extra === 'decorPiece' || a.extra === 'pageHint' ? a.extra : null,
+      });
+    }
+  }
+  o.active = o.active.slice(0, 3);
+  o.refill = Array.isArray(g.refill) ? g.refill.map(n0).slice(0, 3) : [];
+  o.rerollIn = n0(g.rerollIn);
+  o.nextId = Math.max(Math.floor(n0(g.nextId)), ...o.active.map((a) => a.id + 1), 1);
+  o.firstGiven = g.firstGiven === true;
+  o.done = Math.floor(n0(g.done));
+  return o;
 }
 
 const fishList = (v: unknown): FishItem[] => (Array.isArray(v) ? v.filter(isFishItem) : []);
@@ -96,6 +160,7 @@ function sanitizeGame(raw: unknown): GameState {
     const lv = Math.floor(num(rawUp[u.id], 1));
     upgrades[u.id] = Math.min(Math.max(lv, 1), UpgradeMaxLevel);
   }
+  const seen = stringList(g.seen).filter((id): id is FishId => id in FishById);
   const stationUpgrades = { ...base.stationUpgrades };
   const rawSt = (g.stationUpgrades ?? {}) as Partial<Record<string, unknown>>;
   for (const u of StationUpgradeList) {
@@ -122,7 +187,7 @@ function sanitizeGame(raw: unknown): GameState {
     workers,
     upgrades,
     stationUpgrades,
-    seen: stringList(g.seen).filter((id): id is FishId => id in FishById),
+    seen,
     stats: { ...base.stats, ...((g.stats as object | undefined) ?? {}) },
     clock: {
       day: Math.max(1, Math.floor(num(clock.day, 1))),
@@ -172,6 +237,8 @@ function sanitizeGame(raw: unknown): GameState {
       pending && typeof pending.coins === 'number' && pending.coins > 0
         ? { coins: Math.floor(pending.coins), seconds: num(pending.seconds, 0), capped: pending.capped === true }
         : null,
+    codex: sanitizeCodex(g.codex, seen),
+    orders: sanitizeOrders(g.orders),
   };
 }
 

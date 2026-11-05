@@ -151,6 +151,15 @@ export const Palette = {
   journalPaper: 0xf3e6c8,
   journalInk: 0x4a3626,
 
+  // Encyclopedia and order board (GDD §19, §20)
+  goldFish: 0xffc83d,
+  goldBelly: 0xfff0b0,
+  rainbowA: 0x5ff2b0,
+  rainbowB: 0xb06bff,
+  codexBg: 0x1d3a4d,
+  boardPaper: 0xf6eedb,
+  orderNote: 0xffd447,
+
   // Character creator stage
   creatorSkyTop: 0x1f3c5c,
   creatorSkyLow: 0xd6e8f2,

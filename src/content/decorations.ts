@@ -1,7 +1,7 @@
 // Decorations (GDD §14): bought on unlock frames, each stands at a fixed spot and gives peace points.
 // Prices go through Economy.unlocks (and so priceScale). Models are in models/createDecorations.ts.
 
-export type DecorationId = 'flagpole' | 'doormat' | 'snowman' | 'sled' | 'lanterns' | 'dryingRack' | 'iceSculpture';
+export type DecorationId = 'flagpole' | 'doormat' | 'snowman' | 'sled' | 'lanterns' | 'dryingRack' | 'iceSculpture' | 'fishWeight';
 
 export interface DecorationDef {
   id: DecorationId;
@@ -16,6 +16,8 @@ export interface DecorationDef {
   frame: number;
   /** Glows at night. */
   light: boolean;
+  /** Given as a reward (encyclopedia), not sold on an unlock frame. */
+  reward?: boolean;
 }
 
 export const DecorationList: readonly DecorationDef[] = [
@@ -34,6 +36,8 @@ export const DecorationList: readonly DecorationDef[] = [
     light: true,
   },
   { id: 'dryingRack', cost: 80, peace: 3, requires: ['penguin2'], at: { x: -19.4, z: 1.9, rot: 0 }, frame: 1.8, light: true },
+  // Encyclopedia reward for all species (GDD §19): a fish on a scale, no unlock frame.
+  { id: 'fishWeight', cost: 0, peace: 4, requires: [], at: { x: -8.6, z: 1.2, rot: 0.4 }, frame: 1.4, light: false, reward: true },
   { id: 'iceSculpture', cost: 100, peace: 4, requires: ['igloo4'], at: { x: -6.6, z: -7.4, rot: 0.3 }, frame: 1.6, light: false },
 ];
 

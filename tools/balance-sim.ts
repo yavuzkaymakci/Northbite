@@ -24,6 +24,10 @@ import { CaveLogic, GuestLogic, KitchenLogic } from '../src/systems/LandLogic';
 import { stationUpgradeCost, stationUpgradeVisible, stationValue } from '../src/systems/StationUpgrades';
 import { StationUpgradeList, type StationUpgradeId } from '../src/content/stationUpgrades';
 import { applyOffline } from '../src/systems/Offline';
+import { grantReward, recordCatch, rewardsDue } from '../src/systems/CodexLogic';
+import { deliverOrder, orderProgress, updateOrders } from '../src/systems/OrderLogic';
+import { Variants } from '../src/content/codex';
+import type { OrderKind } from '../src/content/orders';
 import { findPage, mainPagesDue } from '../src/systems/StoryLogic';
 import { DayCycle } from '../src/systems/DayCycle';
 import { DayFeel } from '../src/settings';
@@ -163,6 +167,10 @@ interface Result {
   income: Income;
   /** Game state copies when the automation stages open (offline report), with the income rate right after. */
   snapshots: Partial<Record<OfflineStage, Snapshot>>;
+  /** Encyclopedia and order board (GDD §19, §20). */
+  extra: Extras;
+  /** `extra` at 60 minutes. */
+  extra60?: Extras;
   /** `income` at 60 minutes. */
   income60?: Income;
   nightsSlept: number;
@@ -178,6 +186,19 @@ interface Snapshot {
   earnedAt: number;
   /** Active income per hour over the 20 minutes after the stage opened. */
   perHour?: number;
+}
+
+interface Extras {
+  /** Coins from delivered orders and from collection rewards. */
+  orderCoins: number;
+  codexCoins: number;
+  /** Sale value of what was handed over for orders (the counter would have paid it). */
+  orderGiven: number;
+  /** Value of rod catches, and the part that came from gold/rainbow variants (above the normal price). */
+  rodValue: number;
+  variantExtra: number;
+  /** Per order kind: made, delivered, seconds from appearing to delivery. */
+  orders: Partial<Record<OrderKind, { made: number; done: number; secs: number[] }>>;
 }
 
 interface Income {
@@ -214,6 +235,7 @@ class Sim {
     tips: 0,
     income: { raw: 0, smoked: 0, camp: 0, cave: 0 },
     snapshots: {},
+    extra: { orderCoins: 0, codexCoins: 0, orderGiven: 0, rodValue: 0, variantExtra: 0, orders: {} },
     nightsSlept: 0,
     threat: { window: 0, earned: 0, bears: 0, blocked: 0, lostCoins: 0, maxLoss: 0, penguinHides: 0, scareCoins: 0, avalanches: 0, chestCoins: 0 },
   };
@@ -302,6 +324,7 @@ class Sim {
       this.net?.update(dt);
       this.smoker?.update(dt);
       this.updateLands(dt);
+      this.updateBoard(dt);
       for (const w of this.workers) w.update(dt, this.ctx, this.workers);
     }
   }
@@ -469,6 +492,41 @@ class Sim {
     this.advance(d);
   }
 
+  // ---------- order board (GDD §20) ----------
+
+  private orderSeen = new Map<number, number>();
+
+  private updateBoard(dt: number): void {
+    const s = this.state;
+    if (!s.unlocked.includes('orderBoard')) return;
+    s.codex.rareBait = Math.max(s.codex.rareBait - dt, 0);
+    for (const o of updateOrders(s, dt, this.rand)) {
+      this.orderSeen.set(o.id, this.t);
+      const k = (this.result.extra.orders[o.kind] ??= { made: 0, done: 0, secs: [] });
+      k.made++;
+    }
+  }
+
+  /** On the way to the counter: hand over every order the back (or the camp / cave racks) can fill. */
+  deliverOrders(): void {
+    const s = this.state;
+    if (!s.unlocked.includes('orderBoard')) return;
+    for (const o of [...s.orders.active]) {
+      const p = orderProgress(s, o);
+      if (p.have < p.need) continue;
+      this.walkTo(IceShore.board);
+      this.advance(1);
+      const d = deliverOrder(s, o.id);
+      if (!d) continue;
+      const x = this.result.extra;
+      x.orderCoins += d.coins;
+      x.orderGiven += d.givenValue;
+      const k = (x.orders[o.kind] ??= { made: 0, done: 0, secs: [] });
+      k.done++;
+      k.secs.push(this.t - (this.orderSeen.get(o.id) ?? this.t));
+    }
+  }
+
   // ---------- sleep (GDD §14) ----------
 
   /** Walks to the bed, sleeps: threats end, the clock jumps to morning (the town does not run meanwhile). */
@@ -564,7 +622,8 @@ class Sim {
 
   /** Total income so far (counter sales, camp, cave). */
   get totalEarned(): number {
-    return this.result.earned + this.result.income.camp + this.result.income.cave;
+    const x = this.result.extra;
+    return this.result.earned + this.result.income.camp + this.result.income.cave + x.orderCoins + x.codexCoins;
   }
 
   /** Cheapest upgrade worth buying now (rod, and station/time upgrades when enabled): affordable and small next to the next unlock goal. */
@@ -611,6 +670,12 @@ class Sim {
       if (this.debt > 0) return; // a threat warning: go deal with it
       if (r.item) {
         this.state.carried.push(r.item);
+        // Encyclopedia: discovery, records, variants; collection rewards are paid at once.
+        recordCatch(this.state, r.item);
+        const x = this.result.extra;
+        x.rodValue += r.item.price;
+        if (r.item.variant) x.variantExtra += r.item.price - r.item.price / Variants[r.item.variant].valueMul;
+        for (const id of rewardsDue(this.state)) x.codexCoins += grantReward(this.state, id).coins;
         this.state.stats.caught++;
         if (FishById[r.item.species].auroraBuff) this.state.buffs.aurora = 60;
       }
@@ -628,6 +693,8 @@ class Sim {
 
   deliver(): void {
     const s = this.state;
+    // Orders first, before raw fish go into the smokehouse.
+    this.deliverOrders();
     if (this.smoker) {
       const room = Stations.smokehouse.inputCapacity - s.smoker.input.length;
       if (room > 0 && s.carried.some((f) => f.kind === 'raw')) {
@@ -645,6 +712,7 @@ class Sim {
         this.takeFrom(s.smoker.output, Infinity);
       }
     }
+    this.deliverOrders();
     // The camp kitchen gets smoked fish when it runs low.
     if (this.kitchen && s.carried.some((f) => f.kind === 'smoked') && s.camp.input.length <= 2) this.campRun();
     if (s.carried.length > 0) {
@@ -781,7 +849,10 @@ class Sim {
         this.goSleep();
         continue;
       }
-      if (!this.result.income60 && this.t >= 60 * 60) this.result.income60 = { ...this.result.income };
+      if (!this.result.income60 && this.t >= 60 * 60) {
+        this.result.income60 = { ...this.result.income };
+        this.result.extra60 = { ...this.result.extra, orders: {} };
+      }
       if (this.pendingSnapshot) {
         this.result.snapshots[this.pendingSnapshot] = { state: structuredClone(this.state), t: this.t, earnedAt: this.totalEarned };
         this.pendingSnapshot = null;
@@ -991,6 +1062,56 @@ function stationUpgradeTimings(): void {
   }
 }
 
+/** Encyclopedia variants and the order board (GDD §19, §20): their share of the income and what orders cost the counter. */
+function codexOrderTable(): void {
+  const runs: Result[] = [];
+  for (let i = 0; i < RUNS; i++) runs.push(new Sim({ seed: 7000 + i, upgrades: true, stationUpgrades: true, endAt: 90 * 60, threats: 'active' }).run());
+  const total = (r: Result, at60: boolean) => {
+    const inc = at60 ? (r.income60 ?? r.income) : r.income;
+    const x = at60 ? (r.extra60 ?? r.extra) : r.extra;
+    return { all: inc.raw + inc.smoked + inc.camp + inc.cave + x.orderCoins + x.codexCoins, x };
+  };
+  console.log(`\n## Ansiklopedi ve sipariş panosu (${RUNS} koşu, olta + istasyon yükseltmesi alan bot)`);
+  console.log('| Süre | Toplam gelir | Sipariş geliri | Payı | Siparişe giden eşyanın satış değeri | Net sipariş kazancı | Koleksiyon ödülleri | Varyant katkısı (olta değerine) |');
+  console.log('|---|---|---|---|---|---|---|---|');
+  for (const at60 of [true, false]) {
+    let all = 0;
+    let orders = 0;
+    let given = 0;
+    let codex = 0;
+    let rod = 0;
+    let variant = 0;
+    for (const r of runs) {
+      const t = total(r, at60);
+      all += t.all;
+      orders += t.x.orderCoins;
+      given += t.x.orderGiven;
+      codex += t.x.codexCoins;
+      rod += t.x.rodValue;
+      variant += t.x.variantExtra;
+    }
+    const n = RUNS;
+    console.log(
+      `| ${at60 ? '60 dk' : '90 dk'} | ${Math.round(all / n)} | ${Math.round(orders / n)} | %${((orders / all) * 100).toFixed(1)} | ${Math.round(given / n)} | +${Math.round((orders - given) / n)} | ${Math.round(codex / n)} | %${((variant / Math.max(rod, 1)) * 100).toFixed(1)} |`,
+    );
+  }
+  console.log('\nSipariş türleri (90 dk, toplam): çıkan / teslim / medyan teslim süresi');
+  console.log('| Tür | Çıkan | Teslim | Medyan süre |');
+  console.log('|---|---|---|---|');
+  const kinds = new Map<string, { made: number; done: number; secs: number[] }>();
+  for (const r of runs) {
+    for (const [k, v] of Object.entries(r.extra.orders)) {
+      const acc = kinds.get(k) ?? { made: 0, done: 0, secs: [] };
+      acc.made += v.made;
+      acc.done += v.done;
+      acc.secs.push(...v.secs);
+      kinds.set(k, acc);
+    }
+  }
+  for (const [k, v] of kinds) console.log(`| ${k} | ${v.made} | ${v.done} | ${v.secs.length ? fmt(median(v.secs)) : '—'} |`);
+  console.log('Sipariş havuzu yalnızca açık olanı sorar (tür siparişi: keşfedilmiş, yemle tutulabilen, ışık balığı ve kalkan hariç); süre dolan sipariş cezasız silinir.');
+}
+
 /** Sleep and peace (GDD §14): what the "well rested" buff adds to income over the same real play time. */
 function sleepTable(): void {
   const rows: Array<[string, 'off' | 'on' | 'noBuff']> = [
@@ -1169,6 +1290,7 @@ if (process.argv[3] !== 'reel') {
   incomeTable();
   stationUpgradeTimings();
   offlineTable();
+  codexOrderTable();
 }
 reelTable();
 baitTable();

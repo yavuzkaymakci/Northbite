@@ -2,6 +2,7 @@ import { scaledPrice } from '../content/tuning';
 import { UpgradeById, UpgradeCostGrowth, UpgradeMaxLevel, type UpgradeId } from '../content/upgrades';
 import type { GameState } from '../core/GameState';
 import { restedBuff, saleBonuses } from './Rest';
+import { RareBait } from '../content/codex';
 
 /** Effect value of an upgrade at a level (1..5). */
 export function upgradeValue(id: UpgradeId, level: number): number {
@@ -49,7 +50,8 @@ export function fishingMods(state: GameState, env: FishingEnv = DAY_ENV): Fishin
   return {
     lineStrength: upgradeValue('line', u.line),
     reelSpeed: upgradeValue('reel', u.reel) * (1 + rested.reel),
-    bigFishWeight: upgradeValue('bait', u.bait) * env.rareBonus * (1 + rested.rare),
+    // Rare bait (encyclopedia / order reward) adds to the big fish chance while it lasts.
+    bigFishWeight: upgradeValue('bait', u.bait) * env.rareBonus * (1 + rested.rare) * (state.codex.rareBait > 0 ? 1 + RareBait.bigFishBonus : 1),
     baitLevel: u.bait,
     night: env.night,
     aurora: env.aurora,

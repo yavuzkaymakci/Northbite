@@ -1,6 +1,7 @@
 import { DecorationCosts } from './decorations';
 import { IglooCosts } from './igloo';
 import { LandCosts } from './land';
+import { Orders } from './orders';
 
 // Balance values (GDD §8). Fish prices live in content/fish.ts, stations in stations.ts, workers in workers.ts,
 // rod upgrades in upgrades.ts. Numbers are tuned with `npm run sim` (tools/balance-sim.ts).
@@ -49,6 +50,7 @@ export const Economy = {
     ...DecorationCosts,
     // Lands (GDD §15); the numbers live in land.ts.
     ...LandCosts,
+    orderBoard: Orders.boardCost,
   },
 } as const;
 

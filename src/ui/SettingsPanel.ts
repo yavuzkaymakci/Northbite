@@ -22,6 +22,8 @@ export class SettingsPanel {
   private readonly root: HTMLDivElement;
   private readonly nameEl: HTMLElement;
   private readonly peaceEl: HTMLElement;
+  private readonly titleRow: HTMLElement;
+  private readonly titleEl: HTMLElement;
   private readonly segButtons: Array<{ key: PrefKey; value: string; el: HTMLElement }> = [];
   private prefs: Prefs | null = null;
   /** Language shown as selected (the device language while prefs.lang is ''). */
@@ -45,6 +47,7 @@ export class SettingsPanel {
       <div class="settings-card">
         <div class="settings-title">${t('settingsTitle')}</div>
         <div class="settings-row"><span>${t('settingsCharacter')}</span><b class="settings-name"></b></div>
+        <div class="settings-row settings-title-row"><span>${t('settingsTitleLabel')}</span><b class="settings-player-title"></b></div>
         <div class="settings-row"><span>${t('settingsPeace')}</span><b class="settings-peace"></b></div>
         ${rows}
         <button class="settings-btn primary">${t('settingsEditCharacter')}</button>
@@ -52,6 +55,8 @@ export class SettingsPanel {
       </div>`;
     this.nameEl = this.root.querySelector('.settings-name') as HTMLElement;
     this.peaceEl = this.root.querySelector('.settings-peace') as HTMLElement;
+    this.titleRow = this.root.querySelector('.settings-title-row') as HTMLElement;
+    this.titleEl = this.root.querySelector('.settings-player-title') as HTMLElement;
     for (const seg of this.root.querySelectorAll<HTMLElement>('.seg')) {
       const key = seg.dataset.key as PrefKey;
       for (const btn of seg.querySelectorAll<HTMLElement>('.seg-btn')) {
@@ -79,8 +84,11 @@ export class SettingsPanel {
   }
 
   /** `lang` is the language in use (prefs.lang may be '' = device language). */
-  open(name: string, peace: number, prefs: Prefs, lang: string): void {
+  open(name: string, peace: number, prefs: Prefs, lang: string, title: string): void {
     this.nameEl.textContent = displayName(name);
+    // Profile title from the encyclopedia ("Master angler"), shown once earned.
+    this.titleEl.textContent = title;
+    this.titleRow.style.display = title ? '' : 'none';
     this.peaceEl.textContent = String(peace);
     this.prefs = prefs;
     this.lang = lang;

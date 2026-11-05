@@ -99,6 +99,21 @@ export function createDecoration(id: DecorationId, glass: THREE.Material): Decor
       lights.push(new THREE.Vector3(0.8, 0, 0.3));
       break;
     }
+    case 'fishWeight': {
+      // Encyclopedia reward: a big golden fish hanging from an old harbour scale.
+      g.add(mesh(new THREE.BoxGeometry(0.8, 0.25, 0.8), flat(Palette.stone), 0, 0.12, 0));
+      g.add(mesh(new THREE.CylinderGeometry(0.06, 0.08, 2.2, 6), dark, 0, 1.2, 0));
+      g.add(mesh(new THREE.BoxGeometry(1.2, 0.08, 0.08), dark, 0, 2.25, 0));
+      const dial = mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.06, 10), flat(Palette.reel), 0, 2.32, 0.06);
+      dial.rotation.x = Math.PI / 2;
+      g.add(dial);
+      g.add(mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.5, 3), dark, 0.5, 2.0, 0));
+      const fish = mesh(new THREE.ConeGeometry(0.16, 0.8, 5), flat(Palette.goldFish), 0.5, 1.45, 0);
+      fish.rotation.z = Math.PI;
+      g.add(fish);
+      g.add(mesh(new THREE.ConeGeometry(0.14, 0.22, 4), flat(Palette.goldFish), 0.5, 1.0, 0));
+      break;
+    }
     case 'iceSculpture': {
       const ice = flat(Palette.wallIce, { roughness: 0.3 });
       g.add(mesh(new THREE.BoxGeometry(0.9, 0.35, 0.9), flat(Palette.iceDark, { roughness: 0.4 }), 0, 0.17, 0));

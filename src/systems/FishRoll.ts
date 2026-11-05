@@ -1,6 +1,8 @@
 import { FishById, FishSpeciesList, KG_SKEW, type FishId, type FishSpecies } from '../content/fish';
 import { FishingFeel } from '../settings';
 import type { FishItem } from '../core/GameState';
+import { Variants } from '../content/codex';
+import { rollVariant } from './CodexLogic';
 import { NO_MODS, type FishingMods } from './Upgrades';
 
 export interface HookedFish {
@@ -47,7 +49,11 @@ export function rollFish(rand: () => number = Math.random, mods: FishingMods = N
     (f) => f.baitLevel <= mods.baitLevel && (!f.when || (f.when === 'night' && mods.night) || (f.when === 'aurora' && mods.aurora)),
   );
   const species = pickWeighted(pool, (f) => f.rarityWeight * (f.rarity === 'common' ? 1 : mods.bigFishWeight), rand);
-  return makeFish(species, rand);
+  const fish = makeFish(species, rand);
+  // Rare colour variants (GDD §19): same fight, more value.
+  const variant = rollVariant(rand, mods);
+  if (variant) fish.item = { ...fish.item, variant, price: fish.item.price * Variants[variant].valueMul };
+  return fish;
 }
 
 /** Fish for a net: only the given species, by their plain rarity weight. */

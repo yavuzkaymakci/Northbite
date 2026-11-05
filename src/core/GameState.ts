@@ -1,3 +1,4 @@
+import { AudioMix } from '../content/audio';
 import type { VariantId } from '../content/codex';
 import type { FishId } from '../content/fish';
 import type { OrderExtra, OrderKind } from '../content/orders';
@@ -158,6 +159,8 @@ export interface Prefs {
   vibration: boolean;
   /** '' = follow the device language. */
   lang: '' | 'tr' | 'en';
+  /** Volumes 0..1 and mute (GDD §21). */
+  audio: { master: number; music: number; sfx: number; ambience: number; mute: boolean };
 }
 
 export interface CaveState {
@@ -249,7 +252,7 @@ export function createGameState(): GameState {
     camp: createCampState(),
     carriedCrystals: 0,
     story: { pages: [] },
-    prefs: { threats: true, dayLength: 'medium', vibration: true, lang: '' },
+    prefs: { threats: true, dayLength: 'medium', vibration: true, lang: '', audio: { ...AudioMix.defaults, mute: false } },
     lastSeenAt: 0,
     offlinePending: null,
     codex: createCodexState(),

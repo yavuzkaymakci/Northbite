@@ -18,6 +18,7 @@ import type { Appear } from './Appear';
 import type { CarryStack } from './CarryStack';
 import type { CoinSystem } from './Coins';
 import { FlightList } from './Flights';
+import { sfx } from '../audio/AudioEngine';
 import { GuestLogic, KitchenLogic, type Guest } from './LandLogic';
 import { peaceScore } from './Rest';
 
@@ -56,6 +57,7 @@ export class Camp {
   private readonly toGuest = new FlightList<{ guest: Guest; value: number }>();
   private transferTimer = 0;
   private serveTimer = 0;
+  private hissTimer = 2;
   private readonly water: THREE.Mesh;
   private readonly steamMesh: THREE.InstancedMesh;
   private readonly steam: Steam[] = [];
@@ -152,6 +154,11 @@ export class Camp {
 
   update(dt: number, time: number): void {
     this.updateSteam(dt, time);
+    this.hissTimer -= dt;
+    if (this.hissTimer <= 0) {
+      this.hissTimer = 3 + Math.random() * 3;
+      sfx('steam', L.pool);
+    }
     (this.water.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.2 + NightLights.level * 0.45 + Math.sin(time * 1.7) * 0.05;
     if (!this.open) return;
 

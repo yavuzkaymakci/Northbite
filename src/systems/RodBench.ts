@@ -9,6 +9,7 @@ import type { Player } from '../entities/Player';
 import type { UpgradeKind, UpgradePanel } from '../ui/UpgradePanel';
 import type { CoinSystem } from './Coins';
 import { stationUpgradeCost } from './StationUpgrades';
+import { sfx } from '../audio/AudioEngine';
 import { upgradeCost } from './Upgrades';
 
 const PAD = IceShore.bench.pad;
@@ -48,6 +49,7 @@ export class RodBench {
     const cost = kind === 'rod' ? upgradeCost(id as UpgradeId, s.upgrades[id as UpgradeId]) : stationUpgradeCost(id as StationUpgradeId, s.stationUpgrades[id as StationUpgradeId]);
     if (cost === null || s.coins < cost) {
       this.panel.deny(kind, id);
+      sfx('deny');
       return;
     }
     s.coins -= cost;
@@ -55,6 +57,7 @@ export class RodBench {
     else s.stationUpgrades[id as StationUpgradeId]++;
     for (let i = 0; i < 6; i++) this.coins.spendTo(this.target);
     vibrate(HapticsSettings.upgrade);
+    sfx('buy');
     this.panel.refresh(s);
     this.panel.celebrate(kind, id);
   }

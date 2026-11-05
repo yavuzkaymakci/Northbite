@@ -21,6 +21,7 @@ import { ReelGame } from './ReelGame';
 import { fishingMods, type FishingEnv } from './Upgrades';
 import { TimeOfDay } from '../content/time';
 import { recordCatch } from './CodexLogic';
+import { sfx } from '../audio/AudioEngine';
 import type { VariantId } from '../content/codex';
 
 export interface FishingHole {
@@ -65,6 +66,7 @@ export class FishingSystem implements TouchClaimer {
   private lean = 0;
   private splashTimer = 0;
   private lastWarn = 0;
+  private tickTimer = 0;
   private readonly bobber: THREE.Group;
   private readonly line = new FishingLine();
   private readonly bobberPos = new THREE.Vector3();
@@ -214,6 +216,7 @@ export class FishingSystem implements TouchClaimer {
   // ---------- Phase transitions ----------
 
   private startCast(hole: FishingHole): void {
+    sfx('cast');
     this.hole = hole;
     this.phase = 'casting';
     this.timer = 0;
@@ -233,6 +236,7 @@ export class FishingSystem implements TouchClaimer {
     this.timer += dt;
     if (this.timer >= F.castSwingTime + F.castFlightTime) {
       this.phase = 'waiting';
+      sfx('plop', this.bobberPos);
       this.timer = F.biteDelayMin + Math.random() * (F.biteDelayMax - F.biteDelayMin);
       this.fx.ripple(this.bobberPos.x, WATER_Y + 0.01, this.bobberPos.z, 0.55);
       this.fx.splash(this.bobberPos.x, WATER_Y, this.bobberPos.z, 5, 1.0);
@@ -240,6 +244,7 @@ export class FishingSystem implements TouchClaimer {
   }
 
   private startBite(): void {
+    sfx('bite', this.bobberPos);
     this.phase = 'bite';
     this.timer = F.hookWindow;
     this.hooked = rollFish(Math.random, fishingMods(this.state, this.env()));
@@ -272,6 +277,14 @@ export class FishingSystem implements TouchClaimer {
     const result = reel.update(dt, holding);
     this.gauge.update(reel.progress, reel.tension, reel.zone, reel.warning > 0);
     this.player.rod.reel.rotation.x -= holding ? dt * 18 : 0;
+    // Reel clicks: faster and higher with more tension.
+    if (holding) {
+      this.tickTimer -= dt;
+      if (this.tickTimer <= 0) {
+        this.tickTimer = 0.12 / (0.6 + reel.tension);
+        sfx('reelTick', undefined, 0.8 + reel.tension * 0.8);
+      }
+    }
 
     // Tug feedback: splashes during the warning, a burst when the pull starts.
     this.splashTimer -= dt;
@@ -312,6 +325,7 @@ export class FishingSystem implements TouchClaimer {
     const firstOfKind = rec.isNew && FishById[hooked.item.species].rarity !== 'common';
     vibrate(firstOfKind || rec.firstVariant ? HapticsSettings.newSpecies : HapticsSettings.catch);
     if (hooked.item.variant) this.fx.sparkle(this.bobberPos.x, WATER_Y + 0.4, this.bobberPos.z);
+    sfx(firstOfKind ? 'newSpecies' : hooked.item.variant ? 'rareCatch' : 'catch');
 
     const p = this.player.state;
     const fwdX = Math.sin(p.heading);
@@ -331,6 +345,7 @@ export class FishingSystem implements TouchClaimer {
   }
 
   private snap(): void {
+    sfx('lineBreak');
     this.gauge.close();
     this.reel = null;
     this.hooked = null;
@@ -387,6 +402,7 @@ export class FishingSystem implements TouchClaimer {
     } else {
       this.landing = null;
       this.stack.hiddenTop = Math.max(this.stack.hiddenTop - 1, 0);
+      sfx('stackAdd');
       vibrate(HapticsSettings.fishAdded);
     }
   }

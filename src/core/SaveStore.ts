@@ -6,6 +6,7 @@ import { SaveSettings } from '../settings';
 import { sanitizeAppearance, type Appearance } from '../content/appearance';
 import { Pages } from '../content/story';
 import { OrderTemplates } from '../content/orders';
+import { AudioMix } from '../content/audio';
 import {
   createCampState,
   createCaveState,
@@ -78,6 +79,14 @@ function isFishItem(v: unknown): v is FishItem {
 const isFishId = (v: unknown): v is FishId => typeof v === 'string' && v in FishById;
 const fishIds = (v: unknown): FishId[] => (Array.isArray(v) ? v.filter(isFishId) : []);
 const n0 = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0);
+
+/** Volumes 0..1 (defaults for missing or broken values) and mute. */
+function sanitizeAudio(raw: unknown): GameState['prefs']['audio'] {
+  const a = (raw ?? {}) as Partial<Record<string, unknown>>;
+  const vol = (v: unknown, d: number) => (typeof v === 'number' && v >= 0 && v <= 1 ? v : d);
+  const d = AudioMix.defaults;
+  return { master: vol(a.master, d.master), music: vol(a.music, d.music), sfx: vol(a.sfx, d.sfx), ambience: vol(a.ambience, d.ambience), mute: a.mute === true };
+}
 
 /** Encyclopedia: older saves have only `seen`; those species count as discovered with unknown records. */
 function sanitizeCodex(raw: unknown, seen: FishId[]): CodexState {
@@ -231,6 +240,7 @@ function sanitizeGame(raw: unknown): GameState {
       dayLength: prefs.dayLength === 'short' || prefs.dayLength === 'long' ? prefs.dayLength : 'medium',
       vibration: prefs.vibration !== false,
       lang: prefs.lang === 'tr' || prefs.lang === 'en' ? prefs.lang : '',
+      audio: sanitizeAudio(prefs.audio),
     },
     lastSeenAt: num(g.lastSeenAt, 0),
     offlinePending:

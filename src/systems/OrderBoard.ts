@@ -15,6 +15,7 @@ import type { WorldMap } from '../world/Map';
 import type { Appear } from './Appear';
 import type { CarryStack } from './CarryStack';
 import { deliverOrder, orderProgress, rerollOrder, updateOrders } from './OrderLogic';
+import { sfx } from '../audio/AudioEngine';
 
 const B = IceShore.board;
 
@@ -106,6 +107,7 @@ export class OrderBoard {
     const d = deliverOrder(this.state, id, this.visible);
     if (!d) return;
     vibrate(HapticsSettings.upgrade);
+    sfx('buy');
     this.fx.sparkle(B.x, 1.6, B.z);
     let text = tf('orderDone', { c: d.coins });
     if (d.extra === 'rareBait') text += ` · ${t('orderExtraRareBait')}`;

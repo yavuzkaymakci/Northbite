@@ -12,6 +12,7 @@ import { defaultAppearance, type Appearance } from '../content/appearance';
 import { Sleep } from '../content/igloo';
 import { getLang, setLang, t, tf } from '../content/strings';
 import { setVibration } from './Haptics';
+import { audio, sfx } from '../audio/AudioEngine';
 import { CaveLayout, IceShore, TeaserWalls, type Vec2 } from '../content/zones';
 import { Cave } from '../systems/Cave';
 import { Camp } from '../systems/Camp';
@@ -145,6 +146,9 @@ export class Game {
     const s = this.state;
     if (s.prefs.lang) setLang(s.prefs.lang);
     setVibration(s.prefs.vibration);
+    // Sound starts on the first touch (mobile browsers need a gesture), never while muted (GDD §21).
+    audio.configure(s.prefs.audio);
+    audio.attach();
 
     const overlay = document.createElement('div');
     overlay.className = 'ui-layer';
@@ -339,6 +343,7 @@ export class Game {
   private resume(): void {
     if (this.running) return;
     this.running = true;
+    audio.setHidden(false);
     this.time.reset();
     this.checkOffline();
     this.rafId = requestAnimationFrame(this.frame);
@@ -347,6 +352,7 @@ export class Game {
   private pause(): void {
     if (!this.running) return;
     this.running = false;
+    audio.setHidden(true);
     cancelAnimationFrame(this.rafId);
     this.router.releaseAll();
     this.input.reset();
@@ -383,7 +389,11 @@ export class Game {
     const moving = !locked && this.input.active;
     if (moving) this.hud.hideHint();
 
+    const step0 = Math.floor(this.player.walkPhase / Math.PI);
     this.player.update(dt, elapsed, move, this.world, this.fishing.facing);
+    audio.setListener(this.player.state.x, this.player.state.z);
+    // Footsteps crunch in the snow.
+    if (Math.floor(this.player.walkPhase / Math.PI) !== step0) sfx('snowStep', undefined, 0.9 + Math.random() * 0.2);
     this.fishing.update(dt, elapsed, moving, !locked && this.input.reelKey);
     this.stack.update(dt);
     this.net.update(dt, elapsed);

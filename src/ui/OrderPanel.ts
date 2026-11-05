@@ -3,6 +3,7 @@ import { getLang, t, tf, type StringKey } from '../content/strings';
 import type { GameState, Order } from '../core/GameState';
 import { orderProgress } from '../systems/OrderLogic';
 import { onTap } from './tap';
+import { sfx } from '../audio/AudioEngine';
 
 const mmss = (sec: number) => {
   const s = Math.max(Math.ceil(sec), 0);
@@ -56,11 +57,13 @@ export class OrderPanel {
     this.lastKey = '';
     this.root.classList.add('open');
     this.root.classList.toggle('remote', !atBoard);
+    sfx('panelOpen');
   }
 
   close(): void {
     this.isOpenValue = false;
     this.root.classList.remove('open');
+    sfx('panelClose');
   }
 
   /** Redraws when something visible changed (orders, progress, timers in whole seconds). */

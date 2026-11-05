@@ -7,6 +7,7 @@ import type { CameraRig } from '../render/CameraRig';
 import type { Effects } from '../render/Effects';
 import type { WorldMap } from '../world/Map';
 import type { Unlocks } from './Unlocks';
+import { sfx } from '../audio/AudioEngine';
 
 type Step = 'crack' | 'pause' | 'pan' | 'hold' | 'back';
 
@@ -41,6 +42,7 @@ export class RegionOpening {
     this.t = 0;
     this.world.wallFor(region.id)?.crack();
     vibrate(HapticsSettings.wallCrack);
+    sfx('iceCrack');
   }
 
   /** Drives the camera; call instead of the normal follow while active. */
@@ -60,6 +62,7 @@ export class RegionOpening {
           this.world.openRegion(region.id);
           this.rig.shake(R.shake);
           vibrate(HapticsSettings.wallBreak);
+          sfx('iceBreak');
           this.next('pause');
         }
         break;

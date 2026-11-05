@@ -7,6 +7,7 @@ import type { GameState } from '../core/GameState';
 import { stationUpgradeCost, stationUpgradeValue, stationUpgradeVisible } from '../systems/StationUpgrades';
 import { upgradeCost, upgradeValue } from '../systems/Upgrades';
 import { onTap } from './tap';
+import { sfx } from '../audio/AudioEngine';
 
 const ICONS: Record<UpgradeId, string> = {
   // Spool with line
@@ -140,12 +141,14 @@ export class UpgradePanel {
     this.lastKey = '';
     this.refresh(state);
     this.root.classList.add('open');
+    sfx('panelOpen');
   }
 
   close(): void {
     if (!this.isOpen) return;
     this.isOpen = false;
     this.root.classList.remove('open');
+    sfx('panelClose');
   }
 
   /** Re-renders levels, effects, prices and affordability when something changed. */

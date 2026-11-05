@@ -1,5 +1,6 @@
 import './style.css';
 import { Game } from './core/Game';
+import { audio } from './audio/AudioEngine';
 import { applyPaletteToCss } from './render/Palette';
 
 /** Blocks browser gestures that fight the game: pinch/double-tap zoom, long-press menus, rubber-band scroll. */
@@ -37,4 +38,4 @@ if (!container) throw new Error('#app missing');
 const game = new Game(container);
 game.start();
 // Dev-only handle for debugging in the browser console. Stripped from production builds.
-if (import.meta.env.DEV) (window as unknown as { __game: Game }).__game = game;
+if (import.meta.env.DEV) Object.assign(window, { __game: game, __audio: audio });

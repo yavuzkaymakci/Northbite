@@ -9,6 +9,7 @@ import type { Effects } from '../render/Effects';
 import type { FishRenderer } from '../render/FishRenderer';
 import type { CarryStack } from './CarryStack';
 import { FlightList } from './Flights';
+import { sfx } from '../audio/AudioEngine';
 
 const C = IceShore.counter;
 const COLS = 6;
@@ -92,7 +93,10 @@ export class Selling {
       this.stack.topPosition(this.from);
       this.receive(this.state.carried.pop() as FishItem, this.from);
     }
-    this.flights.update(dt, (f) => this.state.counter.push(f.payload));
+    this.flights.update(dt, (f) => {
+      this.state.counter.push(f.payload);
+      sfx('counterDrop', C);
+    });
 
     // Smoked fish on the table steam a little.
     this.steamTimer -= dt;

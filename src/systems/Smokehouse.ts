@@ -14,6 +14,7 @@ import type { WorldMap } from '../world/Map';
 import type { Appear } from './Appear';
 import type { CarryStack } from './CarryStack';
 import { FlightList } from './Flights';
+import { sfx } from '../audio/AudioEngine';
 import { SmokerLogic } from './StationLogic';
 
 const S = IceShore.smokehouse;
@@ -125,6 +126,7 @@ export class Smokehouse {
       this.puffTimer = StationFeel.smokePuffInterval * (working ? 1 : 3) * (0.7 + Math.random() * 0.6);
       const c = this.model.chimneyTop;
       this.fx.smoke(S.x + c.x + (Math.random() - 0.5) * 0.15, c.y, S.z + c.z, working ? 0.34 : 0.24);
+      if (working) sfx('smokeCrackle', S);
     }
     this.steamTimer -= dt;
     if (this.steamTimer <= 0 && this.takeable() > 0) {

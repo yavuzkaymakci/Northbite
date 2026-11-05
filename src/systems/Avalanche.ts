@@ -18,6 +18,7 @@ import type { WorldMap } from '../world/Map';
 import type { CircleCollider, Collider } from './Collision';
 import type { CoinSystem } from './Coins';
 import { rollChest } from './ThreatLogic';
+import { sfx } from '../audio/AudioEngine';
 import type { ThreatBuildings } from './ThreatBuildings';
 import type { DigSite } from './WorkerBrain';
 import type { Workers } from './Workers';
@@ -157,6 +158,7 @@ export class Avalanche {
     this.stripes.visible = true;
     this.banner.show(t('avalancheWarning'), 'warn', A_T.warning);
     vibrate(HapticsSettings.avalancheRumble);
+    sfx('avalancheWarning');
   }
 
   stop(): void {
@@ -202,6 +204,7 @@ export class Avalanche {
     this.stripes.visible = false;
     this.rig.shake(F.shakeFall);
     vibrate(HapticsSettings.avalancheRumble);
+    sfx('avalancheFall');
     if (this.fenced) {
       // The fence holds: snow heaps up against it, the corridor stays open.
       const f = A.fence;
@@ -391,6 +394,7 @@ export class Avalanche {
       c.open = 0.001;
       this.coins.rewardFrom(this.v.set(root.position.x, 0.6, root.position.z), c.coins);
       vibrate(HapticsSettings.chest);
+      sfx('buy');
       this.onChestOpened();
       this.banner.show(tf('chestCoins', { n: c.coins }), 'good');
       this.fx.splash(root.position.x, 0.6, root.position.z, 12, 2.4);

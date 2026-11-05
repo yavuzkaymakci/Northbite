@@ -11,6 +11,7 @@ import { createUnlockFrame, type UnlockFrameModel } from '../models/createMarker
 import type { WorldLabel, WorldLabels } from '../ui/WorldLabels';
 import type { Appear } from './Appear';
 import type { CoinSystem } from './Coins';
+import { sfx } from '../audio/AudioEngine';
 
 /** One payable frame: an unlock zone or a region's gate in front of its ice wall. */
 export interface UnlockSpot {
@@ -155,6 +156,7 @@ export class Unlocks {
         if (spot.region) this.state.regions.push(spot.id);
         else this.state.unlocked.push(spot.id);
         vibrate(HapticsSettings.unlock);
+        sfx('unlock');
         this.onUnlock(spot);
         if (!spot.region) this.refresh(true, 0.2);
       }

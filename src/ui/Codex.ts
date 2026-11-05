@@ -6,6 +6,7 @@ import { createFishGeometry } from '../models/createFish';
 import { Palette, toCss } from '../render/Palette';
 import { CodexFeel } from '../settings';
 import { onTap } from './tap';
+import { sfx } from '../audio/AudioEngine';
 
 /**
  * Fish encyclopedia (GDD §19): a full-screen sheet sliding up from the bottom. The grid shows every species (grey
@@ -72,12 +73,14 @@ export class Codex {
     state.codex.fresh = [];
     this.renderGrid();
     this.root.classList.add('open');
+    sfx('panelOpen');
   }
 
   close(): void {
     this.openValue = false;
     this.fish.visible = false;
     this.root.classList.remove('open', 'detail-open');
+    sfx('panelClose');
   }
 
   update(dt: number): void {

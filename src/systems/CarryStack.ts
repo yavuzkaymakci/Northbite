@@ -7,6 +7,7 @@ import type { GoodsRenderer } from '../render/GoodsRenderer';
 import { LandFeel } from '../settings';
 import type { WorldLabel, WorldLabels } from '../ui/WorldLabels';
 import { FlightList } from './Flights';
+import { sfx } from '../audio/AudioEngine';
 import { carryCapacity } from './Upgrades';
 
 const BACK_Z = -0.4;
@@ -145,7 +146,10 @@ export class CarryStack {
   /** Moves station-to-back flights (they chase the walking player). */
   update(dt: number): void {
     for (const f of this.incoming.items) this.topPosition(f.to);
-    this.incoming.update(dt, () => (this.hiddenTop = Math.max(this.hiddenTop - 1, 0)));
+    this.incoming.update(dt, () => {
+      this.hiddenTop = Math.max(this.hiddenTop - 1, 0);
+      sfx('stackAdd');
+    });
     this.crystalsIn.items.forEach((f, i) => this.crystalTop(f.to, this.state.carriedCrystals - this.crystalsIn.items.length + i));
     this.crystalsIn.update(dt, () => (this.hiddenCrystals = Math.max(this.hiddenCrystals - 1, 0)));
   }

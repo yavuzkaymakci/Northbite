@@ -13,6 +13,7 @@ import type { WorldMap } from '../world/Map';
 import type { Appear } from './Appear';
 import type { CarryStack } from './CarryStack';
 import { FlightList } from './Flights';
+import { sfx } from '../audio/AudioEngine';
 import { NetLogic } from './StationLogic';
 
 const B = IceShore.net.basket;
@@ -97,6 +98,7 @@ export class NetStation {
       this.slot(this.state.basket.length - 1, this.to);
       this.hops.add(this.from, this.to, 0.55, 1.1, caught);
       this.fx.splash(HOLE!.x, 0.08, HOLE!.z, 9, 1.6);
+      sfx('netSplash', HOLE!);
       this.fx.ripple(HOLE!.x, 0.09, HOLE!.z, 0.6);
       this.wobble = 1;
     }

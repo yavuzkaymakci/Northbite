@@ -2,6 +2,8 @@
  * Calls `fn` when a press starts and ends on `el`. Uses pointer events instead of `click`, because the game blocks
  * quick double-tap touchends (to stop iOS zoom), which would swallow clicks.
  */
+import { sfx } from '../audio/AudioEngine';
+
 export function onTap(el: HTMLElement, fn: (e: PointerEvent) => void): void {
   let down = false;
   el.addEventListener('pointerdown', (e) => {
@@ -18,6 +20,9 @@ export function onTap(el: HTMLElement, fn: (e: PointerEvent) => void): void {
   el.addEventListener('pointerup', (e) => {
     const was = down;
     cancel();
-    if (was) fn(e);
+    if (was) {
+      sfx('tap');
+      fn(e);
+    }
   });
 }

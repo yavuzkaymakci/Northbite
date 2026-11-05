@@ -12,6 +12,7 @@ import type { Effects } from '../render/Effects';
 import { Palette } from '../render/Palette';
 import type { PageCard } from '../ui/Journal';
 import { findPage, mainPagesDue, pageFor } from './StoryLogic';
+import { sfx } from '../audio/AudioEngine';
 
 const H = StoryLayout.hidden;
 
@@ -79,6 +80,7 @@ export class Story {
     if (!this.card.isOpen && this.queue.length > 0) {
       const next = this.queue[0] as PageId;
       vibrate(HapticsSettings.page);
+      sfx('page');
       this.card.show(next, () => this.queue.shift());
     }
   }

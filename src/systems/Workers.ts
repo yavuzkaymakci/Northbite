@@ -7,6 +7,7 @@ import { createBlobShadow } from '../render/BlobShadow';
 import { FishRenderer } from '../render/FishRenderer';
 import type { WorldMap } from '../world/Map';
 import { FlightList } from './Flights';
+import { sfx } from '../audio/AudioEngine';
 import type { NetStation } from './NetStation';
 import { PathGraphNav } from './Pathfinding';
 import type { Selling } from './Selling';
@@ -166,7 +167,9 @@ export class Workers {
       const b = p.brain;
       const busy = b.phase !== 'idle' || b.idleTime === 0;
       b.update(dt, this.ctx, brains);
+      const step0 = Math.floor(p.walkPhase / Math.PI);
       p.walkPhase += b.speed01 * WorkerFeel.waddleSpeed * Math.PI * 2 * dt;
+      if (Math.floor(p.walkPhase / Math.PI) !== step0 && !b.inside) sfx('penguinStep', b);
 
       // Idle life: a flap or a look around now and then.
       if (busy) {
@@ -176,7 +179,10 @@ export class Workers {
         p.nextIdleAct -= dt;
         if (p.nextIdleAct <= 0) {
           p.nextIdleAct = 1.8 + Math.random() * 3;
-          if (Math.random() < 0.45) p.flap = 0.8;
+          if (Math.random() < 0.45) {
+            p.flap = 0.8;
+            sfx('penguinFlap', b);
+          }
           else p.lookTarget = (Math.random() - 0.5) * 1.6;
         }
       }

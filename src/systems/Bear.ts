@@ -22,6 +22,7 @@ import type { WorldLabel, WorldLabels } from '../ui/WorldLabels';
 import { pushOutOfCircle, pushOutOfRect, type Collider } from './Collision';
 import type { CoinSystem } from './Coins';
 import { FlightList } from './Flights';
+import { sfx } from '../audio/AudioEngine';
 import type { NetStation } from './NetStation';
 import type { Smokehouse } from './Smokehouse';
 import type { ThreatBuildings } from './ThreatBuildings';
@@ -172,6 +173,7 @@ export class Bear {
     this.setPhase('warning', warning);
     this.d.banner.show(t('bearWarning'), 'warn', Math.min(warning, 6));
     vibrate(HapticsSettings.bearWarning);
+    sfx('bearWarning');
   }
 
   /** Ends at once (the game screen closes, debug). */
@@ -343,6 +345,7 @@ export class Bear {
     this.scare = 0;
     if (this.usedTorch) s.threats.torches = Math.max(s.threats.torches - 1, 0);
     vibrate(HapticsSettings.bearScared);
+    sfx('bearScared', this.body);
     this.d.fx.splash(this.body.x, 0.2, this.body.z, 14, 2.4);
     // Anything already taken falls back where it came from.
     this.mouthPoint(this.v);

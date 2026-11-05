@@ -19,6 +19,7 @@ import type { Appear } from './Appear';
 import type { CarryStack } from './CarryStack';
 import type { CoinSystem } from './Coins';
 import { FlightList } from './Flights';
+import { sfx } from '../audio/AudioEngine';
 import { CaveLogic } from './LandLogic';
 
 const PER_ROW = 3;
@@ -45,6 +46,7 @@ export class Cave implements TouchClaimer {
   private readonly touches = new Map<number, { x: number; y: number }>();
   private keyHeld = false;
   private transferTimer = 0;
+  private chimeTimer = 2;
   private readonly toBench = new FlightList<number>();
   private readonly toCollector = new FlightList<number>();
   private readonly mineLabel: WorldLabel;
@@ -155,6 +157,13 @@ export class Cave implements TouchClaimer {
     this.toCollector.update(dt, () => {});
 
     this.updateMining(dt, moving);
+    // The veins ring softly now and then (only heard near the cave).
+    this.chimeTimer -= dt;
+    if (this.chimeTimer <= 0) {
+      this.chimeTimer = 2.5 + Math.random() * 3;
+      const v = L.veins[Math.floor(Math.random() * L.veins.length)];
+      if (v) sfx('crystalChime', v, 0.9 + Math.random() * 0.3);
+    }
     this.updateRack(dt);
     this.updateLabels();
   }
@@ -183,6 +192,7 @@ export class Cave implements TouchClaimer {
     if (Math.floor(before * 6) !== Math.floor(this.mining * 6)) {
       this.fx.splash(v.x, 0.4, v.z, 6, 1.8);
       vibrate(HapticsSettings.mineTick);
+      sfx('mine', v);
     }
     if (this.mining >= 1) {
       this.mining = 0;
@@ -191,6 +201,7 @@ export class Cave implements TouchClaimer {
       this.fx.ripple(v.x, 0.05, v.z, 1.6, 1.1);
       this.fx.splash(v.x, 0.5, v.z, 16, 2.6);
       vibrate(HapticsSettings.crystal);
+      sfx('crystalChime', v, 1.2);
     }
   }
 

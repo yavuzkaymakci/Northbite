@@ -6,6 +6,7 @@ import type { Player } from '../entities/Player';
 import type { CoinRenderer } from '../render/CoinRenderer';
 import { COIN_THICKNESS } from '../models/createMarkers';
 import { FlightList } from './Flights';
+import { audio, sfx } from '../audio/AudioEngine';
 
 const COLUMN_OFFSETS = [
   [-0.17, -0.17],
@@ -135,6 +136,7 @@ export class CoinSystem {
 
   /** Visual coins flying from the player to a point (unlock payments). */
   spendTo(target: THREE.Vector3): void {
+    sfx('coinSpend');
     this.chest(this.from);
     this.toTarget.add(this.from, target, CoinFeel.flightTime, CoinFeel.arcHeight * 0.7, 0);
   }
@@ -164,7 +166,11 @@ export class CoinSystem {
 
     // Chase the moving player.
     for (const f of this.toPlayer.items) this.chest(f.to);
-    this.toPlayer.update(dt, (f) => (this.incoming -= f.payload));
+    this.toPlayer.update(dt, (f) => {
+      this.incoming -= f.payload;
+      // Coins landing on the player ring higher and higher in a row.
+      audio.play('coin', { chain: true });
+    });
     this.toTarget.update(dt, () => {});
   }
 

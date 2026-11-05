@@ -1,5 +1,6 @@
 import { HapticsSettings, SleepFeel as F } from '../settings';
 import { vibrate } from '../core/Haptics';
+import { sfx } from '../audio/AudioEngine';
 
 type Step = 'off' | 'out' | 'dark' | 'in';
 
@@ -31,6 +32,7 @@ export class SleepSequence {
     this.t = 0;
     this.el.classList.add('on');
     vibrate(HapticsSettings.sleep);
+    sfx('sleep');
   }
 
   update(dt: number): void {

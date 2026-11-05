@@ -137,3 +137,71 @@ export const AudioMix = {
   chainStep: 0.05,
   chainMax: 1.6,
 };
+
+// ---------- music (GDD §21) ----------
+
+export type TimeMood = 'day' | 'evening' | 'night';
+export type PlaceMood = 'shore' | 'cave' | 'camp';
+
+/**
+ * Generative music, no tempo: a soft pad slowly gliding between chords, sparse pentatonic bells on top, a light echo.
+ * Notes are MIDI numbers (60 = middle C).
+ */
+export const Music = {
+  /** Pad chords per time of day; one follows the other every `chordSeconds`. */
+  chords: {
+    day: [
+      [48, 55, 60, 64],
+      [45, 52, 57, 60],
+      [41, 48, 53, 57],
+      [43, 50, 55, 59],
+    ],
+    evening: [
+      [45, 52, 57, 60],
+      [41, 48, 53, 57],
+      [48, 55, 60, 64],
+      [43, 50, 57, 62],
+    ],
+    night: [
+      [50, 57, 62, 65],
+      [46, 53, 58, 62],
+      [43, 50, 55, 58],
+      [45, 52, 57, 61],
+    ],
+  } satisfies Record<TimeMood, number[][]>,
+  /** Bell notes (pentatonic, so any two sound fine together). */
+  scales: {
+    day: [72, 74, 76, 79, 81, 84],
+    evening: [69, 72, 74, 76, 79, 81],
+    night: [74, 77, 79, 81, 84, 86],
+  } satisfies Record<TimeMood, number[]>,
+  chordSeconds: [16, 26],
+  /** Time constant (s) of the glide between chords and of mood changes. */
+  glide: 3.5,
+  padGain: 0.11,
+  /** Pad brightness (low-pass cutoff in Hz) per time of day, and in the cave / camp. */
+  padCutoff: { day: 1500, evening: 950, night: 750 } satisfies Record<TimeMood, number>,
+  placeCutoff: { shore: 1, cave: 0.8, camp: 1.15 } satisfies Record<PlaceMood, number>,
+  /** Seconds between bell notes (random in range); the cave rings more often, the night less. */
+  bellEvery: [2.5, 7],
+  bellGain: 0.055,
+  bellDecay: 2.2,
+  /** Echo: delay time, feedback and wet level (the cave echoes longer). */
+  echo: { delay: 0.42, feedback: 0.36, wet: 0.35 },
+  caveEcho: { delay: 0.56, feedback: 0.55, wet: 0.55 },
+  /** Northern lights: a thin glassy layer of two high, slowly wavering tones. */
+  glassGain: 0.022,
+  glassNotes: [88, 95],
+  /** Bear warning / avalanche: music dips, a low beating drone comes in. */
+  tensionDuck: 0.35,
+  tensionGain: 0.07,
+  tensionNotes: [33, 34],
+  /** Sleep fades the music out. */
+  sleepDuck: 0.1,
+} as const;
+
+/** Ambience channel: wind always (stronger in a storm, softer at night), waves near the sea. */
+export const Ambience = {
+  wind: { gain: 0.07, storm: 0.2, night: 0.045, cutoff: [350, 900] as const, sway: 0.08 },
+  waves: { gain: 0.08, cutoff: 520, rate: 0.13, near: 3, far: 14 },
+};

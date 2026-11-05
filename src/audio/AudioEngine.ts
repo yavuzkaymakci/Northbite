@@ -25,6 +25,8 @@ class AudioEngine {
   private noise: AudioBuffer | null = null;
   private prefs: AudioPrefs = { ...AudioMix.defaults, mute: false };
   private hidden = false;
+  /** The player has touched the screen at least once (a context may be created now). */
+  private gestured = false;
   private voices = 0;
   private readonly last = new Map<SfxId, number>();
   private chain = 0;
@@ -36,6 +38,7 @@ class AudioEngine {
   /** Listens for the first gesture; call once at start. */
   attach(): void {
     const unlock = () => {
+      this.gestured = true;
       if (this.prefs.mute) return;
       this.start();
       if (this.ctx?.state === 'running') {
@@ -55,6 +58,11 @@ class AudioEngine {
 
   get running(): boolean {
     return !!this.ctx && this.ctx.state === 'running' && !this.prefs.mute && !this.hidden;
+  }
+
+  /** One second of white noise shared by every noise source (effects, wind, waves). */
+  get noiseBuffer(): AudioBuffer | null {
+    return this.noise;
   }
 
   group(id: AudioGroup): GainNode | null {
@@ -87,6 +95,8 @@ class AudioEngine {
   /** Settings: volumes and mute (mute suspends the context). */
   configure(prefs: AudioPrefs): void {
     this.prefs = { ...prefs };
+    // Unmuting from the settings (a touch already happened): start right away.
+    if (!this.ctx && !prefs.mute && this.gestured) this.start();
     this.applyVolumes();
     if (!this.ctx) return;
     if (prefs.mute) void this.ctx.suspend();

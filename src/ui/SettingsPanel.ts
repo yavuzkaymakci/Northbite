@@ -13,6 +13,13 @@ const CHOICES: ReadonlyArray<{ key: PrefKey; label: StringKey; options: Readonly
   { key: 'lang', label: 'settingsLanguage', options: [['tr', null], ['en', null]] },
 ];
 const LANG_NAMES: Record<string, string> = { tr: 'Türkçe', en: 'English' };
+type VolumeKey = 'master' | 'music' | 'sfx' | 'ambience';
+const VOLUMES: ReadonlyArray<[VolumeKey, StringKey]> = [
+  ['master', 'soundMaster'],
+  ['music', 'soundMusic'],
+  ['sfx', 'soundSfx'],
+  ['ambience', 'soundAmbience'],
+];
 
 /**
  * Settings card opened from the HUD gear: character name, peace, the game settings (threats, day length, vibration,
@@ -35,6 +42,8 @@ export class SettingsPanel {
     private readonly onEditCharacter: () => void,
     /** A setting changed (the game applies it; `prefs` is the game state's object, already updated). */
     private readonly onPrefs: (key: PrefKey) => void,
+    /** Volumes or mute changed (`final`: the slider was let go, time to save). */
+    private readonly onAudio: (final: boolean) => void,
   ) {
     this.root = document.createElement('div');
     this.root.className = 'settings-backdrop';
@@ -50,6 +59,9 @@ export class SettingsPanel {
         <div class="settings-row settings-title-row"><span>${t('settingsTitleLabel')}</span><b class="settings-player-title"></b></div>
         <div class="settings-row"><span>${t('settingsPeace')}</span><b class="settings-peace"></b></div>
         ${rows}
+        <div class="settings-sub">${t('settingsSound')}</div>
+        ${VOLUMES.map(([k, label]) => `<label class="settings-row slider-row"><span>${t(label)}</span><input type="range" min="0" max="100" step="1" data-vol="${k}"></label>`).join('')}
+        <div class="settings-row seg-row"><span>${t('soundMute')}</span><div class="seg seg-mute"><button class="seg-btn" data-v="true">${t('on')}</button><button class="seg-btn" data-v="false">${t('off')}</button></div></div>
         <button class="settings-btn primary">${t('settingsEditCharacter')}</button>
         <button class="settings-btn close">${t('creatorClose')}</button>
       </div>`;
@@ -64,6 +76,19 @@ export class SettingsPanel {
         this.segButtons.push({ key, value, el: btn });
         onTap(btn, () => this.choose(key, value));
       }
+    }
+    for (const input of this.root.querySelectorAll<HTMLInputElement>('input[data-vol]')) {
+      const key = input.dataset.vol as VolumeKey;
+      input.addEventListener('input', () => this.setVolume(key, input, false));
+      input.addEventListener('change', () => this.setVolume(key, input, true));
+    }
+    for (const btn of this.root.querySelectorAll<HTMLElement>('.seg-mute .seg-btn')) {
+      onTap(btn, () => {
+        if (!this.prefs) return;
+        this.prefs.audio.mute = btn.dataset.v === 'true';
+        this.render();
+        this.onAudio(true);
+      });
     }
     const card = this.root.querySelector('.settings-card') as HTMLElement;
     card.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -115,9 +140,19 @@ export class SettingsPanel {
     this.onPrefs(key);
   }
 
+  private setVolume(key: VolumeKey, input: HTMLInputElement, final: boolean): void {
+    if (!this.prefs) return;
+    this.prefs.audio[key] = Math.min(Math.max(Number(input.value) / 100, 0), 1);
+    this.onAudio(final);
+  }
+
   private render(): void {
     const p = this.prefs;
     if (!p) return;
+    for (const input of this.root.querySelectorAll<HTMLInputElement>('input[data-vol]')) {
+      input.value = String(Math.round(p.audio[input.dataset.vol as VolumeKey] * 100));
+    }
+    for (const btn of this.root.querySelectorAll<HTMLElement>('.seg-mute .seg-btn')) btn.classList.toggle('on', String(p.audio.mute) === btn.dataset.v);
     for (const b of this.segButtons) {
       const current = b.key === 'lang' ? this.lang : String(p[b.key]);
       b.el.classList.toggle('on', current === b.value);

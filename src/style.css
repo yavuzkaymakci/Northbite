@@ -2080,3 +2080,23 @@ body {
 .ui-layer.codex-open .hud-hint {
   visibility: hidden;
 }
+
+/* Settings: sound volumes (GDD §21) */
+.settings-sub {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--panel-muted);
+}
+.slider-row {
+  align-items: center;
+  gap: 12px;
+}
+.slider-row input[type='range'] {
+  flex: 0 0 52%;
+  height: 32px;
+  accent-color: var(--jacket);
+  touch-action: pan-x;
+}

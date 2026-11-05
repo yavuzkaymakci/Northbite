@@ -13,6 +13,8 @@ import { Sleep } from '../content/igloo';
 import { getLang, setLang, t, tf } from '../content/strings';
 import { setVibration } from './Haptics';
 import { audio, sfx } from '../audio/AudioEngine';
+import { AmbienceDirector, MusicDirector } from '../audio/Music';
+import { CampLayout } from '../content/zones';
 import { CaveLayout, IceShore, TeaserWalls, type Vec2 } from '../content/zones';
 import { Cave } from '../systems/Cave';
 import { Camp } from '../systems/Camp';
@@ -125,6 +127,8 @@ export class Game {
   private readonly story: Story;
   private readonly journal: Journal;
   private readonly goods = new GoodsRenderer();
+  private readonly music = new MusicDirector();
+  private readonly ambience = new AmbienceDirector();
   private readonly offline: OfflinePanel;
   private readonly codex: Codex;
   private readonly orderPanel: OrderPanel;
@@ -160,6 +164,10 @@ export class Game {
       overlay,
       () => this.openCreator('edit'),
       (key) => this.applyPref(key),
+      (final) => {
+        audio.configure(this.state.prefs.audio);
+        if (final) this.save();
+      },
     );
     this.hud = new HUD(
       overlay,
@@ -425,6 +433,7 @@ export class Game {
     this.story.update(dt, elapsed);
     this.board.update(dt, locked);
     this.updateCodex(dt);
+    this.updateSound(dt);
     this.sleep.update(dt);
 
     this.updateDay(dt);
@@ -520,6 +529,27 @@ export class Game {
       }
     });
     return best;
+  }
+
+  /** Music mood and ambience follow the time of day, the place and what happens (GDD §21). */
+  private updateSound(dt: number): void {
+    const p = this.player.state;
+    const inside = (a: { minX: number; maxX: number; minZ: number; maxZ: number }) => p.x > a.minX && p.x < a.maxX && p.z > a.minZ && p.z < a.maxZ;
+    const part = this.day.part;
+    const place = inside(CaveLayout.area) ? 'cave' : inside(CampLayout.land) ? 'camp' : 'shore';
+    this.music.setMood({
+      time: part === 'night' ? 'night' : part === 'evening' ? 'evening' : 'day',
+      aurora: this.day.auroraActive,
+      place,
+      tension: this.threats.sleepBlocker() !== null,
+      sleeping: this.sleep.active,
+    });
+    this.music.update(dt);
+    // Waves: distance to the open water (north and east of the shore, around the camp; none in the cave).
+    const g = IceShore.ground;
+    const c = CampLayout.land;
+    const sea = place === 'cave' ? 99 : place === 'camp' ? Math.min(p.z - c.minZ, c.maxX - p.x, c.maxZ - p.z) : Math.min(p.z - g.minZ, g.maxX - p.x);
+    this.ambience.update(dt, { storm: this.day.stormActive, night: this.day.isNight, seaDistance: sea });
   }
 
   /** Rare bait runs down while playing; collection rewards are handed out once (GDD §19). */

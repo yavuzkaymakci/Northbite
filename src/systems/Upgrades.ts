@@ -1,7 +1,7 @@
-import { TimeOfDay } from '../content/time';
 import { scaledPrice } from '../content/tuning';
 import { UpgradeById, UpgradeCostGrowth, UpgradeMaxLevel, type UpgradeId } from '../content/upgrades';
 import type { GameState } from '../core/GameState';
+import { restedBuff, saleBonuses } from './Rest';
 
 /** Effect value of an upgrade at a level (1..5). */
 export function upgradeValue(id: UpgradeId, level: number): number {
@@ -45,21 +45,23 @@ export const NO_MODS: FishingMods = { lineStrength: 1, reelSpeed: 1, bigFishWeig
 
 export function fishingMods(state: GameState, env: FishingEnv = DAY_ENV): FishingMods {
   const u = state.upgrades;
+  const rested = restedBuff(state);
   return {
     lineStrength: upgradeValue('line', u.line),
-    reelSpeed: upgradeValue('reel', u.reel),
-    bigFishWeight: upgradeValue('bait', u.bait) * env.rareBonus,
+    reelSpeed: upgradeValue('reel', u.reel) * (1 + rested.reel),
+    bigFishWeight: upgradeValue('bait', u.bait) * env.rareBonus * (1 + rested.rare),
     baitLevel: u.bait,
     night: env.night,
     aurora: env.aurora,
   };
 }
 
-/** Sale value multiplier from timed buffs (aurora). */
+/** Sale value multiplier from timed buffs (aurora, well rested), capped; peace tips come on top (Rest.payout). */
 export function saleMultiplier(state: GameState): number {
-  return 1 + (state.buffs.aurora > 0 ? TimeOfDay.aurora.saleBonus : 0);
+  return 1 + saleBonuses(state).buff;
 }
 
+/** Backpack level plus the "well rested" bonus. */
 export function carryCapacity(state: GameState): number {
-  return upgradeValue('backpack', state.upgrades.backpack);
+  return upgradeValue('backpack', state.upgrades.backpack) + restedBuff(state).carry;
 }

@@ -17,6 +17,8 @@ export interface Flight<T> {
   payload: T;
   /** Current position (filled by update). */
   pos: THREE.Vector3;
+  /** Drawn as a tip coin (coin flights only). */
+  tip?: boolean;
 }
 
 /** A list of arcing flights (fish to counter, coins to player...). Visual only; game state changes elsewhere. */

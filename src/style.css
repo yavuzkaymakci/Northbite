@@ -1333,3 +1333,105 @@ body {
   padding: 5px;
   background: conic-gradient(var(--snow) calc(var(--p, 0) * 360deg), color-mix(in srgb, var(--ui-ink) 55%, transparent) 0);
 }
+
+/* ---------- Igloo, sleep and peace (GDD §14) ---------- */
+
+/* Chips under the coin counter: day, torches, "well rested". */
+.hud-chips {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 66px);
+  left: calc(env(safe-area-inset-left) + 16px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  pointer-events: none;
+}
+.hud-chips > .hud-day,
+.hud-chips > .hud-torch {
+  position: static;
+}
+
+.hud-rested {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px 2px 5px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--snow);
+  background: color-mix(in srgb, var(--bed-ring) 70%, var(--ui-ink));
+}
+.hud-rested.hidden {
+  display: none;
+}
+.hud-rested svg {
+  width: 18px;
+  height: 18px;
+  color: var(--snow);
+}
+
+.bed-label {
+  translate: -50% -100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  color: var(--snow);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--bed-ring) 85%, transparent) calc(var(--p, 0) * 100%), transparent 0),
+    color-mix(in srgb, var(--ui-ink) 72%, transparent);
+}
+.bed-label .bed-peace {
+  font-size: 12px;
+  color: var(--aurora-green);
+}
+.bed-label.night .bed-text {
+  color: var(--coin);
+}
+
+.sleep-fade {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: var(--sleep-fade);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 40;
+}
+.sleep-fade.on {
+  display: grid;
+}
+.sleep-fade .zzz {
+  font-size: 44px;
+  font-weight: 900;
+  color: var(--moon);
+}
+.sleep-fade .zzz span {
+  display: inline-block;
+  animation: zzz-float 1.2s ease-in-out infinite;
+}
+.sleep-fade .zzz span:nth-child(2) {
+  font-size: 0.75em;
+  animation-delay: 0.2s;
+}
+.sleep-fade .zzz span:nth-child(3) {
+  font-size: 0.55em;
+  animation-delay: 0.4s;
+}
+@keyframes zzz-float {
+  0%,
+  100% {
+    translate: 0 6px;
+    opacity: 0.5;
+  }
+  50% {
+    translate: 0 -10px;
+    opacity: 1;
+  }
+}

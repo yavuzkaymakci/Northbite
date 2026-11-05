@@ -5,6 +5,8 @@ export const Tuning = {
   priceScale: 1,
   /** 0 = no threats at all, 1 = normal. Multiplies threat frequency. */
   threatScale: 1,
+  /** Upper limit of all sale bonuses added together (aurora, well rested, peace tips). */
+  saleBonusCap: 0.3,
 };
 
 /** A price after `priceScale` (never below 1). */

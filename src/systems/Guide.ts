@@ -28,6 +28,8 @@ export class Guide {
     private readonly unlocks: Unlocks,
     private readonly bench: RodBench,
     private readonly paused: () => boolean,
+    /** The bed, while the one-time "go to bed" hint is on (night); null otherwise. */
+    private readonly bed: () => { x: number; z: number } | null,
   ) {
     this.arrow = createGuideArrow();
     this.arrow.visible = false;
@@ -46,6 +48,8 @@ export class Guide {
     const s = this.state;
     if (this.stack.isFull) return C.dropPoint;
     if (this.fishingActive()) return null;
+    const bed = this.bed();
+    if (bed) return bed;
 
     // Threat buildings are optional extras: the arrow never sends the player to them.
     const spots = [...this.unlocks.visible].filter((sp) => !sp.zone?.optional).sort((a, b) => this.unlocks.remaining(a) - this.unlocks.remaining(b));

@@ -1,11 +1,16 @@
 import * as THREE from 'three';
 import { CreatorFeel, DayFeel, SaveSettings } from '../settings';
 import { Atmosphere } from '../render/Atmosphere';
-import { DayCycle } from '../systems/DayCycle';
+import { DayCycle, type DayEvents } from '../systems/DayCycle';
+import { Decorations } from '../systems/Decorations';
+import { Igloo } from '../systems/Igloo';
+import { applyComfortUnlock, canSleepAt, peaceScore, restedLeft, wakeRested } from '../systems/Rest';
+import { SleepSequence } from '../systems/SleepSequence';
 import { Banner } from '../ui/Banner';
 import { DaySummary } from '../ui/DaySummary';
 import { defaultAppearance, type Appearance } from '../content/appearance';
-import { t } from '../content/strings';
+import { Sleep } from '../content/igloo';
+import { t, tf } from '../content/strings';
 import { IceShore, TeaserWalls } from '../content/zones';
 import { Player } from '../entities/Player';
 import { CameraRig } from '../render/CameraRig';
@@ -95,6 +100,9 @@ export class Game {
   private readonly bench: RodBench;
   private readonly guide: Guide;
   private readonly threats: Threats;
+  private readonly igloo: Igloo;
+  private readonly decorations: Decorations;
+  private readonly sleep: SleepSequence;
 
   private running = false;
   private rafId = 0;
@@ -110,10 +118,11 @@ export class Game {
 
     this.labels = new WorldLabels(overlay);
     this.settings = new SettingsPanel(overlay, () => this.openCreator('edit'));
-    this.hud = new HUD(overlay, () => this.settings.open(this.appearance.name));
+    this.hud = new HUD(overlay, () => this.settings.open(this.appearance.name, peaceScore(this.state)));
     this.joystick = new Joystick(overlay);
     this.input = new Input(this.joystick);
     this.creator = new CharacterCreator(container, this.renderer.canvas);
+    this.sleep = new SleepSequence(container);
     this.fader = document.createElement('div');
     this.fader.className = 'fader';
     this.fader.style.setProperty('--fade-ms', `${CreatorFeel.fadeMs}ms`);
@@ -138,6 +147,8 @@ export class Game {
     const spawn = save?.player ?? { ...IceShore.playerSpawn, heading: 0 };
     this.player = new Player(this.appearance, spawn.x, spawn.z, spawn.heading);
     this.scene.add(this.player.object);
+    this.igloo = new Igloo(this.scene, s, this.player, this.world, this.fx, this.rig, this.labels, this.appear);
+    this.decorations = new Decorations(this.scene, s, this.world, this.fx, this.appear);
 
     this.snow = new Snowfall();
     this.intro = new IntroSequence(this.rig, this.snow, this.player, this.labels);
@@ -199,7 +210,8 @@ export class Game {
       () => this.fishing.active,
       this.unlocks,
       this.bench,
-      () => this.regionOpening.active || this.intro.active,
+      () => this.regionOpening.active || this.intro.active || this.sleep.active,
+      () => (this.sleepHintActive ? IceShore.bed : null),
     );
     for (const tw of TeaserWalls) {
       const sign = this.labels.create('teaser-sign', t('comingSoon'));
@@ -294,8 +306,8 @@ export class Game {
   };
 
   private update(dt: number, elapsed: number): void {
-    // The region camera tour and the first-start intro lock the joystick.
-    const locked = this.regionOpening.active || this.intro.active;
+    // The region camera tour, the first-start intro and falling asleep lock the joystick.
+    const locked = this.regionOpening.active || this.intro.active || this.sleep.active;
     this.router.enabled = !locked;
     this.input.update();
     const move = locked ? NO_MOVE : this.input.move;
@@ -321,6 +333,8 @@ export class Game {
       night: this.day.isNight,
       fishing: this.fishing.active,
     });
+    if (this.igloo.update(dt, elapsed, locked, () => this.threats.sleepBlocker())) this.fallAsleep();
+    this.sleep.update(dt);
 
     this.updateDay(dt);
     this.intro.update(dt);
@@ -340,7 +354,7 @@ export class Game {
     this.net.render(this.fishRenderer);
     this.smoker.render(this.fishRenderer);
     this.workers.render(this.fishRenderer);
-    this.threats.render(this.fishRenderer, elapsed);
+    this.threats.render(this.fishRenderer, elapsed, (flames) => this.igloo.addFlames(flames, elapsed));
     this.fishRenderer.end();
 
     this.coinRenderer.begin();
@@ -349,6 +363,8 @@ export class Game {
 
     this.hud.setCoinTarget(this.coins.walletDisplay);
     this.hud.setTorches(this.threats.buildings.isBuilt('torchStand') ? this.state.threats.torches : -1);
+    const left = restedLeft(this.state);
+    this.hud.setRested(left > 0 ? (this.state.rested?.quality ?? 0) : 0, Math.ceil((left * DayFeel.dayLength[DayFeel.defaultLength]) / 60));
     this.hud.update(dt);
     this.labels.update(this.rig.camera, this.renderer.width, this.renderer.height);
     this.threats.updateArrow(this.rig.camera, this.renderer.width, this.renderer.height);
@@ -360,21 +376,55 @@ export class Game {
     }
   }
 
-  /** Clock, day summary at dawn, storm and nightfall notices (GDD §12). */
+  /** Clock, day summary at dawn, storm and nightfall notices (GDD §12), the one-time bed hint (GDD §14). */
   private updateDay(dt: number): void {
-    const ev = this.day.update(dt);
+    // The clock stands still while the screen is dark (the jump happens in fallAsleep).
+    if (!this.sleep.active) this.dayEvents(this.day.update(dt));
+    const night = this.day.isNight;
+    if (night && !this.wasNight) this.banner.show(t('nightFalls'), 'info');
+    this.wasNight = night;
+    const s = this.state.sleep;
+    if (!s.hintDone && s.hintDay !== this.day.day && canSleepAt(this.day.t) && this.state.stats.sold > 0) {
+      s.hintDay = this.day.day;
+      this.banner.show(t('sleepHint'), 'info', 5);
+    }
+    this.hud.setDay(this.day.day, night);
+    this.banner.update(dt);
+    this.summary.update(dt);
+  }
+
+  private dayEvents(ev: DayEvents): void {
     if (ev.dayEnded) {
-      this.summary.show(ev.dayEnded.day, ev.dayEnded.totals, null);
+      // The summary's sleep line shows whether the night that just ended was slept through.
+      const slept = this.state.sleep.lastDay === this.day.day && this.state.rested;
+      this.summary.show(ev.dayEnded.day, ev.dayEnded.totals, slept ? tf('summaryRested', { n: slept.quality }) : null);
       this.save();
     }
     if (ev.stormWarning) this.banner.show(t('stormWarning'), 'warn', 6);
     if (ev.stormEnded) this.banner.show(t('stormOver'), 'info');
-    const night = this.day.isNight;
-    if (night && !this.wasNight) this.banner.show(t('nightFalls'), 'info');
-    this.wasNight = night;
-    this.hud.setDay(this.day.day, night);
-    this.banner.update(dt);
-    this.summary.update(dt);
+  }
+
+  /** The bed hint points the guide arrow at the bed on its night, until the player has slept once. */
+  private get sleepHintActive(): boolean {
+    const s = this.state.sleep;
+    return !s.hintDone && s.hintDay === this.day.day && canSleepAt(this.day.t);
+  }
+
+  /**
+   * Sleep (GDD §14): fade out, then while dark: threats end, the clock jumps to morning (the day rolls over as
+   * usual, so the summary card shows), the "well rested" buff starts. Stations do not work through the skipped night.
+   */
+  private fallAsleep(): void {
+    this.input.reset();
+    this.sleep.start(() => {
+      this.threats.cancelForSleep();
+      const ev = this.day.skipTo(Sleep.wakeAt);
+      wakeRested(this.state);
+      this.dayEvents(ev);
+      this.wasNight = false;
+      this.banner.show(tf('restedBanner', { q: this.state.rested?.quality ?? 1 }), 'good', 4);
+      this.save();
+    });
   }
 
   private onUnlock(spot: UnlockSpot): void {
@@ -384,6 +434,14 @@ export class Game {
     for (const e of spot.zone?.effects ?? []) {
       if (e.kind === 'worker') this.workers.add();
       else if (e.kind === 'building') this.threats.build(e.building, true);
+      else if (e.kind === 'igloo') {
+        applyComfortUnlock(this.state, e);
+        this.igloo.upgrade(e.level);
+        this.banner.show(tf('iglooUpgraded', { n: e.level }), 'good');
+      } else if (e.kind === 'decoration') {
+        applyComfortUnlock(this.state, e);
+        this.decorations.build(e.decoration, true);
+      }
       else if (e.station === 'net') this.net.build(true);
       else if (e.station === 'hut') this.world.buildHut(this.appear);
       else if (e.station === 'smokehouse') this.smoker.build(true);

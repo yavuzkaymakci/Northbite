@@ -1,3 +1,4 @@
+import { DecorationList } from '../content/decorations';
 import { FishById, type FishId } from '../content/fish';
 import { UpgradeList, UpgradeMaxLevel } from '../content/upgrades';
 import { SaveSettings } from '../settings';
@@ -38,7 +39,8 @@ const migrations: Record<number, (s: AnySave) => AnySave> = {
     const g = (s.game ?? {}) as Obj;
     return { ...s, saveVersion: 3, game: { ...g, carried: addKind(g.carried), counter: addKind(g.counter) } };
   },
-  // v3 (Demo 2/3): no clock, day totals, buffs or threat gear. sanitizeGame fills them (day 1, mid-morning).
+  // v3 (Demo 2/3): no clock, day totals, buffs, threat gear, igloo level or sleep. sanitizeGame fills them
+  // (day 1, mid-morning, igloo level 1, not rested). v4 saves from earlier Demo 4 stages get the same defaults.
   3: (s) => ({ ...s, saveVersion: 4 }),
 };
 
@@ -69,6 +71,12 @@ function sanitizeGame(raw: unknown): GameState {
   const today = (g.today ?? {}) as Partial<Record<string, unknown>>;
   const buffs = (g.buffs ?? {}) as Partial<Record<string, unknown>>;
   const threats = (g.threats ?? {}) as Partial<Record<string, unknown>>;
+  const rested = (g.rested ?? null) as Partial<Record<string, unknown>> | null;
+  const sleep = (g.sleep ?? {}) as Partial<Record<string, unknown>>;
+  const unlocked = stringList(g.unlocked);
+  // The igloo level also follows from the upgrade frames already paid (older saves have no field).
+  let igloo = Math.floor(num(g.iglooLevel, 1));
+  for (const lv of [2, 3, 4]) if (unlocked.includes(`igloo${lv}`)) igloo = Math.max(igloo, lv);
   const upgrades = { ...base.upgrades };
   const rawUp = (g.upgrades ?? {}) as Partial<Record<string, unknown>>;
   for (const u of UpgradeList) {
@@ -84,7 +92,7 @@ function sanitizeGame(raw: unknown): GameState {
     pile: num(g.pile, 0),
     carried: fishList(g.carried),
     counter: fishList(g.counter),
-    unlocked: stringList(g.unlocked),
+    unlocked,
     regions: stringList(g.regions),
     unlockPaid: g.unlockPaid && typeof g.unlockPaid === 'object' ? { ...(g.unlockPaid as Record<string, number>) } : {},
     basket: fishList(g.basket),
@@ -108,6 +116,14 @@ function sanitizeGame(raw: unknown): GameState {
       bait: isFishItem(threats.bait) && threats.bait.kind === 'raw' ? threats.bait : null,
       fur: Math.floor(num(threats.fur, 0)),
     },
+    iglooLevel: Math.min(Math.max(igloo, 1), 4),
+    // Paid decoration frames are the source of truth (a missing list is rebuilt from them).
+    decorations: DecorationList.map((d) => d.id as string).filter((id) => unlocked.includes(id)),
+    rested:
+      rested && typeof rested.quality === 'number' && typeof rested.until === 'number'
+        ? { quality: Math.min(Math.max(Math.floor(rested.quality), 1), 4), until: rested.until }
+        : null,
+    sleep: { lastDay: num(sleep.lastDay, 0), hintDay: num(sleep.hintDay, 0), hintDone: sleep.hintDone === true },
   };
 }
 

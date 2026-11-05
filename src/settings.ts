@@ -117,6 +117,9 @@ export const HapticsSettings = {
   avalancheRumble: [180, 80, 260] as number[],
   dig: 12,
   chest: [40, 40, 140] as number[],
+  iglooUpgrade: [90, 60, 90, 60, 260] as number[],
+  sleep: [30, 80, 30] as number[],
+  decoration: [40, 40, 100] as number[],
 } as const;
 
 export const CarryFeel = {
@@ -268,6 +271,21 @@ export const ThreatFeel = {
   digShake: 0.04,
   chestOpenRadius: 1.1,
   rewardDelay: 0.35,
+} as const;
+
+/** Igloo upgrade, bed ring and sleep feel (GDD §14). Balance values live in content/igloo.ts. */
+export const SleepFeel = {
+  /** Stand in the bed ring this long to fall asleep. */
+  holdTime: 1.5,
+  fadeOut: 1.0,
+  /** Dark screen with "Zzz" while the clock jumps. */
+  darkTime: 1.2,
+  fadeIn: 1.0,
+  /** The bed label (peace, "night only") shows within this distance. */
+  labelRange: 3.2,
+  chimneyInterval: 0.9,
+  upgradeShake: 0.3,
+  upgradePuffs: 14,
 } as const;
 
 /**

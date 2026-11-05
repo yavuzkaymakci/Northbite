@@ -5,6 +5,7 @@ import { onTap } from './tap';
 export class SettingsPanel {
   private readonly root: HTMLDivElement;
   private readonly nameEl: HTMLElement;
+  private readonly peaceEl: HTMLElement;
   private openValue = false;
 
   constructor(
@@ -17,10 +18,12 @@ export class SettingsPanel {
       <div class="settings-card">
         <div class="settings-title">${t('settingsTitle')}</div>
         <div class="settings-row"><span>${t('settingsCharacter')}</span><b class="settings-name"></b></div>
+        <div class="settings-row"><span>${t('settingsPeace')}</span><b class="settings-peace"></b></div>
         <button class="settings-btn primary">${t('settingsEditCharacter')}</button>
         <button class="settings-btn close">${t('creatorClose')}</button>
       </div>`;
     this.nameEl = this.root.querySelector('.settings-name') as HTMLElement;
+    this.peaceEl = this.root.querySelector('.settings-peace') as HTMLElement;
     const card = this.root.querySelector('.settings-card') as HTMLElement;
     card.addEventListener('pointerdown', (e) => e.stopPropagation());
     onTap(this.root.querySelector('.settings-btn.primary') as HTMLElement, () => {
@@ -39,8 +42,9 @@ export class SettingsPanel {
     return this.openValue;
   }
 
-  open(name: string): void {
+  open(name: string, peace: number): void {
     this.nameEl.textContent = displayName(name);
+    this.peaceEl.textContent = String(peace);
     this.openValue = true;
     this.root.classList.add('open');
   }

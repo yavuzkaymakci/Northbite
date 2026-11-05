@@ -57,6 +57,14 @@ export interface GameState {
   buffs: { aurora: number };
   /** What threat buildings hold (GDD §13). A bear or avalanche in progress is never saved. */
   threats: ThreatGear;
+  /** Igloo level 1..4 (GDD §14). */
+  iglooLevel: number;
+  /** Decorations bought (ids from content/decorations.ts). */
+  decorations: string[];
+  /** "Well rested" buff: sleep quality and when it ends, in game days (`day - 1 + t`); null = none. */
+  rested: { quality: number; until: number } | null;
+  /** Last day the player woke up rested, the night the bed hint was last shown, and whether it is retired. */
+  sleep: { lastDay: number; hintDay: number; hintDone: boolean };
 }
 
 export interface ThreatGear {
@@ -93,6 +101,10 @@ export function createGameState(): GameState {
     today: { coins: 0, caught: 0, sold: 0 },
     buffs: { aurora: 0 },
     threats: { torches: 0, bait: null, fur: 0 },
+    iglooLevel: 1,
+    decorations: [],
+    rested: null,
+    sleep: { lastDay: 0, hintDay: 0, hintDone: false },
   };
 }
 

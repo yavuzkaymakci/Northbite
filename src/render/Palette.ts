@@ -127,6 +127,13 @@ export const Palette = {
   slopeRock: 0x7f8e9c,
   threatArrow: 0xe2504c,
 
+  // Igloo, sleep and decorations (GDD §14)
+  rug: 0xb5473f,
+  bedRing: 0x9b8cff,
+  glassRoof: 0x9fe8ff,
+  tipCoin: 0x5ff2b0,
+  sleepFade: 0x0b1430,
+
   // Character creator stage
   creatorSkyTop: 0x1f3c5c,
   creatorSkyLow: 0xd6e8f2,

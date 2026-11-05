@@ -192,8 +192,8 @@ Değerler `src/content/` altında: `economy.ts` (oyuncu, tezgâh, müşteri, aç
 | 2. buz deliği | 25 | ~2 dk | 2:11 |
 | Balık ağı | 35 | ~4 dk | 4:01 |
 | Penguen kulübesi (1. penguen) | 65 | ~6 dk | 6:32 |
-| Buz duvarı → Tütsühane bölgesi | 140 | ~10 dk | 9:48 |
-| Tütsühane | 160 | 12–15 dk | 14:23 |
+| Buz duvarı → Tütsühane bölgesi | 125 (Demo 4: 140 → 125) | ~10 dk | 10:57 |
+| Tütsühane | 150 (Demo 4: 160 → 150) | 12–15 dk | 14:38 |
 | 3. buz deliği | 220 | 15+ dk | 19:09 |
 | 2. penguen (tütsühaneden sonra) | 300 | 15+ dk | 23:58 |
 
@@ -381,6 +381,17 @@ Her demo **telefondan açılabilen bir link** ile biter.
   Uyku zorunlu değildir, yalnızca ödüldür; uyumamanın cezası yoktur. Bonus gün özetinde görünür.
 - **Yapılar** (kilit alanıyla, `content/buildings.ts`): ateş çukuru, gözetleme kulesi, kar çiti, meşale tezgâhı; dekorasyon (bayrak direği, fener direkleri, kızak, balık kurutma askısı) "huzur" puanı verir. Hepsi kodla üretilir, ışıklı olanlar gece parlar, bounce ve kar tozuyla yükselir.
 
+**Uygulama (Demo 4 aşama 3):**
+- Sayılar `content/igloo.ts` (seviyeler, buff tablosu, uyku saatleri, huzur/bahşiş) ve `content/decorations.ts`; fiyatlar `Economy.unlocks` üzerinden `priceScale`'den geçer. His ayarları `settings.ts` → `SleepFeel`. Saf kurallar `systems/Rest.ts` (oyun ve simülasyon ortak).
+- **İglo yükseltmesi:** İglonun doğusundaki tek kilit alanı; iglo 2 = 60 (penguen kulübesinden sonra), iglo 3 = 150 (tütsühaneden sonra), iglo 4 = 500 (iglo 3 ve 3. delikten sonra). Her seviyede kubbe büyür (2.3 → 2.75), çarpışma yeniden kurulur. 2: kapıda ahşap çerçeve, sobalı baca dumanı. 3: buz blok süsü, pencere ışıkları. 4: kuzey ışığı renginde parlayan cam çatı, taş baca, kapı fenerleri.
+- **Yatak halkası:** Kapının önünde, dışarıda (iç mekân yok). Yatak köşesi seviyeyle değişir: kürk yatak → soba (2) → halı ve lamba (3) → şömine (4, titreşen ateş). Halkanın üstünde "Huzur: N" ve durum ("Uyu" / "Gece uyunur" / engel nedeni) yazar.
+- **Uyku:** Günün %64'ünden (akşamın sonu) sabaha kadar. 1.5 sn halkada durunca ~1 sn kararma ve "Zzz" görünür. Karanlıkta tehditler biter, saat sabaha (gün %3) atlar, gün dönümü ve "Gün N özeti" normal işler, ardından ekran aydınlanır. Ayı uyarısı ya da ayı yaklaşırken, ayrıca çığ uyarısında uyunamaz. Atlanan gecede istasyonlar çalışmaz.
+- **İyi dinlenmiş:** Uyanılan günün sonuna kadar geçerlidir; HUD'da kalite ve kalan dakika gösterilir. Satış bonusları (aurora + dinlenmiş + bahşiş) toplanır ve `Tuning.saleBonusCap` = %30'u aşamaz.
+- **Dekorasyonlar** (sabit yerler, tütsühaneden sonra açılır): bayrak direği 20, kar adamı 30, paspas 15 (iglo 3'ten sonra), kızak 40, fener direkleri (2 adet) 60, kurutma askısı (lambalı) 80, buz heykeli 100 (iglo 4'ten sonra). Huzur puanı 1–4 arası. Fenerler ve askı lambası gece parlar.
+- **Huzur → bahşiş:** Puan başına satışın %0.25'i, en fazla %5. Bahşiş coin'i nane yeşilidir ve yığının üstünde parlar. `peaceScore` (`systems/Rest.ts`) aşama 4'teki kaplıca kampı için hazırdır.
+- **Rehber ok:** İglo ve dekorasyon çerçevelerini de gösterir (en ucuz karşılanabilir hedef kuralı korunur; tehdit yapıları yine gösterilmez). Satış yapılmış bir oyunda ilk gece "Dinlenmek için yatağa git" şeridi çıkar ve o gece ok yatağı gösterir. Oyuncu bir kez uyuyunca ipucu kalıcı olarak kapanır.
+- Simülasyon (`npm run sim`): iglo 2 ~7:40, iglo 3 ~19 dk, iglo 4 ~34 dk. Buff'ın kendi etkisi +%10 (hedef ≤ %12). Uyuyup buff almamak, atlanan geceler yüzünden %6–7 kaybettirir; buff'la net etki ~+%3. Yani uyku ödüldür, kısa yol değildir.
+
 ## 15. Araziler ve hikâye
 - **Arazi:** Tapu ile alınır: kilit alanı + hikâye ön koşulu. Her arazinin adı, amacı ve kendi mekaniği vardır.
   1. **Buz Mağarası** (yamaç tarafı): kazma fiili. Parlayan kristal damarının üstünde 2 sn basılı tutunca buz kristali çıkar, damar ~60 sn'de dolar. Kristal, mağara girişindeki "Kristal tezgâhı"nda "Buz heykelciği"ne işlenir ve Koleksiyoncu NPC'sine satılır. Koyu mavi-mor, titreşen ışıklı; ayı gelmez.
@@ -449,3 +460,13 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **Ayarlar paneli "Tehditler: Açık/Kapalı" anahtarı** aşama 5'e (ayarlar) kaldı; şimdilik yalnızca `threatScale`.
 - **Test anahtarı:** `settings.ts` → `DebugSettings.debugForceThreat` ('bear' / 'avalanche') tehditi açılıştan birkaç saniye sonra ve her bitişten 8 sn sonra yeniden başlatır. Commit'lerde 'off'.
 - **Çizim maliyeti:** Ayı ~7, yapılar birer, alevler / ayak izleri / kar yığınları birer InstancedMesh. Ölçülen en kalabalık sahne (ayı + kule + ateş çukuru + penguenler + müşteriler) ~106 draw call, ~28k üçgen.
+
+### Demo 4 aşama 3 (iglo, uyku, huzur) sırasında verilen geçici kararlar
+- **Fiyat dengesi:** Rehber en ucuz hedefi gösterdiği için dekorasyonlar tütsühaneden önce çıkınca ana ilerleme ~4 dk gecikiyordu. Dekorasyonlar tütsühaneden sonraya alındı ve ucuzladı (toplam ~345 coin). Erken iglo 2 (60) yüzünden bölge 140 → 125, tütsühane 160 → 150 oldu. 3. delik (~22 dk) ve 2. penguen (~28 dk) yeni içerik yüzünden önceki demodan ~4 dk geç açılıyor.
+- **Uyku saatleri:** Günün %64'ünden (akşamın son dakikası) gece yarısına kadar uyunur; uyanış günün %3'ü. Buff "o günün sonuna" kadar sürer (8 dk'lık günde ~7.8 dk).
+- **Engel:** Uyarı veya yaklaşma hâlindeki ayı ve çığ uyarısı uykuyu engeller. Kaçan ayı ya da düşmüş kar yığınları uykuyla temizlenir. Uyanınca yeni gün 90 sn sessiz başlar (oturum başı gibi).
+- **Bahşiş:** Kesirli bahşiş birikir ve 1 coin olunca ödenir (müşteriler arası, kaydedilmez).
+- **Yükseltme anı:** Oyuncu iglonun içinde kalırsa normal çarpışma adımı onu bir sonraki karede dışarı iter. Yeni çarpışma daireleri itmeyi merkezden dışa doğru yaptığı için oyuncu sıkışmaz.
+- **Kayıt (v4):** `iglooLevel`, `decorations` (açılan çerçevelerden yeniden kurulur), `rested` (kalite + bitiş oyun zamanı, gün cinsinden `day − 1 + t`), `sleep` (son uyanılan gün, ipucunun gösterildiği gece, ipucu kapandı mı). Eksik alanlar varsayılana döner: iglo 1, buff yok.
+- **Ayı tüyü** için kullanım hâlâ yok (huzura bağlanması aşama 4–5'te düşünülebilir).
+- **Çizim maliyeti:** İglo seviye 4 + bütün dekorasyonlar + gece ışıklarıyla ölçülen sahne ~99 draw call, ~28k üçgen.

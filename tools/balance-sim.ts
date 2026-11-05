@@ -14,7 +14,10 @@ import { smoke } from '../src/systems/Items';
 import { PathGraphNav } from '../src/systems/Pathfinding';
 import { ReelGame } from '../src/systems/ReelGame';
 import { NetLogic, SmokerLogic } from '../src/systems/StationLogic';
-import { carryCapacity, fishingMods, saleMultiplier, upgradeCost, type FishingMods } from '../src/systems/Upgrades';
+import { carryCapacity, fishingMods, upgradeCost, type FishingMods } from '../src/systems/Upgrades';
+import { Sleep } from '../src/content/igloo';
+import { SleepFeel } from '../src/settings';
+import { applyComfortUnlock, canSleepAt, payout, peaceScore, wakeRested } from '../src/systems/Rest';
 import { DayCycle } from '../src/systems/DayCycle';
 import { DayFeel } from '../src/settings';
 import { scaledPrice, Tuning } from '../src/content/tuning';
@@ -116,6 +119,8 @@ interface Options {
   endAt: number;
   /** How the bot treats bears and avalanches: 'active' answers every warning, 'ignore' never does, 'off' = no threats. */
   threats: 'active' | 'ignore' | 'off';
+  /** 'on' sleeps every night (well rested buff), 'noBuff' sleeps but gets no buff (only skips nights), default off. */
+  sleep?: 'on' | 'noBuff' | 'off';
 }
 
 interface ThreatStats {
@@ -139,6 +144,9 @@ interface Result {
   upgradesBought: Array<{ id: UpgradeId; level: number; t: number }>;
   idle?: { pileGain: number; sold: number; smokedSold: number };
   earned: number;
+  /** Peace tips paid (included in `earned`). */
+  tips: number;
+  nightsSlept: number;
   threat: ThreatStats;
 }
 
@@ -166,6 +174,8 @@ class Sim {
     firstSale: -1,
     upgradesBought: [],
     earned: 0,
+    tips: 0,
+    nightsSlept: 0,
     threat: { window: 0, earned: 0, bears: 0, blocked: 0, lostCoins: 0, maxLoss: 0, penguinHides: 0, scareCoins: 0, avalanches: 0, chestCoins: 0 },
   };
   private readonly director: ThreatDirector;
@@ -173,6 +183,7 @@ class Sim {
   /** Seconds the bot owes for answering a threat; paid after its current action. */
   private debt = 0;
   private debtPos: Vec2 | null = null;
+  private readonly tipCarry = { value: 0 };
   private readonly customers: Customer[] = [];
   private spawnTimer = 0.5;
   private net: NetLogic | null = null;
@@ -262,9 +273,11 @@ class Sim {
     const c = this.customers[0];
     if (!c || this.t < c.arriveAt) return;
     if (c.got >= c.want) {
-      const value = Math.round(c.bill * saleMultiplier(this.state));
+      const pay = payout(this.state, c.bill, this.tipCarry);
+      const value = pay.value + pay.tip;
       this.state.pile += value;
       this.result.earned += value;
+      this.result.tips += pay.tip;
       if (threatsUnlocked(this.state)) this.result.threat.earned += value;
       this.customers.shift();
       for (const n of this.customers) n.arriveAt = Math.max(n.arriveAt, this.t + C.queueSpacing / CustomerFeel.walkSpeed);
@@ -391,6 +404,21 @@ class Sim {
     this.advance(d);
   }
 
+  // ---------- sleep (GDD §14) ----------
+
+  /** Walks to the bed, sleeps: threats end, the clock jumps to morning (the town does not run meanwhile). */
+  goSleep(): void {
+    this.walkTo(IceShore.bed);
+    this.advance(SleepFeel.holdTime + SleepFeel.fadeOut);
+    this.threat = null;
+    this.director.rest(Threats.sessionGrace);
+    this.day.skipTo(Sleep.wakeAt);
+    if (this.opts.sleep === 'on') wakeRested(this.state);
+    else this.state.sleep.lastDay = this.state.clock.day;
+    this.result.nightsSlept++;
+    this.advance(SleepFeel.darkTime + SleepFeel.fadeIn);
+  }
+
   // ---------- player actions (each advances time) ----------
 
   walkTo(p: Vec2): void {
@@ -438,7 +466,8 @@ class Sim {
         const data = { carried: [] };
         this.state.workers.push(data);
         this.workers.push(new WorkerBrain(data, this.workers.length, home.x, home.z));
-      } else if (e.kind === 'station' && e.station === 'net') this.net = new NetLogic(this.state, this.rand);
+      } else if (e.kind === 'igloo' || e.kind === 'decoration') applyComfortUnlock(this.state, e);
+      else if (e.kind === 'station' && e.station === 'net') this.net = new NetLogic(this.state, this.rand);
       else if (e.kind === 'station' && e.station === 'smokehouse') this.smoker = new SmokerLogic(this.state);
     }
   }
@@ -544,6 +573,10 @@ class Sim {
     let idleDone = false;
     while (this.t < o.endAt) {
       this.payDebt();
+      if (o.sleep && o.sleep !== 'off' && canSleepAt(this.day.t)) {
+        this.goSleep();
+        continue;
+      }
       if (o.idleAfter && !idleDone && isDone(this.state, o.idleAfter)) {
         idleDone = true;
         const pile0 = this.state.pile;
@@ -593,7 +626,8 @@ const median = (xs: number[]) => {
 };
 
 const RUNS = Number(process.argv[2] ?? 12);
-const ORDER = ['hole2', 'net', 'hut', 'smokeYard', 'smokehouse', 'hole3', 'penguin2'];
+const ORDER = ['hole2', 'net', 'hut', 'smokeYard', 'smokehouse', 'hole3', 'penguin2', 'igloo2', 'igloo3', 'igloo4'];
+const DECOR = ['flagpole', 'doormat', 'snowman', 'sled', 'lanterns', 'dryingRack', 'iceSculpture'];
 const TARGET: Record<string, string> = {
   hole2: '~2 dk',
   net: '~4 dk',
@@ -602,11 +636,14 @@ const TARGET: Record<string, string> = {
   smokehouse: '12–15 dk',
   hole3: '15+ dk',
   penguin2: '15+ dk',
+  igloo2: '~8 dk',
+  igloo3: '~18 dk',
+  igloo4: '~32 dk',
 };
 
 function unlockTable(upgrades: boolean): void {
   const results: Result[] = [];
-  for (let i = 0; i < RUNS; i++) results.push(new Sim({ seed: 1000 + i, upgrades, endAt: 40 * 60, threats: 'active' }).run());
+  for (let i = 0; i < RUNS; i++) results.push(new Sim({ seed: 1000 + i, upgrades, endAt: 45 * 60, threats: 'active' }).run());
   console.log(`\n## Açılış süreleri — ${upgrades ? 'yükseltme alan bot' : 'yükseltme almayan bot'} (${RUNS} koşu, medyan [min–maks], oyun içi süre)`);
   console.log('| Açılış | Hedef | Medyan | Aralık |');
   console.log('|---|---|---|---|');
@@ -615,6 +652,8 @@ function unlockTable(upgrades: boolean): void {
     const ts = results.map((r) => r.unlocks[id]).filter((x): x is number => x !== undefined);
     console.log(`| ${id} | ${TARGET[id]} | ${fmt(median(ts))} | ${fmt(Math.min(...ts))}–${fmt(Math.max(...ts))} |`);
   }
+  const decor = DECOR.map((id) => `${id} ${fmt(median(results.map((r) => r.unlocks[id]).filter((x): x is number => x !== undefined))).trim()}`);
+  console.log('Dekorasyonlar (medyan): ' + decor.join(', '));
   if (upgrades) {
     const r = results[0] as Result;
     console.log('\nÖrnek koşuda alınan yükseltmeler: ' + r.upgradesBought.map((u) => `${u.id} Sv${u.level} @${fmt(u.t).trim()}`).join(', '));
@@ -634,6 +673,43 @@ function idleTest(after: string, label: string): void {
   }
   console.log(
     `| ${label} | ${median(gains)} coin | ${Math.min(...gains)}–${Math.max(...gains)} | ${median(sold)} balık (${median(smoked)} tütsü) |`,
+  );
+}
+
+/** Sleep and peace (GDD §14): what the "well rested" buff adds to income over the same real play time. */
+function sleepTable(): void {
+  const rows: Array<[string, 'off' | 'on' | 'noBuff']> = [
+    ['Uyumayan bot', 'off'],
+    ['Uyuyan bot, buff yok (yalnız gece atlar)', 'noBuff'],
+    ['Uyuyan bot, buff var', 'on'],
+  ];
+  const minutes = 60;
+  const totals: number[] = [];
+  console.log(`\n## Uyku ve huzur (${RUNS} koşu × ${minutes} dk gerçek oyun, yükseltme alan bot, tehditler aktif)`);
+  console.log('| Bot | Kazanç | Fark | Uyunan gece | Bahşiş | Huzur (son) |');
+  console.log('|---|---|---|---|---|---|');
+  for (const [label, sleep] of rows) {
+    let earned = 0;
+    let nights = 0;
+    let tips = 0;
+    let peace = 0;
+    for (let i = 0; i < RUNS; i++) {
+      const sim = new Sim({ seed: 4000 + i, upgrades: true, endAt: minutes * 60, threats: 'active', sleep });
+      const r = sim.run();
+      earned += r.earned;
+      nights += r.nightsSlept;
+      tips += r.tips;
+      peace += peaceScore(sim.state);
+    }
+    totals.push(earned);
+    const base = totals[0] as number;
+    const diff = totals.length === 1 ? '—' : `%${(((earned - base) / base) * 100).toFixed(1)}`;
+    console.log(`| ${label} | ${Math.round(earned / RUNS)} | ${diff} | ${(nights / RUNS).toFixed(1)} | ${Math.round(tips / RUNS)} | ${(peace / RUNS).toFixed(1)} |`);
+  }
+  const [off, noBuff, on] = totals as [number, number, number];
+  console.log(
+    `Buff'ın kendi etkisi (buff var / buff yok): %${(((on - noBuff) / noBuff) * 100).toFixed(1)} (hedef ≤ ~%12). ` +
+      `Uyumak buff'sız kazandırmaz (atlanan gecede istasyonlar çalışmaz); uyumayan bot ${Math.round(off / RUNS)} coin ile cezasız oynar.`,
   );
 }
 
@@ -774,6 +850,7 @@ if (process.argv[3] !== 'reel') {
   idleTest('hut', 'Ağ + 1. penguen açılınca');
   idleTest('smokehouse', 'Tütsühane açılınca');
   threatTable();
+  sleepTable();
 }
 reelTable();
 baitTable();

@@ -12,6 +12,8 @@ export class HUD {
   private readonly dayEl: HTMLDivElement;
   private readonly torchEl: HTMLDivElement;
   private lastTorches = -1;
+  private readonly restedEl: HTMLDivElement;
+  private lastRested = '';
   private lastDayKey = '';
   private frames = 0;
   private fpsTimer = 0;
@@ -54,7 +56,23 @@ export class HUD {
     this.dayEl.className = 'hud-day';
     this.torchEl = document.createElement('div');
     this.torchEl.className = 'hud-torch hidden';
-    overlay.append(bar, this.dayEl, this.torchEl, this.hintEl);
+    this.restedEl = document.createElement('div');
+    this.restedEl.className = 'hud-rested hidden';
+    // Small chips under the coin counter: day, torches, "well rested".
+    const chips = document.createElement('div');
+    chips.className = 'hud-chips';
+    chips.append(this.dayEl, this.torchEl, this.restedEl);
+    overlay.append(bar, chips, this.hintEl);
+  }
+
+  /** "Well rested" chip: quality and minutes left (quality 0 hides it). */
+  setRested(quality: number, minutes: number): void {
+    const key = `${quality}|${minutes}`;
+    if (key === this.lastRested) return;
+    this.lastRested = key;
+    this.restedEl.classList.toggle('hidden', quality <= 0);
+    if (quality <= 0) return;
+    this.restedEl.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 18v-7h2v4h14v-3a2 2 0 0 0-2-2h-6v5H9V9a2 2 0 0 0-2-2H5V5H3v13zm2-1h14v1H5zM7 10a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg><span>${tf('restedChip', { q: quality, m: minutes })}</span>`;
   }
 
   /** Torch count under the day pill once the torch stand exists (-1 hides it). */

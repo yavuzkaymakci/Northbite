@@ -119,6 +119,11 @@ export class Bear {
     return this.phase !== 'off';
   }
 
+  /** True from the warning until it has taken its share (sleeping is blocked meanwhile). */
+  get threatening(): boolean {
+    return this.phase === 'warning' || this.phase === 'approach' || this.phase === 'bait' || this.phase === 'sniff' || this.phase === 'grab';
+  }
+
   /** True while the warning runs (nothing on the map yet). */
   get warning(): boolean {
     return this.phase === 'warning';

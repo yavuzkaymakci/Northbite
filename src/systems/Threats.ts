@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { t } from '../content/strings';
+import { Threats as T } from '../content/threats';
 import type { BuildingId } from '../content/zones';
 import { DebugSettings } from '../settings';
 import type { GameState } from '../core/GameState';
@@ -89,6 +91,21 @@ export class Threats {
     return this.bear.active || this.avalanche.active;
   }
 
+  /** Why the player cannot sleep right now (a bear on its way, an avalanche warning), or null. */
+  sleepBlocker(): string | null {
+    if (this.bear.threatening) return t('sleepBlockedBear');
+    if (this.avalanche.warning) return t('sleepBlockedAvalanche');
+    return null;
+  }
+
+  /** Sleeping ends whatever is left (a bear running off, snow piles) and the new day starts quiet. */
+  cancelForSleep(): void {
+    this.bear.stop();
+    this.avalanche.stop();
+    this.wasActive = false;
+    this.director.rest(T.sessionGrace);
+  }
+
   build(id: BuildingId, animate: boolean): void {
     this.buildings.build(id, animate);
   }
@@ -115,9 +132,11 @@ export class Threats {
     this.torch.visible = this.bear.active && this.d.state.threats.torches > 0 && !input.fishing && !this.avalanche.digging;
   }
 
-  render(fish: FishRenderer, time: number): void {
+  /** `extraFlames` lets other systems (the igloo fireplace) draw into the shared flame mesh. */
+  render(fish: FishRenderer, time: number, extraFlames?: (flames: FlameRenderer) => void): void {
     this.flames.begin();
     this.buildings.render(fish, this.flames, time);
+    extraFlames?.(this.flames);
     if (this.torch.visible) {
       this.torch.updateWorldMatrix(true, false);
       this.v.set(0, HAND_TORCH_TIP, 0).applyMatrix4(this.torch.matrixWorld);

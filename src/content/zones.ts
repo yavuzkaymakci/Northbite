@@ -1,6 +1,7 @@
 // World layout data. Units are world units (~1 m). XZ plane, -Z is "north" (top of the screen).
 // North and east are sea; the Smokehouse yard lies west behind a tree belt, reached through an ice-walled pass.
 // West of the yard a snowy slope rises; avalanches come down it (GDD §13).
+import { DecorationList, type DecorationId } from './decorations';
 import type { UnlockCostKey } from './economy';
 
 export interface Vec2 {
@@ -21,7 +22,12 @@ export type StationId = 'net' | 'hut' | 'smokehouse';
 export type BuildingId = 'torchStand' | 'baitTrap' | 'firePit1' | 'firePit2' | 'firePit3' | 'snowFence' | 'watchtower';
 
 /** What an unlock does besides being marked as unlocked. Holes are listed in `IceShore.holes` instead. */
-export type UnlockEffect = { kind: 'station'; station: StationId } | { kind: 'worker' } | { kind: 'building'; building: BuildingId };
+export type UnlockEffect =
+  | { kind: 'station'; station: StationId }
+  | { kind: 'worker' }
+  | { kind: 'building'; building: BuildingId }
+  | { kind: 'igloo'; level: number }
+  | { kind: 'decoration'; decoration: DecorationId };
 
 export interface UnlockZoneDef {
   id: string;
@@ -60,7 +66,10 @@ export const IceShore = {
   /** In front of the igloo door (the first-start intro begins here). */
   playerSpawn: { x: -4, z: 0.9 } satisfies Vec2,
 
-  igloo: { x: -4, z: -4, radius: 2.3, tunnelLength: 1.6, tunnelWidth: 1.5 },
+  /** Igloo center; its size per level is in content/igloo.ts. The upgrade frame stands east of it. */
+  igloo: { x: -4, z: -4, radius: 2.3, tunnelLength: 1.6, tunnelWidth: 1.5, upgradeFrame: { x: -1.0, z: -6.8 } },
+  /** Bed ring in front of the igloo door (sleep), with the stove / fireplace (level 2+) and lamp (level 3+) beside it. */
+  bed: { x: -4, z: 1.45, radius: 0.85, stove: { x: -5.6, z: 1.5 }, lamp: { x: -2.6, z: 1.9 } },
 
   /** Ice fishing holes. `unlock` names the unlock zone that reveals it (none = open from the start). */
   holes: [
@@ -258,6 +267,29 @@ export const UnlockZones: readonly UnlockZoneDef[] = [
       requires,
       effects: [{ kind: 'building', building: id }],
       optional: true,
+    }),
+  ),
+  // Igloo upgrades (GDD §14): one frame next to the igloo, each level after the previous one.
+  ...([2, 3, 4] as const).map(
+    (level): UnlockZoneDef => ({
+      id: `igloo${level}`,
+      ...IceShore.igloo.upgradeFrame,
+      size: 2.0,
+      cost: `igloo${level}`,
+      requires: level === 2 ? ['hut'] : level === 3 ? ['igloo2', 'smokehouse'] : ['igloo3', 'hole3'],
+      effects: [{ kind: 'igloo', level }],
+    }),
+  ),
+  // Decorations: fixed spots, see content/decorations.ts.
+  ...DecorationList.map(
+    (d): UnlockZoneDef => ({
+      id: d.id,
+      x: d.at.x,
+      z: d.at.z,
+      size: d.frame,
+      cost: d.id,
+      requires: d.requires,
+      effects: [{ kind: 'decoration', decoration: d.id }],
     }),
   ),
 ];

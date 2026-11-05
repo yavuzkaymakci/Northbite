@@ -3,7 +3,7 @@ import { Economy } from '../content/economy';
 import { IceShore } from '../content/zones';
 import { CustomerFeel } from '../settings';
 import type { FishItem, GameState } from '../core/GameState';
-import { saleMultiplier } from './Upgrades';
+import { payout } from './Rest';
 import { seededRandom } from '../core/Random';
 import { animateCustomer, createCustomer, type CustomerModel } from '../models/createCustomer';
 import type { FishRenderer } from '../render/FishRenderer';
@@ -41,6 +41,8 @@ export class Customers {
   private readonly queue: Customer[] = [];
   private readonly fishFlights = new FlightList<{ item: FishItem; customer: Customer }>();
   private spawnTimer = 0.5;
+  /** Fractions of peace tips carried between sales. */
+  private readonly tipCarry = { value: 0 };
   private readonly rand = seededRandom(IceShore.customers.seed);
   private readonly from = new THREE.Vector3();
   private readonly to = new THREE.Vector3();
@@ -147,9 +149,9 @@ export class Customers {
   }
 
   private pay(c: Customer): void {
-    const value = Math.round(c.bill * saleMultiplier(this.state));
-    this.state.today.coins += value;
-    this.coins.payFrom(this.from.set(c.x, 1.1, c.z), value);
+    const pay = payout(this.state, c.bill, this.tipCarry);
+    this.state.today.coins += pay.value + pay.tip;
+    this.coins.payFrom(this.from.set(c.x, 1.1, c.z), pay.value, pay.tip);
     c.phase = 'leaving';
     this.queue.splice(this.queue.indexOf(c), 1);
     // Step aside first so the line behind is not walked through.

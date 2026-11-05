@@ -8,7 +8,6 @@ import { createRodBench } from '../models/createBench';
 import { createCounter } from '../models/createCounter';
 import { createFlatRingGeometry, createIceHole } from '../models/createFishingProps';
 import { createHut } from '../models/createHut';
-import { createIgloo, iglooTunnelStart } from '../models/createIgloo';
 import { createPierSilhouette, createSignPost } from '../models/createTeaser';
 import { createSlope } from '../models/createThreatProps';
 import { createLightPool, NightLights } from '../render/NightLights';
@@ -110,31 +109,7 @@ export class WorldMap implements Walkable {
     this.group.add(this.water.mesh);
     this.group.add(createShoreBlocks(this.buildShoreBlocks()));
 
-    // Igloo
-    const ig = Z.igloo;
-    const igloo = bake(createIgloo(ig.radius, ig.tunnelLength, ig.tunnelWidth));
-    igloo.position.set(ig.x, 0, ig.z);
-    this.group.add(igloo);
-    // Warm light in the doorway at night (GDD §12).
-    const doorZ = ig.z + iglooTunnelStart(ig.radius) + ig.tunnelLength;
-    const doorGlow = new THREE.Mesh(
-      new THREE.CylinderGeometry(ig.tunnelWidth * 0.34, ig.tunnelWidth * 0.34, 0.02, 8, 1, false, -Math.PI / 2, Math.PI),
-      NightLights.window,
-    );
-    doorGlow.rotation.x = -Math.PI / 2;
-    doorGlow.position.set(ig.x, 0, doorZ + 0.05);
-    const doorPool = createLightPool(2.6, 1.8);
-    doorPool.position.set(ig.x, 0.04, doorZ + 0.9);
-    this.group.add(doorGlow, doorPool);
-    this.colliders.push({ kind: 'circle', x: ig.x, z: ig.z, r: ig.radius * 0.97 });
-    const tunnelStart = iglooTunnelStart(ig.radius);
-    this.colliders.push({
-      kind: 'rect',
-      minX: ig.x - ig.tunnelWidth / 2,
-      maxX: ig.x + ig.tunnelWidth / 2,
-      minZ: ig.z + tunnelStart,
-      maxZ: ig.z + tunnelStart + ig.tunnelLength + 0.05,
-    });
+    // The igloo (its level, door light and collider) is built by systems/Igloo.ts.
 
     // Crates (rect colliders use the AABB of the slightly rotated box)
     for (const c of Z.crates) {

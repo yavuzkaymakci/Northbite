@@ -13,6 +13,13 @@ export const Economy = {
   counter: {
     capacity: 12,
   },
+  /** Offline earnings (GDD §18): share of the automated chain's income, and how many hours of absence count. */
+  offline: {
+    rate: 0.5,
+    capHours: 2,
+    /** Shorter absences give nothing (no "while you were away" window). */
+    minSeconds: 60,
+  },
   customers: {
     spawnIntervalMin: 3,
     spawnIntervalMax: 5,

@@ -18,6 +18,10 @@ import { Camp } from '../systems/Camp';
 import { Story } from '../systems/Story';
 import { GoodsRenderer } from '../render/GoodsRenderer';
 import { Journal, PageCard } from '../ui/Journal';
+import { OfflinePanel } from '../ui/OfflinePanel';
+import { Economy } from '../content/economy';
+import { applyOffline } from '../systems/Offline';
+import { offlineCapHours } from '../systems/StationUpgrades';
 import { Player } from '../entities/Player';
 import { CameraRig } from '../render/CameraRig';
 import { CoinRenderer } from '../render/CoinRenderer';
@@ -114,6 +118,7 @@ export class Game {
   private readonly story: Story;
   private readonly journal: Journal;
   private readonly goods = new GoodsRenderer();
+  private readonly offline: OfflinePanel;
 
   private running = false;
   private rafId = 0;
@@ -149,6 +154,7 @@ export class Game {
       () => this.journal.open(this.state.story.pages),
     );
     this.journal = new Journal(overlay);
+    this.offline = new OfflinePanel(overlay);
     this.joystick = new Joystick(overlay);
     this.input = new Input(this.joystick);
     this.creator = new CharacterCreator(container, this.renderer.canvas);
@@ -315,6 +321,7 @@ export class Game {
     if (this.running) return;
     this.running = true;
     this.time.reset();
+    this.checkOffline();
     this.rafId = requestAnimationFrame(this.frame);
   }
 
@@ -441,6 +448,7 @@ export class Game {
     this.hud.setDay(this.day.day, night);
     this.banner.update(dt);
     this.summary.update(dt);
+    this.offline.update(dt);
   }
 
   private dayEvents(ev: DayEvents): void {
@@ -498,6 +506,32 @@ export class Game {
     });
   }
 
+  /**
+   * Offline earnings (GDD §18), on start and when coming back from the background. The clock does not move while
+   * away. A clock set back (last seen in the future) gives nothing and is corrected; long absences hit the cap.
+   */
+  private checkOffline(): void {
+    const s = this.state;
+    if (!this.saveEnabled) return;
+    const now = Date.now();
+    const away = (now - s.lastSeenAt) / 1000;
+    if (s.lastSeenAt > 0 && away >= Economy.offline.minSeconds && !s.offlinePending) {
+      const r = applyOffline(s, away);
+      if (r.coins > 0) s.offlinePending = { coins: r.coins, seconds: r.seconds, capped: r.capped };
+    }
+    s.lastSeenAt = now;
+    const p = s.offlinePending;
+    if (p && !this.offline.isOpen) {
+      this.offline.show(p.coins, p.seconds, p.capped, offlineCapHours(s), () => {
+        // Straight into the wallet (the HUD counts up); the coin piles are not touched.
+        s.coins += p.coins;
+        s.offlinePending = null;
+        this.save();
+      });
+    }
+    this.save();
+  }
+
   /** A setting changed in the settings panel (the prefs object is already updated). */
   private applyPref(key: keyof GameState['prefs']): void {
     const p = this.state.prefs;
@@ -538,6 +572,7 @@ export class Game {
     if (!this.saveEnabled) return;
     const p = this.player.state;
     const s = this.state;
+    s.lastSeenAt = Date.now();
     const data: SaveData = {
       saveVersion: SAVE_VERSION,
       savedAt: Date.now(),

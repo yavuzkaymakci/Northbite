@@ -311,6 +311,13 @@ export const LandFeel = {
   cardMinTime: 0.6,
 } as const;
 
+/** "While you were away" window (GDD §18). Balance values live in content/economy.ts → offline. */
+export const OfflineFeel = {
+  countUpTime: 1.4,
+  /** Placeholder for a future rewarded ad ("x2"); hidden until ads exist. */
+  showOfflineBoost: false,
+} as const;
+
 /**
  * Temporary test switch: 'bear' or 'avalanche' starts that threat a few seconds after loading (and again after each
  * one ends), ignoring play time, the smokehouse requirement and threatScale. Keep it 'off' in commits.

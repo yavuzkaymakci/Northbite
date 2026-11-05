@@ -1657,3 +1657,73 @@ body {
   max-height: calc(100% - 32px);
   overflow-y: auto;
 }
+
+/* ---------- "While you were away" (GDD §18) ---------- */
+.offline-backdrop {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--ui-ink) 50%, transparent);
+  pointer-events: auto;
+  z-index: 30;
+}
+.offline-backdrop.open {
+  display: grid;
+}
+.offline-card {
+  width: min(340px, 100%);
+  padding: 22px 20px 18px;
+  border-radius: 20px;
+  text-align: center;
+  color: var(--ui-ink);
+  background: var(--panel-bg);
+  animation: label-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.offline-title {
+  font-size: 22px;
+  font-weight: 900;
+}
+.offline-away,
+.offline-cap {
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--panel-muted);
+}
+.offline-coins {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 4px;
+  font-size: 40px;
+  font-weight: 900;
+}
+.offline-coins .coin-icon {
+  width: 34px;
+  height: 34px;
+}
+.offline-collect,
+.offline-boost {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 16px;
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--snow);
+  background: var(--buy);
+}
+.offline-boost {
+  min-height: 48px;
+  margin-top: 8px;
+  font-size: 16px;
+  background: var(--aurora-purple);
+}
+.offline-boost[hidden] {
+  display: none;
+}

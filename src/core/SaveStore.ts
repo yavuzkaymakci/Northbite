@@ -81,6 +81,7 @@ function sanitizeGame(raw: unknown): GameState {
   const camp = (g.camp ?? {}) as Partial<Record<string, unknown>>;
   const story = (g.story ?? {}) as Partial<Record<string, unknown>>;
   const prefs = (g.prefs ?? {}) as Partial<Record<string, unknown>>;
+  const pending = (g.offlinePending ?? null) as Partial<Record<string, unknown>> | null;
   const caveBase = createCaveState();
   const campBase = createCampState();
   const veins = Array.isArray(cave.veins) ? cave.veins : [];
@@ -159,6 +160,11 @@ function sanitizeGame(raw: unknown): GameState {
       vibration: prefs.vibration !== false,
       lang: prefs.lang === 'tr' || prefs.lang === 'en' ? prefs.lang : '',
     },
+    lastSeenAt: num(g.lastSeenAt, 0),
+    offlinePending:
+      pending && typeof pending.coins === 'number' && pending.coins > 0
+        ? { coins: Math.floor(pending.coins), seconds: num(pending.seconds, 0), capped: pending.capped === true }
+        : null,
   };
 }
 

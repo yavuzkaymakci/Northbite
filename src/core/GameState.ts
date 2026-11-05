@@ -75,6 +75,10 @@ export interface GameState {
   story: { pages: string[] };
   /** Player settings (settings panel). */
   prefs: Prefs;
+  /** Wall-clock time (ms) of the last save while playing; offline earnings count from here (GDD §18). */
+  lastSeenAt: number;
+  /** Offline coins worked out but not collected yet (the window shows again until "Collect"). */
+  offlinePending: { coins: number; seconds: number; capped: boolean } | null;
 }
 
 export type DayLengthId = 'short' | 'medium' | 'long';
@@ -165,6 +169,8 @@ export function createGameState(): GameState {
     carriedCrystals: 0,
     story: { pages: [] },
     prefs: { threats: true, dayLength: 'medium', vibration: true, lang: '' },
+    lastSeenAt: 0,
+    offlinePending: null,
   };
 }
 

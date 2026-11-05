@@ -431,6 +431,17 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **Ayar çarpanları:** `priceScale` (tüm açılış ve yükseltme fiyatları) ve `threatScale` (0 = tehdit yok, varsayılan 1) `src/content/tuning.ts` içinde.
 - Simülasyon gece/gündüzü, uyku buff'ını ve tehditleri de modeller; ayı kaybı ve engelleme oranı (aktif ve ilgisiz oyuncu) ile uyku buff'ının gelir etkisini (en fazla ~%12) raporlar.
 
+## 18. Çevrimdışı gelir (Demo 5A)
+- **Hesap formülle yapılır, simülasyon yoktur** (`systems/Offline.ts`). Oyun açılınca ya da arka plandan dönünce son kayıt zamanından (`lastSeenAt`) bu yana geçen süreye bakılır. Oyun saati çevrimdışı ilerlemez; tehdit olmaz, uyku buff'ı etkilenmez.
+- **Yalnızca otomatik zincir sayılır, her adım bir darboğazdır:**
+  1. Ağ (aralığı ve sepet kapasitesi) → penguenler (sayı × taşıma / tur süresi; tur süresi yol grafiğinden hesaplanır, tütsülü zincirde balık başına iki tur) → tütsühane (işleme hızı) → tezgâh (kapasite dolunca penguenler durur) → müşteriler (gündüz ve gece ortalaması, ~0.44 eşya/sn).
+  2. Kamp: çadır kirası (turist gelişi × huzur bonusu, çadırların kapasitesiyle sınırlı). Tabaklar yalnızca rafta bekleyenler kadar ve kamp görevlisi varsa satılır.
+  3. Mağara: yeni kristal yok; tezgâh elindeki kristali yontar, Koleksiyoncu ziyaretlerinde stoktan alır.
+- Sonunda sepet, raflar ve tezgâh hesapla tutarlı biçimde güncellenir (satılan çıkar, taşınamayan yerinde kalır, ağ boş yerleri doldurur). Çift sayma ve negatif değer olmaz.
+- **Oran ve üst sınır** (`content/economy.ts` → `offline`): %50, 2 saat; en az 60 sn. Ağ ve 1. penguen açılmadan gelir 0'dır ve pencere çıkmaz (penguen yoksa ağ yalnızca sepeti doldurur).
+- **"Sen yokken…" penceresi:** Geçen süre, sayarak artan coin, "Üst sınır: X saat" ve tek büyük "Topla" düğmesi var. Coin doğrudan cüzdana eklenir; coin yığınlarına dokunulmaz. Toplanmamış tutar kaydedilir ve pencere yeniden açılır. "x2" düğmesi gelecekteki ödüllü reklam için gizli bir yer tutucudur (`settings.ts` → `OfflineFeel.showOfflineBoost`).
+- **Hile sınırı:** Son görülme zamanı gelecekteyse (saat geri alınmış) gelir verilmez ve zaman düzeltilir. Çok uzun yokluklar yalnızca üst sınır kadar sayılır.
+
 ## 17. Açık sorular
 - Test için kullanılacak telefon: iPhone mu, Android mi? (Web demolarında fark yok, native aşamada önemli)
 - Gelir modelinin kesinleşmesi (çevrimdışı "x2" düğmesi gizli bir yer tutucu olarak hazır)

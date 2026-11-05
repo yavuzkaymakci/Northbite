@@ -293,13 +293,13 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - Simülasyondaki açılış süreleri §8'deki hedeflere yakındır.
   - ~150 draw call bütçesi korunur; telefonda 60 fps hedeflenir.
 
-### Demo 4 — Kariyer genişlemesi (§12–§16)
+### Demo 4 — Kariyer genişlemesi (§12–§16) — BİTTİ
 5 aşamada, her aşama ayrı commit:
 1. Zaman, gece/gündüz, hava (§12)
 2. Tehditler: kutup ayısı ve çığ (§13)
 3. İglo, uyku ve yapı setleri (§14)
 4. Araziler, hikâye ve yeni gelir kolları (§15, §16)
-5. Cila ve bütünleştirme: rehber ok, save v4, ayarlar, "Yeni tür!" düzeltmesi
+5. Cila ve bütünleştirme: ayarlar (tehditler, gün uzunluğu, titreşim, dil), "Yeni tür!" düzeltmesi, GDD temizliği (Demo 5A ile birlikte yapıldı)
 - **Kabul kriterleri:**
   - 8 dk'lık gün döngüsü sorunsuz akar. Gece/gündüz geçişi yumuşaktır, kuzey ışıkları gece görünür, fps düşmez.
   - Gece balıkları yalnızca gece çıkar; fırtına ve aurora buff'ı çalışır.
@@ -312,8 +312,10 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - Save v3 → v4 göçü çalışır; eski kayıtlar bozulmaz.
   - ~150 draw call bütçesi korunur; telefonda 60 fps hedeflenir. typecheck, build ve sim hatasızdır.
 
-### Demo 5 — Çevrimdışı gelir ve yükseltmeler
-- Çevrimdışı gelir ("sen yokken" penceresi, §8), tezgâh kapasitesi ve penguen yükseltmeleri, ekonominin ince ayarı
+### Demo 5 — Çevrimdışı gelir, yükseltmeler, ansiklopedi
+- **5A — Çevrimdışı gelir ve yükseltmeler (§18):** Formülle hesaplanan çevrimdışı gelir yalnızca otomatik zincirden gelir ("Sen yokken…" penceresi, üst sınır ve verim). Olta tezgâhında sekmeli panel var: Olta, İstasyonlar (ağ, sepet, penguen, tütsühane, tezgâh, kamp, mağara) ve Zaman (çevrimdışı süre, verim). Save v5.
+  - **Kabul kriterleri:** 1+ saat sonra açılınca doğru tutarla pencere çıkar; ağ ve penguen yoksa çıkmaz. Raflar, sepet ve tezgâh tutarlı kalır (çift sayma ve negatif değer yok). Çevrimdışıyken tehdit olmaz; saat geri alınırsa gelir verilmez. Üst sınır ve verim yükseltmeleri çalışır. Sim'de çevrimdışı oturum, aynı süre aktif oyunun en fazla ~%35'i olur. v4 → v5 göçü çalışır.
+- **5B — Ansiklopedi ve sipariş panosu:** Tutulan türlerin ansiklopedisi (kapelin sessizce "görülmüş" sayılır) ve süreli siparişler panosu. Ayrıntılar 5B'de netleşecek.
 
 ### Demo 6 — Ses ve cila
 - Ses (§10), titreşim, efekt cilası, PWA ikonları

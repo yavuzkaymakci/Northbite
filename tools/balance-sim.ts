@@ -21,7 +21,7 @@ import { applyComfortUnlock, canSleepAt, payout, peaceScore, wakeRested } from '
 import { Camp as CampCfg, Cave as CaveCfg } from '../src/content/land';
 import { CampLayout, CaveLayout } from '../src/content/zones';
 import { CaveLogic, GuestLogic, KitchenLogic } from '../src/systems/LandLogic';
-import { stationUpgradeCost, stationUpgradeVisible, stationValue } from '../src/systems/StationUpgrades';
+import { stationUpgradeCost, stationUpgradeValue, stationUpgradeVisible, stationValue } from '../src/systems/StationUpgrades';
 import { StationUpgradeList, type StationUpgradeId } from '../src/content/stationUpgrades';
 import { applyOffline } from '../src/systems/Offline';
 import { grantReward, recordCatch, rewardsDue } from '../src/systems/CodexLogic';
@@ -1011,7 +1011,7 @@ function offlineTable(): void {
   const away = 8 * 3600;
   const labels: Record<OfflineStage, string> = { hut: 'Ağ + 1. penguen', smokehouse: '+ tütsühane', attendant: '+ kamp (görevli)' };
   console.log(`\n## Çevrimdışı gelir — 8 saat yokluk (${RUNS} koşu, medyan; aşama açıldığı anki durum)`);
-  console.log('| Aşama | Sayılan süre | Çevrimdışı coin | Aktif coin/sa (sonraki 20 dk) | Oran (aynı süre aktif oyuna) | Maks. Zaman yükseltmesi (8 sa, %70) | Oran |');
+  console.log(`| Aşama | Sayılan süre | Çevrimdışı coin | Aktif coin/sa (sonraki 20 dk) | Oran (aynı süre aktif oyuna) | Maks. Zaman yükseltmesi (8 sa, %${Math.round(stationUpgradeValue('offlineRate', 5) * 100)}) | Oran |`);
   console.log('|---|---|---|---|---|---|---|');
   for (const stage of OFFLINE_STAGES) {
     const base: number[] = [];

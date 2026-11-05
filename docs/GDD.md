@@ -245,7 +245,7 @@ Değerler `src/content/` altında: `economy.ts` (oyuncu, tezgâh, müşteri, aç
 - **Kayıt:**
   - Otomatik olarak her 10 saniyede, kilit açıldığında ve arka plana geçişte yapılır.
   - Save verisinde sürüm numarası tutulur (`saveVersion`) ve ileriye dönük göç (migration) fonksiyonu yer alır.
-- **Ses (Demo 5):** Balık tutma "plop" sesi, coin sesi, kilit açılma sesi, rüzgâr ambiyansı ve sakin bir müzik.
+- **Ses (Demo 6):** Ayrıntılar §21'de.
 - **Gelir modeli (son aşamada netleşecek, varsayılan):**
   - Ödüllü reklam: çevrimdışı geliri 2 katına çıkarma, 3 dk 2x hız.
   - Opsiyonel "reklamları kaldır" satın alımı.
@@ -324,8 +324,18 @@ Her demo **telefondan açılabilen bir link** ile biter.
     - Sipariş geliri toplamın ~%12'sini, altın ve gökkuşağı katkısı ~%3'ü geçmez.
     - Açılış süreleri bozulmaz; ~150 draw call bütçesi korunur.
 
-### Demo 6 — Ses ve cila
-- Ses (§10), titreşim, efekt cilası, PWA ikonları
+### Demo 6 — Ses, müzik ve cila (§21)
+Üç alt aşamada, her biri ayrı commit:
+- **6A — Ses efektleri:** WebAudio ile sentezlenen efektler (dosya yok), tek AudioContext, grup ses seviyeleri, ilk dokunuşta başlatma, arka planda susma, uzaklığa göre kısılma, sık tetiklenen seslerde sınır.
+- **6B — Müzik ve ambiyans:** Üretken, temposuz kuzey müziği (pad + seyrek pentatonik çanlar + yankı). Gün saatine ve duruma göre değişir: ayı gerilimi, mağara, kamp, uyku, kuzey ışığı. Ambiyans: rüzgâr, dalga, kar. Ayarlarda ses kaydırıcıları ve "Sessiz".
+- **6C — Görsel cila:** Kalite ayarı (Düşük/Orta/Yüksek, yavaş cihaza bir kerelik öneri), FPS göstergesi ayarlarda, splash ekranı, PWA ikonları, "Hareketi azalt", juice/haptik tutarlılığı, görsel öğretici ipuçları, gece okunurluğu, GDD açık işler.
+- **Kabul kriterleri:**
+  - Sesler rahatsız etmez; iOS ve Android'de ilk dokunuştan sonra ses gelir; arka plana geçince susar.
+  - Müzik gün/gece ve duruma göre değişir; ayı uyarısında gerilim katmanı gelir.
+  - Ses ayarları kaydedilir; "Sessiz" tüm sesi kapatır ve sessizken işlemci harcanmaz.
+  - Kalite ayarları çalışır; düşük kalitede FPS belirgin artar.
+  - Splash ve ikonlar düzgündür; ana ekrana eklenince uygulama gibi açılır.
+  - Telefonda 60 fps hedefi müzik açıkken de korunur; ~150 draw call bütçesi korunur. typecheck, build ve sim hatasızdır.
 
 ### Demo 7 — İskele
 - Ahşap İskele bölgesi ("Yakında" duvarının arkası): tekne, açık su, büyük balıklar, fok işçi
@@ -451,11 +461,11 @@ Her demo **telefondan açılabilen bir link** ile biter.
 
 - **Simülasyon** (`npm run sim`, 8 saat yokluk, aşamanın açıldığı anki durum, medyan):
 
-| Aşama | Taban (2 sa, %50) | Aktif oyuna oranı | Zaman yükseltmeleri tam (8 sa, %70) | Oranı |
+| Aşama | Taban (2 sa, %50) | Aktif oyuna oranı | Zaman yükseltmeleri tam (8 sa, %65) | Oranı |
 |---|---|---|---|---|
-| Ağ + 1. penguen | 1322 | %21 | 7389 | %29 |
-| + tütsühane | 2323 | %22 | 13019 | %31 |
-| + kamp (görevli) | 6294 | %28 | 35078 | %38 |
+| Ağ + 1. penguen | 1323 | %20 | 6861 | %25 |
+| + tütsühane | 2323 | %21 | 12089 | %27 |
+| + kamp (görevli) | 6280 | %29 | 32555 | %37 |
 
   Formül, sim'deki boşta kalma testiyle örtüşüyor (tütsühane aşamasında saatte ~2300 değer). Çevrimdışı gelir aktif oyunu hiçbir durumda geçmiyor. Yalnızca en uç durumda (kamp yeni açılmışken bütün Zaman yükseltmeleri alınmış) ~%35 hedefinin biraz üstüne çıkıyor; bu durumda dengeyi çadır kirası belirliyor (çadırlar çevrimiçi de aynı darboğaz).
 
@@ -471,7 +481,7 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - Tabak süresi 5 → 3 sn (120, mutfak açıksa)
   - Çadır kirası 14 → 24 coin/dk (150, çadır açıksa)
   - Heykelcik 16 → 26 coin (140, kristal tezgâhı açıksa)
-- **Zaman:** Çevrimdışı süre 2 → 3 → 4 → 6 → 8 saat (100), çevrimdışı verim %50 → %70 (120).
+- **Zaman:** Çevrimdışı süre 2 → 3 → 4 → 6 → 8 saat (100), çevrimdışı verim %50 → %65 (120; Demo 6'da %70'ten indirildi, kamp aşamasında çevrimdışı oran ~%35'e insin diye).
 - Kartlar ilgili istasyon açılana kadar gizlidir. Kartta ikon, ad, seviye, "şimdi → sonraki" etki ve fiyat vardır. Satın alınca kart zıplar ve konfeti çıkar; para yetmezse kart sallanır.
 - Değerler tek kaynaktan okunur (`systems/StationUpgrades.ts` → `stationValue`). Oyun, çevrimdışı formül ve simülasyon aynı değerleri kullanır.
 
@@ -516,6 +526,26 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - Bot çiğ, kg, tür, gece ve heykelcik siparişlerini çoğunlukla tamamlıyor.
   - Altın balık siparişi uzun sürüyor (medyan ~17 dk; süre 30–40 dk).
   - Tütsü ve tabak siparişlerini bot az tamamlıyor, çünkü tütsüyü tezgâha ya da mutfağa önce bırakıyor. Oyuncu bunları raftan / sırttan seçerek teslim eder.
+
+## 21. Ses ve müzik (Demo 6)
+- **Dosya yok, her şey sentez** (WebAudio). Sayılar `content/audio.ts`'de: efekt tarifleri, sınırlar, müzik dizileri, ambiyans seviyeleri.
+- **Motor** (`src/audio/AudioEngine.ts`):
+  - Tek bir AudioContext; master'ın altında efekt, müzik ve ambiyans grupları.
+  - Ortak gürültü tamponu ve eşzamanlı ses sınırı var (çöp üretmeyen havuz).
+  - Bağlam ilk dokunuşta başlatılır; "Sessiz" açıksa hiç başlatılmaz.
+  - Arka plana geçince askıya alınır, dönünce devam eder.
+- **Efektler:**
+  - Yumuşak ve kısa sesler, keskin tını yok.
+  - Dünya sesleri oyuncuya uzaklıkla kısılır, uzakta neredeyse duyulmaz.
+  - Aynı ses en fazla belirli aralıkla çalar (ör. coin 30 ms).
+  - Coin toplarken perde zincirleme yükselir; makara tıkırtısının perdesi misina gerilimiyle artar.
+- **Müzik** (`MusicDirector`):
+  - Temposuz, üretken ve sakin. Pad, çok yavaş geçen akorlar çalar; üstünde seyrek pentatonik çan notaları, hepsi hafif bir yankıyla.
+  - Ruh hali `setMood(...)` ile verilir: gündüz açık ve sıcak, akşam yumuşak, gece daha düşük ve parlak. Kuzey ışığında camsı bir üst katman gelir. Ayı uyarısında müzik kısılır ve gerilim katmanı girer. Mağarada daha yankılı ve kristal tınılı, kampta daha sıcak, uykuda solar.
+  - Geçişler yumuşak çapraz solmadır.
+  - Gerçek parçalar için `loadTrack(url)` kancası var (kullanılmıyor).
+- **Ambiyans:** Rüzgâr her zaman hafiftir, fırtınada güçlenir. Dalgalar denize yakınken duyulur. Gece daha sessizdir; yürürken kar çıtırtısı gelir.
+- **Ayarlar:** Ana ses, Müzik, Efektler, Ambiyans (0–100) ve "Sessiz"; kaydedilir. Müzik kapalıyken müzik düğümleri durur.
 
 ## 17. Açık sorular
 - Test için kullanılacak telefon: iPhone mu, Android mi? (Web demolarında fark yok, native aşamada önemli)

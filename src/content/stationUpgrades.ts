@@ -177,7 +177,7 @@ export const StationUpgradeList: readonly StationUpgradeDef[] = [
     format: 'percent',
     baseCost: 120,
     growth: 1.6,
-    values: [0.5, 0.55, 0.6, 0.65, 0.7],
+    values: [0.5, 0.54, 0.58, 0.62, 0.65],
     requires: 'hut',
   },
 ];

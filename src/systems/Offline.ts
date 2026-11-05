@@ -204,7 +204,8 @@ export function applyOffline(state: GameState, awaySeconds: number, rand: () => 
     // Miners: one vein per trip (average yield), never faster than the veins grow back.
     const yields = CaveLayout.veins.map((v) => Cave.yieldBySize[v.size - 1] ?? 1);
     const total = yields.reduce((a, b) => a + b, 0);
-    const mined = Math.floor(Math.min(roleRate(state, 'miner', [Jobs.crystalsToBench], total / yields.length), total / Cave.refill) * T);
+    // Counted at a reduced rate while away (Economy.offline.offlineMinerFactor).
+    const mined = Math.floor(Math.min(roleRate(state, 'miner', [Jobs.crystalsToBench], total / yields.length), total / Cave.refill) * Economy.offline.offlineMinerFactor * T);
     const carved = Math.min(c.input + mined, Math.floor(T / Cave.bench.processTime));
     const ready = c.output + carved;
     const cycle = Cave.collector.interval + Cave.collector.stay;

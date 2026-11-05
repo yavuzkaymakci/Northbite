@@ -692,6 +692,24 @@ Rıhtımcı (iskele ganimet rafı → tezgâh / tütsühane) 7C'de aynı tabloya
 ## 25. İskele ve seferler (Demo 7C)
 (7C'de doldurulacak. Sayılar `content/voyages.ts` ve `content/harbor.ts` içinde olacak.)
 
+## Şu anki durum (2026-11-05, Demo 7C başlamadan önce)
+**Bitti**
+- Demo 7A (panel yöneticisi) ve 7B (Penguen Pazarı, roller, iş panosu, kulübe kapasitesi, save v6) commit'lendi ve main'e pushlandı (`69ff307`); GitHub Pages yayını çalıştı.
+- 7B sonrası küçük ayar: çevrimdışı hesapta Madenci'nin kristal üretimi `Economy.offline.offlineMinerFactor` (0.5) ile yarı hızda sayılıyor (`systems/Offline.ts`). typecheck ve build geçiyor.
+
+**Bilinen sorun / sonuç**
+- Bu çarpan, hedeflenen uç durumu değiştirmedi: sim (12 koşu) kamp + madenci + bütün Zaman yükseltmeleri (8 sa, %65) için hâlâ **%42** veriyor (5 penguenli aşamada %41; taban 2 sa/%50'de %31–32). Sebep: çevrimdışında mağaranın darboğazı Koleksiyoncu (130 sn'de bir en fazla 6 heykelcik). Yarı hızdaki madenci bile Koleksiyoncu'nun alabileceğinden fazla kristal getiriyor, yani madenci hızı sonucu belirlemiyor. ~%40'a inmek için seçenekler: (a) çevrimdışı Koleksiyoncu ziyaretlerini ya da heykelcik gelirini bir çarpanla kısmak, (b) çevrimdışı kristali "yalnızca giriş rafını doldurur" diye dar yorumlamak, (c) kamp çadır kirasına çevrimdışı çarpan (bu aşamada gelirin büyük kısmı kira). Karar verilmedi.
+- Diğer açık konular §17'de (3. penguen ~34 dk, uyku buff'ı %12.9).
+
+**Yarım / başlanmadı**
+- Demo 7C (İskele, seferler, fener; §25) **hiç başlanmadı**: kod yok, `voyages.ts` / `harbor.ts` yok. Kullanıcının 7C görev metni (C1–C11) sohbette.
+
+**Sıradaki adım**
+1. Çevrimdışı uç durum için yukarıdaki seçeneklerden birini seç, sim'i koş, ~%40'ı doğrula, commit'le.
+2. Sonra Demo 7C'ye başla: önce GDD §25'i yaz, sonra C1 (iskele arazisi) → C2 (tekne onarımı) → C3 (sefer sistemi) sırasıyla.
+
+**Nerede kaldık:** `69ff307` pushlandı; bu WIP commit'i yalnızca çarpanı ve bu bölümü ekliyor.
+
 ## 17. Açık sorular
 - Test için kullanılacak telefon: iPhone mu, Android mi? (Web demolarında fark yok, native aşamada önemli)
 - Gelir modelinin kesinleşmesi (çevrimdışı "x2" düğmesi gizli bir yer tutucu olarak hazır)

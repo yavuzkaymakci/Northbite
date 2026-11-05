@@ -315,7 +315,14 @@ Her demo **telefondan açılabilen bir link** ile biter.
 ### Demo 5 — Çevrimdışı gelir, yükseltmeler, ansiklopedi
 - **5A — Çevrimdışı gelir ve yükseltmeler (§18):** Formülle hesaplanan çevrimdışı gelir yalnızca otomatik zincirden gelir ("Sen yokken…" penceresi, üst sınır ve verim). Olta tezgâhında sekmeli panel var: Olta, İstasyonlar (ağ, sepet, penguen, tütsühane, tezgâh, kamp, mağara) ve Zaman (çevrimdışı süre, verim). Save v5.
   - **Kabul kriterleri:** 1+ saat sonra açılınca doğru tutarla pencere çıkar; ağ ve penguen yoksa çıkmaz. Raflar, sepet ve tezgâh tutarlı kalır (çift sayma ve negatif değer yok). Çevrimdışıyken tehdit olmaz; saat geri alınırsa gelir verilmez. Üst sınır ve verim yükseltmeleri çalışır. Sim'de çevrimdışı oturum, aynı süre aktif oyunun en fazla ~%35'i olur. v4 → v5 göçü çalışır.
-- **5B — Ansiklopedi ve sipariş panosu:** Tutulan türlerin ansiklopedisi (kapelin sessizce "görülmüş" sayılır) ve süreli siparişler panosu. Ayrıntılar 5B'de netleşecek.
+- **5B — Balık ansiklopedisi ve sipariş panosu (§19, §20):** Tür kartları, kg rekorları ve sayaçlar, altın ve gökkuşağı varyantları, koleksiyon ödülleri; tezgâhın yanında sipariş panosu (en fazla 3 sipariş, cezasız süre, ücretsiz yenileme).
+  - **Kabul kriterleri:**
+    - Ansiklopedi tüm türleri doğru gösterir; keşif, rekor ve sayaçlar doğru güncellenir; varyantlar çalışır.
+    - Koleksiyon ödülleri yalnızca bir kez verilir.
+    - Pano 3 sipariş gösterir; siparişler teslim edilir ve ödülleri gelir. İmkânsız sipariş gelmez, çevrimdışıyken süre akmaz.
+    - Eski kayıtlarda yakalanmış türler ansiklopedide görünür.
+    - Sipariş geliri toplamın ~%12'sini, altın ve gökkuşağı katkısı ~%3'ü geçmez.
+    - Açılış süreleri bozulmaz; ~150 draw call bütçesi korunur.
 
 ### Demo 6 — Ses ve cila
 - Ses (§10), titreşim, efekt cilası, PWA ikonları
@@ -467,6 +474,41 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **Zaman:** Çevrimdışı süre 2 → 3 → 4 → 6 → 8 saat (100), çevrimdışı verim %50 → %70 (120).
 - Kartlar ilgili istasyon açılana kadar gizlidir. Kartta ikon, ad, seviye, "şimdi → sonraki" etki ve fiyat vardır. Satın alınca kart zıplar ve konfeti çıkar; para yetmezse kart sallanır.
 - Değerler tek kaynaktan okunur (`systems/StationUpgrades.ts` → `stationValue`). Oyun, çevrimdışı formül ve simülasyon aynı değerleri kullanır.
+
+## 19. Balık ansiklopedisi (Demo 5B)
+- HUD'daki balık ikonu (günlüğün kitap ikonundan ayrı) alttan kayan, tam ekran bir sayfa açar. Oyun zamanı akmaya devam eder; sayfa açıkken yeni tehdit başlamaz. Sayfa açıkken oyun sahnesi yerine ansiklopedinin kendi küçük sahnesi çizilir.
+- **Izgara:** Mevcut 7 tür kart olarak dizilir: kapelin, morina, alabalık, kalkan, ay morinası, gece alabalığı, ışık balığı. Keşfedilmemiş türler gri siluet ve "???" olarak görünür; keşfedilenler renklidir. Kartın köşesinde altın ve gökkuşağı rozetleri yer alır.
+- **Ayrıntı:** Oyundaki aynı low-poly model döner. Altında ad, kg rekoru, toplam yakalama, ilk yakalama günü, nadirlik, ne zaman çıktığı (her zaman / gece / kuzey ışığı) ve kısa bir açıklama (tr/en) yer alır.
+- **Varyantlar** (`content/codex.ts`): Mini oyunun zorluğu değişmez; yalnızca görünüm ve değer farklıdır.
+  - **Altın:** Olta yakalamalarının %0.5'i; satış ×5, altın renk ve parıltı. İlk altında "Altın!" kartı çıkar.
+  - **Gökkuşağı:** Yalnızca gece ve kuzey ışığı varken, %0.3; satış ×8, mor-yeşil arasında kayan renk.
+  - Ağ varyant yakalamaz.
+- **Rekor:** Yeni kg rekorunda yakalama kartında "Yeni rekor!" çıkar (ilk yakalamada çıkmaz).
+- **Koleksiyon ödülleri** (her biri bir kez):
+  - 3 tür: coin
+  - 5 tür: "Usta oltacı" unvanı (ayarlar panelindeki profilde görünür) ve nadir yem (bir süre büyük balık şansı +%50)
+  - 7 tür: "Balık ağırlığı" heykeli (dekorasyon, huzur verir)
+  - İlk altın ve ilk gökkuşağı: ayrı coin ödülleri
+  - Ödüller şeritle duyurulur ve sayfa açıkken de görünür.
+- Eski kayıtlarda daha önce yakalanmış türler (`seen`) keşfedilmiş sayılır; sayaç ve rekorları sıfırdan başlar.
+
+## 20. Sipariş panosu (Demo 5B)
+- **Pano:** İglo ile tezgâh arasında, tezgâhın yanında duran ahşap bir pano; üstünde kâğıt parçaları vardır. Tütsühaneden sonra ucuz bir kilit alanıyla gelir. Teslim edilebilir sipariş varsa üstünde sarı ünlem görünür. Rehber ok siparişleri hedef almaz.
+- **Panel:** Panoya yaklaşınca alttan açılır, uzaklaşınca kapanır. Aynı anda en fazla 3 sipariş vardır. HUD'daki pano ikonu siparişleri uzaktan gösterir; teslim yalnızca panonun başında yapılır.
+- **Sipariş türleri** (`content/orders.ts`; havuz ilerlemeyle genişler, yapılamayacak sipariş üretilmez):
+  - N çiğ balık
+  - N tütsülenmiş balık (tütsühane açıksa)
+  - N kg balık
+  - Belirli bir türden N adet: yalnızca keşfedilmiş ve şu an tutulabilir türler; ışık balığı yok
+  - N balık tabağı (mutfak açıksa)
+  - N heykelcik (kristal tezgâhı açıksa)
+  - Nadir görev, uzun süreli: bir altın balık ya da bir gece balığı
+- **Teslim:** Kartta "Teslim et" düğmesi vardır. Eşyalar teslim anında sırttan (balık) ya da raftan (tabak, heykelcik) düşer; hiçbir şey önceden ayrılmaz. Eksik eşya varsa düğme pasiftir ve eksik miktar yazar. Ödül, coin yığınına değil doğrudan cüzdana gider.
+- **Ödüller:** Coin, normal satış değerinin 1.5–2 katıdır (zor siparişte daha fazla) × `priceScale`. Bazen ek ödül gelir: nadir yem, ayı tüyü, dekorasyon parçası (en ucuz açık dekorasyon çerçevesinin yarısını öder) ya da eksik bir günlük sayfasının ipucu.
+- **Süre:** 10–20 dk gerçek zaman (nadir görevler daha uzun). Süre dolarsa ceza yoktur, sipariş yalnızca silinir. Boşalan yere 60–120 sn içinde yenisi gelir. Süreler yalnızca oyun açıkken akar; çevrimdışıyken durur.
+- **Yenile:** Bir siparişi ücretsiz değiştirir; sonra 3 dk bekleme başlar.
+- **İlk sipariş** çok kolaydır ("2 çiğ balık").
+- **Denge hedefi:** Siparişler toplam gelirin en fazla ~%10–12'si olur; ana kazanç tezgâhta kalır.
 
 ## 17. Açık sorular
 - Test için kullanılacak telefon: iPhone mu, Android mi? (Web demolarında fark yok, native aşamada önemli)

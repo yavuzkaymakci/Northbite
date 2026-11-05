@@ -4,6 +4,7 @@ import { CampLayout, CaveLayout, type Vec2 } from '../content/zones';
 import { LandFeel } from '../settings';
 import type { FishItem, GameState } from '../core/GameState';
 import { payout } from './Rest';
+import { stationValue } from './StationUpgrades';
 
 // Visual-free rules for the Ice Cave and the Hot Spring Camp (GDD §15), shared by the game and the balance sim.
 
@@ -75,7 +76,7 @@ export class CaveLogic {
       if (c.output > 0 && this.buyTimer <= 0) {
         this.buyTimer = LandFeel.collectorBuyInterval;
         c.output--;
-        const pay = payout(this.state, Cave.statuetteValue, this.tipCarry);
+        const pay = payout(this.state, stationValue(this.state, 'statuetteValue'), this.tipCarry);
         c.pile += pay.value + pay.tip;
         out.sold = { ...pay, x: CaveLayout.collector.x, z: CaveLayout.collector.z };
       }
@@ -112,7 +113,7 @@ export class KitchenLogic {
   update(dt: number): number | null {
     const k = this.state.camp;
     if (!this.working) return null;
-    k.progress += dt / Camp.kitchen.plateTime;
+    k.progress += dt / stationValue(this.state, 'plateTime');
     if (k.progress < 1) return null;
     k.progress = 0;
     const fish = k.input.shift() as FishItem;
@@ -199,7 +200,7 @@ export class GuestLogic {
       } else if (g.phase === 'stay') {
         g.timer -= dt;
         if (g.timer <= 0) {
-          const pay = payout(this.state, Math.round((Camp.tent.rentPerMin * Camp.tent.stay) / 60), this.tipCarry);
+          const pay = payout(this.state, Math.round((stationValue(this.state, 'tentRent') * Camp.tent.stay) / 60), this.tipCarry);
           this.state.camp.pile += pay.value + pay.tip;
           pays.push({ ...pay, x: g.x, z: g.z });
           this.tentBusy[g.tent] = false;

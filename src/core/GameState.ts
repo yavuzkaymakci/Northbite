@@ -1,6 +1,7 @@
 import type { FishId } from '../content/fish';
 import { TimeOfDay } from '../content/time';
 import type { UpgradeId } from '../content/upgrades';
+import type { StationUpgradeId } from '../content/stationUpgrades';
 
 export type ItemKind = 'raw' | 'smoked';
 
@@ -45,6 +46,8 @@ export interface GameState {
   workers: WorkerData[];
   /** Upgrade levels, 1..5. */
   upgrades: Record<UpgradeId, number>;
+  /** Station and time upgrade levels, 1..5 (GDD §18). */
+  stationUpgrades: Record<StationUpgradeId, number>;
   /** Species caught at least once (drives the "New species!" card). */
   seen: FishId[];
   /** `playTime` = seconds on the game screen (threats wait for it); `bears` / `avalanches` met so far. */
@@ -154,6 +157,19 @@ export function createGameState(): GameState {
     smoker: { input: [], output: [], progress: 0 },
     workers: [],
     upgrades: { line: 1, reel: 1, bait: 1, backpack: 1 },
+    stationUpgrades: {
+      netSpeed: 1,
+      basket: 1,
+      penguinSpeed: 1,
+      penguinCarry: 1,
+      smokeSpeed: 1,
+      counter: 1,
+      kitchenSpeed: 1,
+      tentRent: 1,
+      statuette: 1,
+      offlineCap: 1,
+      offlineRate: 1,
+    },
     seen: [],
     stats: { caught: 0, sold: 0, reels: 0, playTime: 0, bears: 0, avalanches: 0 },
     clock: { day: 1, t: TimeOfDay.startAt },

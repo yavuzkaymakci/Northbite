@@ -29,6 +29,9 @@ export interface WorkContext {
   homeNode: PathNodeId;
   /** Static colliders for light local avoidance (optional in the sim). */
   walkable?: Walkable;
+  /** Carry capacity and walk speed (station upgrades); content defaults when missing. */
+  carry?: () => number;
+  speed?: () => number;
   /** Snow pile to shovel when there is nothing to carry (avalanche, lowest priority). */
   digSite?: () => DigSite | null;
   /** True while that pile still stands. */
@@ -50,7 +53,6 @@ interface Job {
   to: StoreId;
 }
 
-const CAP = Workers.penguin.carryCapacity;
 
 /**
  * Helper state machine (GDD §7): idle → going → taking → going → dropping.
@@ -73,6 +75,9 @@ export class WorkerBrain {
   /** Pile being shoveled (or walked to). */
   digId: number | null = null;
   private fear = 0;
+  /** Current carry capacity and speed (refreshed every update from the context). */
+  private cap: number = Workers.penguin.carryCapacity;
+  private walkSpeed: number = Workers.penguin.walkSpeed;
   /** Seconds spent walking to a pile (gives up if it cannot get there). */
   private digWalk = 0;
   private path: Vec2[] = [];
@@ -126,6 +131,8 @@ export class WorkerBrain {
     }
     const moved = dt > 0 ? Math.hypot(this.x - prevX, this.z - prevZ) / dt : 0;
     this.speed01 = Math.min(moved / Workers.penguin.walkSpeed, 1.4);
+    this.cap = ctx.carry?.() ?? Workers.penguin.carryCapacity;
+    this.walkSpeed = ctx.speed?.() ?? Workers.penguin.walkSpeed;
   }
 
   private updateIdle(dt: number, ctx: WorkContext, all: readonly WorkerBrain[]): void {
@@ -170,7 +177,7 @@ export class WorkerBrain {
     this.timer -= dt;
     if (this.timer > 0) return;
     this.timer = WorkerFeel.transferInterval;
-    if (this.carried.length < CAP && store.enabled() && store.takeable() > 0) {
+    if (this.carried.length < this.cap && store.enabled() && store.takeable() > 0) {
       const item = store.take(this);
       if (item) this.carried.push(item);
       return;
@@ -260,7 +267,7 @@ export class WorkerBrain {
   private claimedFrom(id: StoreId, all: readonly WorkerBrain[]): number {
     let n = 0;
     for (const w of all) {
-      if (w !== this && w.job?.from === id && (w.phase === 'toPickup' || w.phase === 'picking')) n += CAP - w.carried.length;
+      if (w !== this && w.job?.from === id && (w.phase === 'toPickup' || w.phase === 'picking')) n += w.cap - w.carried.length;
     }
     return n;
   }
@@ -269,7 +276,7 @@ export class WorkerBrain {
     let n = 0;
     for (const w of all) {
       if (w === this || w.job?.to !== id || w.phase === 'idle') continue;
-      n += w.phase === 'toPickup' || w.phase === 'picking' ? CAP : w.carried.length;
+      n += w.phase === 'toPickup' || w.phase === 'picking' ? w.cap : w.carried.length;
     }
     return n;
   }
@@ -293,7 +300,7 @@ export class WorkerBrain {
 
   /** Follows `path`. Returns true on arrival at its last point. */
   private walk(dt: number, ctx: WorkContext): boolean {
-    let step = Workers.penguin.walkSpeed * (this.phase === 'hiding' ? Threats.bear.penguinFleeSpeed : 1) * dt;
+    let step = this.walkSpeed * (this.phase === 'hiding' ? Threats.bear.penguinFleeSpeed : 1) * dt;
     while (step > 0 && this.path.length > 0) {
       const target = this.path[0] as Vec2;
       const dx = target.x - this.x;

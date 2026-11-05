@@ -1727,3 +1727,35 @@ body {
 .offline-boost[hidden] {
   display: none;
 }
+
+/* Upgrade panel tabs (GDD §18) */
+.panel-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 4px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ui-ink) 8%, transparent);
+}
+.panel-tabs button {
+  flex: 1;
+  min-height: 44px;
+  border: 0;
+  border-radius: 11px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ui-ink);
+  background: transparent;
+}
+.panel-tabs button.on {
+  color: var(--snow);
+  background: var(--ui-ink);
+}
+.upgrade-grid {
+  max-height: min(52vh, 460px);
+  overflow-y: auto;
+}
+.upgrade-grid.hidden,
+.upgrade-card.hidden {
+  display: none;
+}

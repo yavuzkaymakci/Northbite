@@ -25,6 +25,7 @@ import { FlightList } from './Flights';
 import type { NetStation } from './NetStation';
 import type { Smokehouse } from './Smokehouse';
 import type { ThreatBuildings } from './ThreatBuildings';
+import { stationValue } from './StationUpgrades';
 import { bearApproach, bearRoute, scareReward, stealFrom, stealPlates, type BearTargetId } from './ThreatLogic';
 import type { WorkerBrain } from './WorkerBrain';
 import type { Workers } from './Workers';
@@ -377,7 +378,7 @@ export class Bear {
   /** A dropped fish goes back into its store if there is room. */
   private restore(l: Loot): void {
     const s = this.d.state;
-    if (l.from === 'basket' && s.basket.length < Stations.net.basketCapacity) s.basket.push(l.item);
+    if (l.from === 'basket' && s.basket.length < stationValue(s, 'basketCapacity')) s.basket.push(l.item);
     else if (l.from === 'smokeOut' && s.smoker.output.length < Stations.smokehouse.outputCapacity) s.smoker.output.push(l.item);
     else s.counter.push(l.item);
   }

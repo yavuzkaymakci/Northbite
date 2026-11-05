@@ -21,6 +21,7 @@ import { applyComfortUnlock, canSleepAt, payout, peaceScore, wakeRested } from '
 import { Camp as CampCfg, Cave as CaveCfg } from '../src/content/land';
 import { CampLayout, CaveLayout } from '../src/content/zones';
 import { CaveLogic, GuestLogic, KitchenLogic } from '../src/systems/LandLogic';
+import { stationValue } from '../src/systems/StationUpgrades';
 import { findPage, mainPagesDue } from '../src/systems/StoryLogic';
 import { DayCycle } from '../src/systems/DayCycle';
 import { DayFeel } from '../src/settings';
@@ -253,7 +254,7 @@ class Sim {
         take: () => s.smoker.output.pop() ?? null,
       }),
       counter: store('counter', {
-        room: () => Economy.counter.capacity - s.counter.length,
+        room: () => stationValue(this.state, 'counterCapacity') - s.counter.length,
         give: (item) => s.counter.push(item),
       }),
     };
@@ -620,7 +621,7 @@ class Sim {
     if (this.kitchen && s.carried.some((f) => f.kind === 'smoked') && s.camp.input.length <= 2) this.campRun();
     if (s.carried.length > 0) {
       this.walkTo(C.dropPoint);
-      const room = Economy.counter.capacity - s.counter.length;
+      const room = stationValue(this.state, 'counterCapacity') - s.counter.length;
       const n = Math.min(room, s.carried.length);
       for (let i = 0; i < n; i++) s.counter.push(s.carried.pop() as FishItem);
       this.advance(n * 0.12);

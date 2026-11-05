@@ -1,17 +1,19 @@
 import * as THREE from 'three';
+import type { StationUpgradeId } from '../content/stationUpgrades';
 import type { UpgradeId } from '../content/upgrades';
 import { IceShore } from '../content/zones';
 import { BenchFeel, FishingFeel, HapticsSettings } from '../settings';
 import type { GameState } from '../core/GameState';
 import { vibrate } from '../core/Haptics';
 import type { Player } from '../entities/Player';
-import type { UpgradePanel } from '../ui/UpgradePanel';
+import type { UpgradeKind, UpgradePanel } from '../ui/UpgradePanel';
 import type { CoinSystem } from './Coins';
+import { stationUpgradeCost } from './StationUpgrades';
 import { upgradeCost } from './Upgrades';
 
 const PAD = IceShore.bench.pad;
 
-/** Rod bench: standing still on its pad opens the upgrade panel; walking off closes it. */
+/** Rod bench: standing still on its pad opens the upgrade panel (rod, station and time upgrades); walking off closes it. */
 export class RodBench {
   private stand = 0;
   private readonly target = new THREE.Vector3(IceShore.bench.x, 1, IceShore.bench.z);
@@ -41,17 +43,19 @@ export class RodBench {
     if (this.panel.opened) this.panel.refresh(this.state);
   }
 
-  buy(id: UpgradeId): void {
-    const cost = upgradeCost(id, this.state.upgrades[id]);
-    if (cost === null || this.state.coins < cost) {
-      this.panel.deny(id);
+  buy(kind: UpgradeKind, id: string): void {
+    const s = this.state;
+    const cost = kind === 'rod' ? upgradeCost(id as UpgradeId, s.upgrades[id as UpgradeId]) : stationUpgradeCost(id as StationUpgradeId, s.stationUpgrades[id as StationUpgradeId]);
+    if (cost === null || s.coins < cost) {
+      this.panel.deny(kind, id);
       return;
     }
-    this.state.coins -= cost;
-    this.state.upgrades[id]++;
+    s.coins -= cost;
+    if (kind === 'rod') s.upgrades[id as UpgradeId]++;
+    else s.stationUpgrades[id as StationUpgradeId]++;
     for (let i = 0; i < 6; i++) this.coins.spendTo(this.target);
     vibrate(HapticsSettings.upgrade);
-    this.panel.refresh(this.state);
-    this.panel.celebrate(id);
+    this.panel.refresh(s);
+    this.panel.celebrate(kind, id);
   }
 }

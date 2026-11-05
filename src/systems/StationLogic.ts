@@ -2,6 +2,7 @@ import { Stations } from '../content/stations';
 import type { FishItem, GameState } from '../core/GameState';
 import { rollFrom } from './FishRoll';
 import { smoke } from './Items';
+import { stationValue } from './StationUpgrades';
 
 // Visual-free station rules, shared by the game and the balance sim (tools/balance-sim.ts).
 
@@ -15,7 +16,7 @@ export class NetLogic {
   ) {}
 
   get full(): boolean {
-    return this.state.basket.length >= Stations.net.basketCapacity;
+    return this.state.basket.length >= stationValue(this.state, 'basketCapacity');
   }
 
   /** Returns the new fish when one is caught this step. */
@@ -25,8 +26,9 @@ export class NetLogic {
       return null;
     }
     this.timer += dt;
-    if (this.timer < Stations.net.interval) return null;
-    this.timer -= Stations.net.interval;
+    const interval = stationValue(this.state, 'netInterval');
+    if (this.timer < interval) return null;
+    this.timer -= interval;
     const item = rollFrom(Stations.net.pool, this.rand);
     this.state.basket.push(item);
     return item;
@@ -46,7 +48,7 @@ export class SmokerLogic {
   update(dt: number): FishItem | null {
     const s = this.state.smoker;
     if (!this.working) return null;
-    s.progress += dt / Stations.smokehouse.smokeTime;
+    s.progress += dt / stationValue(this.state, 'smokeTime');
     if (s.progress < 1) return null;
     s.progress = 0;
     const raw = s.input.shift() as FishItem;

@@ -11,6 +11,7 @@ import type { NetStation } from './NetStation';
 import { PathGraphNav } from './Pathfinding';
 import type { Selling } from './Selling';
 import type { Smokehouse } from './Smokehouse';
+import { stationValue } from './StationUpgrades';
 import { WorkerBrain, type DigSite, type StoreId, type WorkContext, type WorkStore } from './WorkerBrain';
 
 interface Penguin {
@@ -98,7 +99,14 @@ export class Workers {
         give: (item, w) => selling.receive(item, this.backTop(byBrain(w), from)),
       },
     };
-    this.ctx = { stores, nav: new PathGraphNav((id) => state.regions.includes(id)), homeNode: 'hut', walkable: world };
+    this.ctx = {
+      stores,
+      nav: new PathGraphNav((id) => state.regions.includes(id)),
+      homeNode: 'hut',
+      walkable: world,
+      carry: () => stationValue(state, 'penguinCarry'),
+      speed: () => stationValue(state, 'penguinSpeed'),
+    };
     for (let i = 0; i < state.workers.length; i++) this.spawn(i, false);
   }
 

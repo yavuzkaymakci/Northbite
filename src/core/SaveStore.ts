@@ -1,6 +1,7 @@
 import { DecorationList } from '../content/decorations';
 import { FishById, type FishId } from '../content/fish';
 import { UpgradeList, UpgradeMaxLevel } from '../content/upgrades';
+import { StationUpgradeList } from '../content/stationUpgrades';
 import { SaveSettings } from '../settings';
 import { sanitizeAppearance, type Appearance } from '../content/appearance';
 import { Pages } from '../content/story';
@@ -95,6 +96,11 @@ function sanitizeGame(raw: unknown): GameState {
     const lv = Math.floor(num(rawUp[u.id], 1));
     upgrades[u.id] = Math.min(Math.max(lv, 1), UpgradeMaxLevel);
   }
+  const stationUpgrades = { ...base.stationUpgrades };
+  const rawSt = (g.stationUpgrades ?? {}) as Partial<Record<string, unknown>>;
+  for (const u of StationUpgradeList) {
+    stationUpgrades[u.id] = Math.min(Math.max(Math.floor(num(rawSt[u.id], 1)), 1), UpgradeMaxLevel);
+  }
   const workers: WorkerData[] = Array.isArray(g.workers)
     ? g.workers.map((w) => ({ carried: fishList((w as Partial<WorkerData> | null)?.carried) }))
     : [];
@@ -115,6 +121,7 @@ function sanitizeGame(raw: unknown): GameState {
     },
     workers,
     upgrades,
+    stationUpgrades,
     seen: stringList(g.seen).filter((id): id is FishId => id in FishById),
     stats: { ...base.stats, ...((g.stats as object | undefined) ?? {}) },
     clock: {

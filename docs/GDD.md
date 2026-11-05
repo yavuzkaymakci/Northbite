@@ -442,6 +442,22 @@ Her demo **telefondan açılabilen bir link** ile biter.
 - **"Sen yokken…" penceresi:** Geçen süre, sayarak artan coin, "Üst sınır: X saat" ve tek büyük "Topla" düğmesi var. Coin doğrudan cüzdana eklenir; coin yığınlarına dokunulmaz. Toplanmamış tutar kaydedilir ve pencere yeniden açılır. "x2" düğmesi gelecekteki ödüllü reklam için gizli bir yer tutucudur (`settings.ts` → `OfflineFeel.showOfflineBoost`).
 - **Hile sınırı:** Son görülme zamanı gelecekteyse (saat geri alınmış) gelir verilmez ve zaman düzeltilir. Çok uzun yokluklar yalnızca üst sınır kadar sayılır.
 
+## 18.1 İstasyon ve zaman yükseltmeleri (Demo 5A)
+- Olta tezgâhındaki panel sekmelidir: **Olta | İstasyonlar | Zaman** (`content/stationUpgrades.ts`). Her yükseltmenin 5 seviyesi var; Sv1 içerikteki varsayılan değerdir. Sonraki seviye taban × 1.6^(seviye − 1) × `priceScale`.
+- **İstasyonlar:**
+  - Ağ aralığı 6 → 3.6 sn (taban 50)
+  - Sepet 8 → 10 → 12 → 15 → 20 (40)
+  - Penguen hızı %100 → %150 (70)
+  - Penguen taşıma 3 → 7 (90)
+  - Tütsüleme 4 → 3 sn (80)
+  - Tezgâh 12 → 16 → 20 → 25 → 30 (45)
+  - Tabak süresi 5 → 3 sn (120, mutfak açıksa)
+  - Çadır kirası 14 → 24 coin/dk (150, çadır açıksa)
+  - Heykelcik 16 → 26 coin (140, kristal tezgâhı açıksa)
+- **Zaman:** Çevrimdışı süre 2 → 3 → 4 → 6 → 8 saat (100), çevrimdışı verim %50 → %70 (120).
+- Kartlar ilgili istasyon açılana kadar gizlidir. Kartta ikon, ad, seviye, "şimdi → sonraki" etki ve fiyat vardır. Satın alınca kart zıplar ve konfeti çıkar; para yetmezse kart sallanır.
+- Değerler tek kaynaktan okunur (`systems/StationUpgrades.ts` → `stationValue`). Oyun, çevrimdışı formül ve simülasyon aynı değerleri kullanır.
+
 ## 17. Açık sorular
 - Test için kullanılacak telefon: iPhone mu, Android mi? (Web demolarında fark yok, native aşamada önemli)
 - Gelir modelinin kesinleşmesi (çevrimdışı "x2" düğmesi gizli bir yer tutucu olarak hazır)

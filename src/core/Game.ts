@@ -236,7 +236,7 @@ export class Game {
     });
     this.unlocks = new Unlocks(this.scene, s, this.player, this.coins, this.labels, this.appear, (spot) => this.onUnlock(spot));
     this.regionOpening = new RegionOpening(this.world, this.rig, this.fx, this.player, this.unlocks, () => this.save());
-    this.panel = new UpgradePanel(overlay, (id) => this.bench.buy(id));
+    this.panel = new UpgradePanel(overlay, (kind, id) => this.bench.buy(kind, id));
     this.bench = new RodBench(s, this.player, this.coins, this.panel);
     this.guide = new Guide(
       this.scene,

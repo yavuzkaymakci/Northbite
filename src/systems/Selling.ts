@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { Economy } from '../content/economy';
 import { IceShore } from '../content/zones';
 import { CarryFeel, StationFeel } from '../settings';
+import { stationValue } from './StationUpgrades';
 import type { FishItem, GameState } from '../core/GameState';
 import type { Player } from '../entities/Player';
 import { COUNTER_TOP_Y } from '../models/createCounter';
@@ -46,7 +46,7 @@ export class Selling {
 
   /** Free places, counting fish already flying in. */
   room(): number {
-    return Economy.counter.capacity - this.state.counter.length - this.flights.items.length;
+    return stationValue(this.state, 'counterCapacity') - this.state.counter.length - this.flights.items.length;
   }
 
   /** Something else (a helper) puts a fish on the table. */

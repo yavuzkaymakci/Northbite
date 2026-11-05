@@ -200,9 +200,8 @@ export const RegionFeel = {
 
 /** Day/night cycle and weather visuals (GDD §12). Balance effects live in content/time.ts. */
 export const DayFeel = {
-  /** Real seconds per in-game day, per "day length" setting. */
+  /** Real seconds per in-game day, per "day length" setting (the choice is saved in state.prefs). */
   dayLength: { short: 300, medium: 480, long: 720 },
-  defaultLength: 'medium' as 'short' | 'medium' | 'long',
   /** Light intensities at the day/dusk/night keys (dawn uses the dusk values). */
   hemi: { day: 1.5, dusk: 1.2, night: 0.75 },
   sun: { day: 2.1, dusk: 1.5, night: 0.55 },

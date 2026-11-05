@@ -106,6 +106,14 @@ export class Threats {
     return null;
   }
 
+  /** Threats switched off in the settings: whatever runs ends at once. */
+  stopAll(): void {
+    this.bear.stop();
+    this.avalanche.stop();
+    this.wasActive = false;
+    this.director.rest();
+  }
+
   /** Sleeping ends whatever is left (a bear running off, snow piles) and the new day starts quiet. */
   cancelForSleep(): void {
     this.bear.stop();

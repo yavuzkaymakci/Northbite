@@ -10,7 +10,8 @@ import { Banner } from '../ui/Banner';
 import { DaySummary } from '../ui/DaySummary';
 import { defaultAppearance, type Appearance } from '../content/appearance';
 import { Sleep } from '../content/igloo';
-import { t, tf } from '../content/strings';
+import { getLang, setLang, t, tf } from '../content/strings';
+import { setVibration } from './Haptics';
 import { CaveLayout, IceShore, TeaserWalls, type Vec2 } from '../content/zones';
 import { Cave } from '../systems/Cave';
 import { Camp } from '../systems/Camp';
@@ -121,16 +122,30 @@ export class Game {
   constructor(container: HTMLElement) {
     this.renderer = new Renderer(container);
 
+    // The save comes first: its settings (language, vibration) apply before any UI is built.
+    const save = this.store.load();
+    this.state = save?.game ?? createGameState();
+    // Saves from Demo 0–3 have no appearance: use the default look and go straight in.
+    this.appearance = save?.appearance ?? { ...defaultAppearance };
+    this.saveEnabled = save !== null;
+    const s = this.state;
+    if (s.prefs.lang) setLang(s.prefs.lang);
+    setVibration(s.prefs.vibration);
+
     const overlay = document.createElement('div');
     overlay.className = 'ui-layer';
     container.appendChild(overlay);
     this.overlay = overlay;
 
     this.labels = new WorldLabels(overlay);
-    this.settings = new SettingsPanel(overlay, () => this.openCreator('edit'));
+    this.settings = new SettingsPanel(
+      overlay,
+      () => this.openCreator('edit'),
+      (key) => this.applyPref(key),
+    );
     this.hud = new HUD(
       overlay,
-      () => this.settings.open(this.appearance.name, peaceScore(this.state)),
+      () => this.settings.open(this.appearance.name, peaceScore(this.state), this.state.prefs, getLang()),
       () => this.journal.open(this.state.story.pages),
     );
     this.journal = new Journal(overlay);
@@ -148,13 +163,6 @@ export class Game {
     this.banner = new Banner(overlay);
     this.summary = new DaySummary(overlay);
 
-    const save = this.store.load();
-    this.state = save?.game ?? createGameState();
-    // Saves from Demo 0–3 have no appearance: use the default look and go straight in.
-    this.appearance = save?.appearance ?? { ...defaultAppearance };
-    this.saveEnabled = save !== null;
-    const s = this.state;
-
     this.world = new WorldMap(s.unlocked, s.regions);
     this.scene.add(this.world.group);
     if (s.unlocked.includes('hut')) this.world.buildHut(null);
@@ -167,7 +175,8 @@ export class Game {
 
     this.snow = new Snowfall();
     this.intro = new IntroSequence(this.rig, this.snow, this.player, this.labels);
-    this.day = new DayCycle(s, () => DayFeel.dayLength[DayFeel.defaultLength]);
+    // Day length comes from the settings; the clock is a fraction of the day, so changing it keeps the time of day.
+    this.day = new DayCycle(s, () => DayFeel.dayLength[this.state.prefs.dayLength]);
     this.atmosphere = new Atmosphere(this.scene, this.rig.camera, lights, sky, this.world.waterMaterial, this.snow, this.day);
     this.wasNight = this.day.isNight;
     this.scene.add(this.snow.mesh, this.fx.group, this.fishRenderer.group, this.coinRenderer.mesh, this.goods.group);
@@ -405,7 +414,7 @@ export class Game {
     this.hud.setCoinTarget(this.coins.walletDisplay);
     this.hud.setTorches(this.threats.buildings.isBuilt('torchStand') ? this.state.threats.torches : -1);
     const left = restedLeft(this.state);
-    this.hud.setRested(left > 0 ? (this.state.rested?.quality ?? 0) : 0, Math.ceil((left * DayFeel.dayLength[DayFeel.defaultLength]) / 60));
+    this.hud.setRested(left > 0 ? (this.state.rested?.quality ?? 0) : 0, Math.ceil((left * DayFeel.dayLength[this.state.prefs.dayLength]) / 60));
     this.hud.update(dt);
     this.labels.update(this.rig.camera, this.renderer.width, this.renderer.height);
     this.threats.updateArrow(this.rig.camera, this.renderer.width, this.renderer.height);
@@ -487,6 +496,16 @@ export class Game {
       this.banner.show(tf('restedBanner', { q: this.state.rested?.quality ?? 1 }), 'good', 4);
       this.save();
     });
+  }
+
+  /** A setting changed in the settings panel (the prefs object is already updated). */
+  private applyPref(key: keyof GameState['prefs']): void {
+    const p = this.state.prefs;
+    if (key === 'threats' && !p.threats) this.threats.stopAll();
+    if (key === 'vibration') setVibration(p.vibration);
+    this.save();
+    // UI text is built once; a new language needs a fresh start (the game is saved first).
+    if (key === 'lang') window.location.reload();
   }
 
   private onUnlock(spot: UnlockSpot): void {

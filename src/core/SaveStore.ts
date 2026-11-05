@@ -6,7 +6,7 @@ import { sanitizeAppearance, type Appearance } from '../content/appearance';
 import { Pages } from '../content/story';
 import { createCampState, createCaveState, createGameState, type FishItem, type GameState, type WorkerData } from './GameState';
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 /** Pure JSON game state. No Three.js objects here. */
 export interface SaveData {
@@ -40,6 +40,8 @@ const migrations: Record<number, (s: AnySave) => AnySave> = {
     const g = (s.game ?? {}) as Obj;
     return { ...s, saveVersion: 3, game: { ...g, carried: addKind(g.carried), counter: addKind(g.counter) } };
   },
+  // v4 (Demo 4): no settings, offline data or station upgrades. sanitizeGame fills them with defaults.
+  4: (s) => ({ ...s, saveVersion: 5 }),
   // v3 (Demo 2/3): no clock, day totals, buffs, threat gear, igloo level or sleep. sanitizeGame fills them
   // (day 1, mid-morning, igloo level 1, not rested, empty cave and camp, no journal pages). v4 saves from earlier
   // Demo 4 stages get the same defaults.
@@ -78,6 +80,7 @@ function sanitizeGame(raw: unknown): GameState {
   const cave = (g.cave ?? {}) as Partial<Record<string, unknown>>;
   const camp = (g.camp ?? {}) as Partial<Record<string, unknown>>;
   const story = (g.story ?? {}) as Partial<Record<string, unknown>>;
+  const prefs = (g.prefs ?? {}) as Partial<Record<string, unknown>>;
   const caveBase = createCaveState();
   const campBase = createCampState();
   const veins = Array.isArray(cave.veins) ? cave.veins : [];
@@ -150,6 +153,12 @@ function sanitizeGame(raw: unknown): GameState {
     },
     carriedCrystals: Math.floor(num(g.carriedCrystals, 0)),
     story: { pages: stringList(story.pages).filter((id) => Pages.some((p) => p.id === id)) },
+    prefs: {
+      threats: prefs.threats !== false,
+      dayLength: prefs.dayLength === 'short' || prefs.dayLength === 'long' ? prefs.dayLength : 'medium',
+      vibration: prefs.vibration !== false,
+      lang: prefs.lang === 'tr' || prefs.lang === 'en' ? prefs.lang : '',
+    },
   };
 }
 

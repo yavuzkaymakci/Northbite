@@ -1626,3 +1626,34 @@ body {
 .journal-reader .settings-btn {
   margin-top: 12px;
 }
+
+/* Settings: segmented choices (threats, day length, vibration, language) */
+.seg-row {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.seg {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ui-ink) 10%, transparent);
+}
+.seg-btn {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ui-ink);
+  background: transparent;
+}
+.seg-btn.on {
+  color: var(--snow);
+  background: var(--ui-ink);
+}
+.settings-card {
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+}

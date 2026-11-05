@@ -280,7 +280,7 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - Ekran açıkken FPS 60'a yakındır; oyun sahnesi çizilmez.
   - Ayarlardan "Karakteri düzenle" çalışır ve ilerlemeyi bozmaz.
   - Model sürükleyince döner; pinch-zoom ve sayfa kayması yoktur.
-- PNG ikonlar (iOS 180×180, Android 192/512) hâlâ eksik; PWA cilası Demo 5'e kaldı.
+- PNG ikonlar (iOS 180×180, Android 192/512) hâlâ eksik; PWA cilası Demo 6'ya kaldı.
 
 ### Demo 3 — İlk otomasyon
 - Eşya sistemi (çiğ + tütsülenmiş), balık ağı ve sepet, penguen kulübesi ve penguen işçi (A* ile waypoint), veri odaklı bölge açma (buz duvarı kırılması + kamera gezdirme), Tütsühane bölgesi (tütsühane, 3. delik, 2. penguen), "Yakında" iskele duvarı, olta tezgâhı ve 4 olta yükseltmesi, "Yeni tür!" kartı, save v3, denge simülasyonu
@@ -433,77 +433,60 @@ Her demo **telefondan açılabilen bir link** ile biter.
 
 ## 17. Açık sorular
 - Test için kullanılacak telefon: iPhone mu, Android mi? (Web demolarında fark yok, native aşamada önemli)
-- Gelir modelinin kesinleşmesi
+- Gelir modelinin kesinleşmesi (çevrimdışı "x2" düğmesi gizli bir yer tutucu olarak hazır)
 - Müzik ve ses kaynakları (ücretsiz paket mi, satın alma mı)
-- Desteklenecek diller (varsayılan: Türkçe + İngilizce)
+- Desteklenecek diller (şimdilik Türkçe + İngilizce, ayarlardan seçilir)
+- Ayı tüyünün kullanımı (şimdilik yalnızca sayılıyor; dekorasyon ya da huzurla bağlanabilir)
+- PWA PNG ikonları (iOS 180×180, Android 192/512) Demo 6'ya kaldı; şimdilik yalnızca SVG ikon var.
 
-### Demo 0 sırasında verilen geçici kararlar
-- **Gökyüzü görünürlüğü:** ~50° eğim ve 35° FOV ile kamera ufku hiç görmüyor. Gradient gökyüzü arka plan olarak kuruldu ve sis rengiyle eşlendi, ama ekranda çoğunlukla sisli su görünür. Gökyüzü daha çok görünsün isteniyorsa eğim düşürülmeli (ör. 40°).
-- **His ayarları dosyası:** Kamera, joystick, sis, kar ve kayıt aralığı gibi denge dışı ayarlar `src/settings.ts` içinde tutuluyor.
-- **Klavye:** Masaüstünde test için WASD / ok tuşları da karakteri yürütür.
-- **İkon:** Şimdilik yalnızca SVG ikon var. iOS ana ekran ikonu için PNG (180×180) ve Android için 192/512 PNG'ler Demo 2'de (PWA) eklenecek.
-- **Kayıt:** Demo 0'da yalnızca oyuncu konumu kaydediliyor (her 10 sn'de ve arka plana geçişte).
+## 17.1 Uygulama kuralları
+Demolar sırasında verilen ve kalıcılaşan kararlar (eskimiş geçici kararlar silindi).
 
-### Demo 1 sırasında verilen geçici kararlar
-- **Rehber oku:** Açıklama metni olmadan döngünün anlaşılması için bir sonraki hedefin üstünde zıplayan sarı bir ok var (delik → tezgâh → coin yığını → karşılanabilir kilit alanı). Yığın dolunca her zaman tezgâhı gösterir.
-- **Müşteriler kaydedilmez:** Kuyruktaki müşteriler ve yoldaki balıkları yeniden açılışta sıfırlanır. Tezgâhtaki, sırttaki ve yerdeki coin yığını kaydedilir.
-- **Tezgâh kapasitesi:** 12 balık (iki kat). "Tezgâh kapasite yükseltmesi" Demo 4'e kaldı.
-- **Balık model boyutu:** Okunabilirlik için balıklar gerçek oranlarından büyük çiziliyor (`fish.ts` içindeki `length`).
-- **Alabalık süresi:** Saf sarma süresi 5 sn; çekişlerde bırakmakla birlikte toplam süre ~8–9 sn oluyor. Uzun gelirse `reelTime` düşürülebilir.
-- **Masaüstü:** Space tuşu ekrana basılı tutmaya karşılık gelir (vuruşta basmak = dokunmak).
-- **Titreşim:** iOS Safari `navigator.vibrate` desteklemiyor; iPhone'da titreşim native aşamada (Capacitor Haptics) gelecek.
+**Kamera ve görsel**
+- ~50° eğim ve 35° FOV ile ufuk görünmez. Gökyüzü gradyanı sis rengiyle eşlenir; daha çok gökyüzü istenirse eğim ~40°'ye indirilmelidir.
+- Balıklar okunabilsin diye gerçek oranlarından büyük çizilir (`fish.ts` → `length`).
+- Statik modeller tek bir vertex renkli mesh'e "bake" edilir. Tekrar eden nesneler (balık, coin, alev, ayak izi, kar yığını, kristal, tabak, buhar) InstancedMesh kullanır.
+- Ölçülen en kalabalık sahneler ~100 draw call ve ~30k üçgende kalır (ayı + yapılar, iglo 4 + dekorasyonlar, mağara, kamp).
 
-### Demo 2 sırasında verilen geçici kararlar
-- **Sıra:** Demo 2, Demo 3'ten sonra yapıldı; kayıt sürümü v3 olarak kaldı (`appearance` alanı zaten vardı). Bozuk ya da eksik görünüm alanları tek tek varsayılana döner.
-- **Atkı "yok":** `scarfColor = -1`. Atkı yokken boyunda mont renginde bir yaka görünür. Eldivenler önceden atkı rengindeydi; artık sabit koyu kahve.
-- **Kukuleta rengi:** Ayrı rengi yok, mont rengini alır; bu yüzden başlık sekmesinde renk satırı yalnızca bere ve kürk şapkada görünür.
-- **Doğma noktası:** Yeni oyunda karakter iglonun kapısının önünde başlar (giriş sahnesi için). Bu, ilk satışa birkaç saniye ekler.
-- **Kapatma (×):** Düzenleme modunda değişiklikleri atıp oyuna döner.
-- **Hızlı ikinci dokunuş:** iOS çift dokunma zoom'unu engelleyen kural metin kutularına uygulanmaz (yoksa isim kutusu odaklanmıyordu).
-- **Ayarlar paneli** açıkken oyun arka planda sürer; yalnızca karakter ekranı oyunu durdurur.
+**Kontroller**
+- Masaüstünde WASD / ok tuşları yürütür, Space ekrana basılı tutmaya karşılık gelir.
+- Balık tutma ve kristal damarı dokunuşları joystick'ten önce alır; 40 px sürükleme yürümeye geçer.
+- iOS Safari `navigator.vibrate` desteklemez; iPhone'da titreşim native aşamada (Capacitor Haptics) gelecek. Ayarlardaki "Titreşim" anahtarı tüm titreşimleri kapatır.
+- iOS çift dokunma zoom'unu engelleyen kural metin kutularına uygulanmaz.
 
-### Demo 3 sırasında verilen geçici kararlar
-- **Seviye sayımı:** "5 seviye" = Sv1 (başlangıç) + 4 satın alma. Böylece sırt çantası 5 → 6 → 7 → 8 → 10 olur ve kalkan, 2 yem alımından sonra (Sv3) havuza girer.
-- **Misina etkisi:** "Gerilim tavanı" çekiş gücünü bölerek uygulanır; gösterge ölçeği değişmez (oyuncu aynı yeşil/sarı/kırmızı bölgeleri görür).
-- **"Yeni tür!" kartı:** Yalnızca kalkan için değil, her türün ilk yakalanışında çıkar (ilk kapelin dahil).
-- **Kalkan ayarı:** Sarma 8 → 6 sn, çekiş aralığı 1.3–2.3 sn, güç 0.9. Eski değerlerle kalkan pratikte tutulamıyordu.
-- **Bölge kapısı:** Tütsühane bölgesi batıdaki ağaç kuşağında tek bir geçitten açılıyor; uzun bir duvar yerine kısa, okunaklı bir duvar.
-- **Kilit alanına girme gecikmesi:** Para akmadan önce ~0.3 sn durmak gerekiyor; üstünden yürüyerek geçmek para harcatmıyor.
-- **Kilit alanı etiketi:** Fiyatın üstünde ne açılacağı yazıyor ("Balık ağı", "Buz duvarı"...).
-- **Müşteriler tezgâhtan rastgele eşya alıyor;** boşalan yere son eşya geçiyor (yalnızca bir balık yer değiştiriyor).
-- **Bot hızı:** Simülasyondaki bot verimli bir oyuncudur (tepki 0.3 sn, yürüyüş 1.2× düz çizgi + karar başına 1 sn). Gerçek oyuncular biraz daha yavaş olabilir; ilk testlerden sonra fiyatlar %10–15 düşürülebilir.
-- **Yükseltme alan bot:** Her açılış arasında en fazla bir yükseltme alıyor (sonraki hedefin %30'undan ucuzsa). Bu bot hedeflere ~0.5–1 dk geç ulaşıyor; yükseltmeler ekonomiyi hızlandırmaktan çok mini oyunu kolaylaştırıyor.
-- **Penguen kulübesi** merkezde kaldı (iglonun güneyi); 2. penguen kilit alanı tütsühane açılınca kulübenin yanında beliriyor.
-- **Çizim maliyeti:** Statik modeller (iglo, tezgâh, kulübe, tütsühane, olta tezgâhı, sepet, iskele) tek bir vertex renkli mesh'e "bake" ediliyor. En kalabalık görünümde ~91 draw call, ~25k üçgen.
+**Rehber ok ve arayüz**
+- Rehber ok her zaman karşılanabilir en ucuz kilit alanını gösterir; yoksa en ucuz olanı. Yığın dolunca tezgâhı gösterir (kristal taşınıyorsa kristal tezgâhını). Tehdit yapıları ve günlük sayfaları hedef olmaz.
+- Kilit alanının üstünde ne açılacağı yazar ("Balık ağı", "Tapu: Buz Mağarası"...). Para akmadan önce ~0.3 sn durmak gerekir; üstünden yürümek para harcatmaz.
+- "Yeni tür!" kartı yalnızca yaygın olmayan türlerde çıkar (morina ve üstü, gece balıkları dahil). Kapelin sessizce "görülmüş" sayılır.
+- Ayarlar ve karakter dışındaki paneller açıkken oyun sürer; yalnızca karakter ekranı oyunu durdurur. Dil değişince oyun kaydedilip yeniden yüklenir.
 
-### Demo 4 aşama 2 (tehditler) sırasında verilen geçici kararlar
-- **Yamaç:** Tütsühane bölgesinin batısında yeni, erişilebilir bir köşe (x −25…−21) ve arkasında yükselen karlı yamaç. Çığ koridoru yamacın dibinden doğudaki ağaç kuşağına kadar uzanır ve bölgenin kuzeyini (3. delik) keser. Penguenlerin taşıma yolu koridordan geçmez; çığ işleri durdurmaz. Buz Mağarası (aşama 4) bu köşeye gelecek.
-- **Penguenler** yalnızca raflara bakan "kapı" yığınını kazar (geçidi açmak için), aynı anda tek penguen. Diğer yığınları oyuncu kazar ya da erirler.
-- **Kayıt:** Ayı, çığ, yığınlar, sandık ve zamanlayıcılar kaydedilmez. Kaydedilenler: açılan yapılar (`unlocked`), meşale sayısı, yem tuzağındaki balık (kayıpsız olsun diye), ayı tüyü sayısı ve sayaçlar (`stats.playTime`, `bears`, `avalanches`; ilk ayının öğretici olup olmadığı buradan anlaşılır). Kayıt sürümü 4 kaldı; eksik alanlar varsayılana döner.
-- **"Dekorasyon" sandığı:** Dekorasyonlar aşama 3'te gelecek; şimdilik sandık hep coin verir. Ayı tüyünün kullanımı da aşama 3'te (dekorasyon) belirlenecek.
-- **Basılı tut:** Joystick parmağı (ya da masaüstünde Space) basılıyken ayıya 3 birim yaklaşmak dolumu başlatır; parmak kalkınca dolum sıfırlanır. Meşale varken basılı tutmak gerekmez.
-- **Ateş çukuru etkisi:** Hedefin 12 birim yakınındaki her çukur ayı şansını ×0.6 yapar (3 çukur ≈ %78 azalma). Uyarı bonusu çukur sayısıyla artmaz.
-- **Ayarlar paneli "Tehditler: Açık/Kapalı" anahtarı** aşama 5'e (ayarlar) kaldı; şimdilik yalnızca `threatScale`.
-- **Test anahtarı:** `settings.ts` → `DebugSettings.debugForceThreat` ('bear' / 'avalanche') tehditi açılıştan birkaç saniye sonra ve her bitişten 8 sn sonra yeniden başlatır. Commit'lerde 'off'.
-- **Çizim maliyeti:** Ayı ~7, yapılar birer, alevler / ayak izleri / kar yığınları birer InstancedMesh. Ölçülen en kalabalık sahne (ayı + kule + ateş çukuru + penguenler + müşteriler) ~106 draw call, ~28k üçgen.
+**Karakter**
+- Atkı "yok" `scarfColor = -1`'dir; atkı yokken boyunda mont renginde bir yaka görünür. Kukuletanın ayrı rengi yoktur, mont rengini alır.
+- Yeni oyunda karakter iglonun kapısının önünde başlar (giriş sahnesi için). Karakter düzenlemede × değişiklikleri atar.
 
-### Demo 4 aşama 3 (iglo, uyku, huzur) sırasında verilen geçici kararlar
-- **Fiyat dengesi:** Rehber en ucuz hedefi gösterdiği için dekorasyonlar tütsühaneden önce çıkınca ana ilerleme ~4 dk gecikiyordu. Dekorasyonlar tütsühaneden sonraya alındı ve ucuzladı (toplam ~345 coin). Erken iglo 2 (60) yüzünden bölge 140 → 125, tütsühane 160 → 150 oldu. 3. delik (~22 dk) ve 2. penguen (~28 dk) yeni içerik yüzünden önceki demodan ~4 dk geç açılıyor.
-- **Uyku saatleri:** Günün %64'ünden (akşamın son dakikası) gece yarısına kadar uyunur; uyanış günün %3'ü. Buff "o günün sonuna" kadar sürer (8 dk'lık günde ~7.8 dk).
-- **Engel:** Uyarı veya yaklaşma hâlindeki ayı ve çığ uyarısı uykuyu engeller. Kaçan ayı ya da düşmüş kar yığınları uykuyla temizlenir. Uyanınca yeni gün 90 sn sessiz başlar (oturum başı gibi).
-- **Bahşiş:** Kesirli bahşiş birikir ve 1 coin olunca ödenir (müşteriler arası, kaydedilmez).
-- **Yükseltme anı:** Oyuncu iglonun içinde kalırsa normal çarpışma adımı onu bir sonraki karede dışarı iter. Yeni çarpışma daireleri itmeyi merkezden dışa doğru yaptığı için oyuncu sıkışmaz.
-- **Kayıt (v4):** `iglooLevel`, `decorations` (açılan çerçevelerden yeniden kurulur), `rested` (kalite + bitiş oyun zamanı, gün cinsinden `day − 1 + t`), `sleep` (son uyanılan gün, ipucunun gösterildiği gece, ipucu kapandı mı). Eksik alanlar varsayılana döner: iglo 1, buff yok.
-- **Ayı tüyü** için kullanım hâlâ yok (huzura bağlanması aşama 4–5'te düşünülebilir).
-- **Çizim maliyeti:** İglo seviye 4 + bütün dekorasyonlar + gece ışıklarıyla ölçülen sahne ~99 draw call, ~28k üçgen.
+**Ekonomi ve simülasyon**
+- "5 seviye" = Sv1 (başlangıç) + 4 satın alma. Fiyat taban × 1.6^(seviye − 1) × `priceScale`.
+- Misina, çekiş gücünü böler; gösterge ölçeği değişmez.
+- Müşteriler tezgâhtan rastgele eşya alır, boşalan yere son eşya geçer.
+- Simülasyon botu verimli bir oyuncudur (tepki 0.3 sn, yürüyüş 1.2× düz çizgi + karar başına 1 sn). Yükseltme alan bot her açılıştan sonra en fazla bir yükseltme alır (sonraki hedefin %30'undan ucuzsa).
+- Bahşiş kesirleri birikir ve 1 coin olunca ödenir.
 
-### Demo 4 aşama 4 (araziler, hikâye, gelir kolları) sırasında verilen geçici kararlar
-- **Kamp yeri:** "Kuzeydoğu" için ana kıyının doğusunda (x 11–24, z −10…2) bir kara parçası açıldı. Ana alanla arasında buz köprü var; yürüme sınırı genişledi, çevresi su ve buz sırtı çarpışmalarıyla kapatıldı.
-- **Mağara yeri:** Çığ koridorunun güneyinde, yamacın içinde. Eski kasalar köşenin kuzeyine taşındı. Yamaç kayaları mağara boşluğunu boş bırakıyor. Kameraya bakan güney duvarı içerisi görünsün diye alçak tutuldu.
-- **Coin yığınları:** Mağara ve kampın kendi yığınları var (Koleksiyoncu ve turist paraları buraya düşer). Oyuncu üstünden geçince toplar.
-- **Satıcıya taşıma yok:** Heykelcik ve tabak sırtta taşınmaz. Heykelcikleri Koleksiyoncu raftan alır, tabaklar raftan turiste uçar. Sırtta yalnızca kristal taşınır (balıkla aynı kapasite).
-- **Penguenler** kristal, heykelcik ve tabak taşımaz (`content/workers.ts` → `goods`: ileride iş eklemek için kanca).
-- **Turistler** mutfak yoksa yalnızca boş çadır varken gelir; kira, misafir ayrılınca ödenir. Turistler, Koleksiyoncu'nun konumu ve aktif servisler kaydedilmez. Kaydedilenler: açılan araziler (`regions`), damar dolma süreleri, mağara/mutfak rafları, çadırlar ve görevli (`unlocked`), bulunan sayfalar ve Koleksiyoncu'ya kalan süre.
-- **Fiyat dengesi:** Yeni içerikle 3. delik (220 → 160) ve 2. penguen (300 → 220) ucuzladı, iglo 4 500 → 320 oldu (aşama 3'teki gecikme giderildi). Yükseltme alan bot hedeflerin 1–3 dk gerisinde. Bu bot her açılıştan sonra bir yükseltme de aldığı için daha yavaş ilerliyor; yükseltme almayan bot neredeyse tam hedefte.
-- **Eski kayıtlar:** Tütsühanesi açık eski kayıtlarda 1. sayfa ilk açılışta gelir.
-- **Çizim maliyeti:** Mağarada ~64, kampta ~70 draw call ölçüldü (~29k üçgen). Turistlerin gövdesi bake edildi (kişi başı 5 draw call).
+**Dünya**
+- Tütsühane bölgesine batıdaki ağaç kuşağında tek bir geçitten girilir.
+- Yamaç köşesi: tütsühane bölgesinin batısındadır. Çığ koridoru 3. deliğe giden yolu keser ama penguenlerin yolunu kesmez. Mağara koridorun güneyindedir.
+- Kamp, ana kıyının doğusundaki kara parçasındadır (buz köprü). Çevresindeki su çarpışmalarından ayı yüzerek geçer.
+- Mağara ve kampın kendi coin yığınları vardır. Heykelcik ve tabak sırtta taşınmaz; sırtta yalnızca kristal taşınır (balıkla aynı kapasite).
+- Penguenler kristal, heykelcik ve tabak taşımaz (`content/workers.ts` → `goods` kancası).
+
+**Tehditler, uyku ve hikâye**
+- Ayıyı korkutmak için joystick parmağı (ya da Space) basılıyken 3 birim yaklaşılır; parmak kalkınca dolum sıfırlanır. Meşale varken basılı tutmak gerekmez.
+- Hedefin 12 birim yakınındaki her ateş çukuru ayı şansını ×0.6 yapar; uyarı bonusu çukur sayısıyla artmaz.
+- Penguenler yalnızca raflara bakan "kapı" kar yığınını kazar, aynı anda tek penguen. Çığ sandığı coin verir.
+- Uyku günün %64'ünden gece yarısına kadar mümkündür, uyanış günün %3'ündedir. Buff o günün sonuna kadar sürer. Ayı uyarısı/yaklaşması ve çığ uyarısı uykuyu engeller. Uyanınca yeni gün 90 sn sessiz başlar.
+- Tütsühanesi açık eski kayıtlarda 1. günlük sayfası ilk açılışta gelir.
+- Test anahtarı `DebugSettings.debugForceThreat` ('bear' / 'avalanche') commit'lerde 'off' kalır.
+
+**Kayıt (v5)**
+- Kaydedilir: oyuncu konumu, görünüm, ilerleme (`unlocked`, `regions`), istasyon içerikleri (tezgâh, sepet, tütsühane, mağara ve mutfak rafları, kristal damarlarının dolma süreleri), işçilerin taşıdıkları, yükseltmeler (olta + istasyon), saat ve gün toplamları, buff'lar, meşale / yem / ayı tüyü, iglo seviyesi, dekorasyonlar, uyku bilgisi, günlük sayfaları, Koleksiyoncu'ya kalan süre, ayarlar ve çevrimdışı hesap için son görülme zamanı.
+- Kaydedilmez: müşteriler, turistler, NPC konumları, aktif ayı ve çığ, kar yığınları, sandık, uyku animasyonu, uçuştaki coin'ler. Uçuştaki balıklar inmiş sayılır.
+- Her sürüm bir öncekine göç eder; eksik ya da bozuk alanlar tek tek varsayılana döner.

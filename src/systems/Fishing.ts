@@ -305,8 +305,10 @@ export class FishingSystem implements TouchClaimer {
       this.onAuroraBuff();
     }
     this.stack.hiddenTop++;
-    const firstOfKind = !this.state.seen.includes(hooked.item.species);
-    if (firstOfKind) this.state.seen.push(hooked.item.species);
+    // Every species is recorded as seen; common ones (capelin) get no "New species!" card (GDD §2.1).
+    const first = !this.state.seen.includes(hooked.item.species);
+    if (first) this.state.seen.push(hooked.item.species);
+    const firstOfKind = first && FishById[hooked.item.species].rarity !== 'common';
     vibrate(firstOfKind ? HapticsSettings.newSpecies : HapticsSettings.catch);
 
     const p = this.player.state;

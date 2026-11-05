@@ -10,9 +10,9 @@ export type BearTargetId = 'basket' | 'counter' | 'smokeOut' | 'penguin' | 'plat
 
 export const FIRE_PITS: readonly BuildingId[] = ['firePit1', 'firePit2', 'firePit3'];
 
-/** True once threats may come at all: enough play time and the smokehouse is open. */
+/** True once threats may come at all: switched on in the settings, enough play time and the smokehouse is open. */
 export function threatsUnlocked(state: GameState): boolean {
-  return state.stats.playTime >= T.minPlayTime && state.unlocked.includes(T.requires);
+  return state.prefs.threats && state.stats.playTime >= T.minPlayTime && state.unlocked.includes(T.requires);
 }
 
 /**

@@ -73,6 +73,19 @@ export interface GameState {
   carriedCrystals: number;
   /** Journal pages found (ids from content/story.ts). */
   story: { pages: string[] };
+  /** Player settings (settings panel). */
+  prefs: Prefs;
+}
+
+export type DayLengthId = 'short' | 'medium' | 'long';
+
+export interface Prefs {
+  /** Threats on/off; off behaves like threatScale 0. */
+  threats: boolean;
+  dayLength: DayLengthId;
+  vibration: boolean;
+  /** '' = follow the device language. */
+  lang: '' | 'tr' | 'en';
 }
 
 export interface CaveState {
@@ -151,6 +164,7 @@ export function createGameState(): GameState {
     camp: createCampState(),
     carriedCrystals: 0,
     story: { pages: [] },
+    prefs: { threats: true, dayLength: 'medium', vibration: true, lang: '' },
   };
 }
 

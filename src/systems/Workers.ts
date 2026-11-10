@@ -23,6 +23,7 @@ import type { Smokehouse } from './Smokehouse';
 import type { Camp } from './Camp';
 import type { Cave } from './Cave';
 import type { ThreatBuildings } from './ThreatBuildings';
+import type { Harbor } from './Harbor';
 import { WorkerBrain, type DigSite, type WorkContext } from './WorkerBrain';
 
 interface Penguin {
@@ -50,6 +51,7 @@ export interface WorkerLinks {
   camp: Camp;
   cave: Cave;
   buildings: ThreatBuildings;
+  harbor: Harbor;
 }
 
 /**
@@ -159,6 +161,14 @@ export class Workers {
         room: () => L()?.buildings.baitRoom() ?? 0,
         give: (item, w) => isFish(item) && L()?.buildings.setBait(item, top(w)),
         accepts: (item) => item.kind === 'raw',
+      },
+      // Harbour Pier loot rack (GDD §25): dockhands take deep-sea fish from it (crates refill it).
+      lootRack: {
+        ...none,
+        node: 'loot',
+        enabled: () => this.state.regions.includes('harbor'),
+        takeable: () => this.state.harbor.rack.length,
+        take: (w) => takeTo(w, L()?.harbor.takeLoot(from) ?? null, from),
       },
     };
     this.linkVeins = (cave) => {

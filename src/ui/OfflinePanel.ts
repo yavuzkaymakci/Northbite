@@ -1,5 +1,6 @@
 import { t, tf } from '../content/strings';
 import { OfflineFeel } from '../settings';
+import type { OfflinePending } from '../core/GameState';
 import { onTap } from './tap';
 import { panels } from './PanelManager';
 
@@ -9,6 +10,7 @@ export class OfflinePanel {
   private readonly awayEl: HTMLElement;
   private readonly coinsEl: HTMLElement;
   private readonly capEl: HTMLElement;
+  private readonly boatEl: HTMLElement;
   private onCollect: (() => void) | null = null;
   private target = 0;
   private shown = 0;
@@ -23,12 +25,14 @@ export class OfflinePanel {
         <div class="offline-away"></div>
         <div class="offline-coins"><span class="coin-icon"></span><b class="offline-value">0</b></div>
         <div class="offline-cap"></div>
+        <div class="offline-boat" hidden></div>
         <button class="offline-collect">${t('offlineCollect')}</button>
         <button class="offline-boost"${OfflineFeel.showOfflineBoost ? '' : ' hidden'}>${t('offlineBoost')}</button>
       </div>`;
     this.awayEl = this.root.querySelector('.offline-away') as HTMLElement;
     this.coinsEl = this.root.querySelector('.offline-value') as HTMLElement;
     this.capEl = this.root.querySelector('.offline-cap') as HTMLElement;
+    this.boatEl = this.root.querySelector('.offline-boat') as HTMLElement;
     (this.root.querySelector('.offline-card') as HTMLElement).addEventListener('pointerdown', (e) => e.stopPropagation());
     onTap(this.root.querySelector('.offline-collect') as HTMLElement, () => panels.close('offline', 'done'));
     overlay.appendChild(this.root);
@@ -48,7 +52,8 @@ export class OfflinePanel {
     return panels.isOpen('offline') || panels.isQueued('offline');
   }
 
-  show(coins: number, seconds: number, capped: boolean, capHours: number, onCollect: () => void): void {
+  /** `boat`: voyages that came back while away (GDD §25); their loot is already on the rack, not in `coins`. */
+  show(coins: number, seconds: number, capped: boolean, capHours: number, onCollect: () => void, boat?: OfflinePending['boat']): void {
     this.onCollect = onCollect;
     panels.open('offline', {
       queue: true,
@@ -59,6 +64,11 @@ export class OfflinePanel {
         this.awayEl.textContent = tf('offlineAway', { t: formatDuration(seconds) });
         this.capEl.textContent = tf(capped ? 'offlineCapped' : 'offlineCap', { h: capHours });
         this.coinsEl.textContent = '0';
+        this.boatEl.hidden = !boat;
+        if (boat) {
+          const vars = { v: boat.voyages, n: boat.fish, c: boat.coins, p: boat.parts };
+          this.boatEl.textContent = tf(boat.voyages > 1 ? 'offlineBoatMany' : 'offlineBoat', vars) + (boat.parts > 0 ? tf('offlineBoatPart', vars) : '');
+        }
       },
     });
   }

@@ -1,7 +1,7 @@
 // Panel stress tests (GDD §23) in headless Chrome. Starts its own Vite dev server, loads crafted saves and drives
 // the game with real pointer / key events over the DevTools protocol.
 //   node tools/panel-test.mjs [suite ...] [--chrome <path>] [--throttle N] [--reduce-motion] [--cycles N]
-// Suites: cycles, storm, pairs, joystick, forced, lang, market, roles (default: all).
+// Suites: cycles, storm, pairs, joystick, forced, lang, market, roles, harbor (default: all).
 // --shots <dir> saves screenshots of the roles suite there. Exit code 1 when a check fails.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -21,7 +21,7 @@ const CYCLES = Number(opt('--cycles', '200'));
 const VALUED = ['--chrome', '--throttle', '--cycles', '--shots'];
 const SHOTS = opt('--shots', '');
 const SUITES = args.filter((a, i) => !a.startsWith('--') && !VALUED.includes(args[i - 1]));
-const ALL = ['cycles', 'storm', 'pairs', 'joystick', 'forced', 'lang', 'market', 'roles'];
+const ALL = ['cycles', 'storm', 'pairs', 'joystick', 'forced', 'lang', 'market', 'roles', 'harbor'];
 const run = SUITES.length ? SUITES : ALL;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -157,6 +157,17 @@ const PAD = { x: -7.6, z: -2.0 };
 const BOARD = { x: -1.2, z: 2.9 };
 const MARKET = { x: -8.6, z: 8.1 };
 const AWAY = { x: 2, z: 1.5 };
+const VOYAGE = { x: 20.3, z: 17.2 };
+const RACK = { x: 9.2, z: 14.2 };
+/** A late save with the Harbour Pier open and the boat repaired (GDD §25), one penguin a dockhand later. */
+const HARBOR_SAVE = (harbor = {}) => ({
+  coins: 20000,
+  unlocked: ['hole2', 'net', 'hut', 'smokehouse', 'hole3', 'penguin2', 'orderBoard', 'igloo2', 'crystalBench', 'tent1', 'kitchen', 'boatHull', 'boatSail', 'boatCabin'],
+  regions: ['smokeYard', 'iceCave', 'hotSpring', 'harbor'],
+  story: { pages: ['page1', 'page2', 'page3'] },
+  workers: [{ carried: [] }, { carried: [] }],
+  harbor,
+});
 
 /** Clean state: nothing open or queued, no hidden touch catcher, game touches on, no pointer held. */
 async function audit(label, expectOpen = []) {
@@ -253,6 +264,82 @@ const suites = {
    * Penguin Market (GDD §24): the v5 test save migrates (two penguins become carrier + smoker, the old "2nd penguin"
    * gives the stall); tabs, buying, a role change and a hut upgrade work through the panel and leave nothing stuck.
    */
+  /**
+   * Harbour Pier (GDD §25): the voyage panel opens on its ring, a voyage leaves, comes back and fills the loot rack;
+   * a dockhand carries loot away; a voyage finishing while the game is closed lands once (no double count); the
+   * seal tab buys a seal; walking off closes the panel.
+   */
+  async harbor() {
+    await load(HARBOR_SAVE());
+    const st = () =>
+      js(`(() => { const h = window.__game.state.harbor; return { phase: h.voyage ? 'out' : h.returned ? 'returned' : 'ready', voyages: h.voyages, rack: h.rack.length, crates: h.crates.length, pile: h.pile, seals: h.seals.length, coins: window.__game.state.coins, pending: window.__game.state.offlinePending }; })()`);
+    const s0 = await st();
+    check('v5 save + harbour: default harbour state, boat ready', s0.phase === 'ready' && s0.voyages === 0, JSON.stringify(s0));
+    await teleport(VOYAGE.x, VOYAGE.z);
+    for (let k = 0; k < 40 && !(await isOpen('voyage')); k++) await sleep(25);
+    check('voyage panel opens on the voyage point', await isOpen('voyage'));
+    await shot('harbor-panel');
+    await tapSel('.voyage-panel .vp-dest .mc-buy');
+    await frames(3);
+    let s1 = await st();
+    check('"Sail" sends the boat out (supplies paid)', s1.phase === 'out' && s1.coins < s0.coins, JSON.stringify(s1));
+    for (let i = 0; i < 10; i++) {
+      await tapSel(`.voyage-panel .panel-tabs button[data-tab="${i % 2 ? 'trips' : 'boat'}"]`);
+      await frames(1);
+    }
+    check('still open after tab taps', await isOpen('voyage'));
+    await tapSel('.voyage-panel .panel-tabs button[data-tab="boat"]');
+    await frames(3);
+    await tapSel('.voyage-panel .upgrade-card');
+    await frames(3);
+    check('boat upgrade from the Boat tab', await js(`window.__game.state.harbor.upgrades.boatSpeed === 2 || window.__game.state.harbor.upgrades.boatCargo === 2 || window.__game.state.harbor.upgrades.boatCrew === 2 || window.__game.state.harbor.upgrades.boatLantern === 2`));
+    await teleport(AWAY.x, AWAY.z);
+    await frames(3);
+    check('walking off closes the voyage panel', !(await isOpen('voyage')));
+    // Fast-forward the voyage: it comes back once, loot lands on the rack.
+    await js(`(() => { const v = window.__game.state.harbor.voyage; v.left = 1; return true; })()`);
+    await sleep(1800);
+    s1 = await st();
+    check('the boat comes back with loot on the rack', s1.phase === 'returned' && s1.voyages === 1 && s1.rack + s1.crates > 0, JSON.stringify(s1));
+    // Offline: a voyage with 2 minutes left, 10 minutes away → back exactly once, one line in the window.
+    await js(`(() => { const g = window.__game; g.state.coins += 100; g.harbor.depart('reef', true); const v = g.state.harbor.voyage; v.left = 120; g.state.harbor.auto = false; g.state.lastSeenAt = Date.now() - 600000; g.checkOffline(); return true; })()`);
+    await frames(3);
+    const s2 = await st();
+    check('offline: the voyage at sea finishes once while away', s2.voyages === 2 && s2.phase === 'returned', JSON.stringify(s2));
+    check('offline: "the boat came back" line in the window', !!s2.pending?.boat && s2.pending.boat.voyages === 1, JSON.stringify(s2.pending));
+    await js(`(() => { window.__game.checkOffline(); return true; })()`);
+    const s3 = await st();
+    check('offline: checking again does not count it twice', s3.voyages === 2 && s3.pending?.boat?.voyages === 1, JSON.stringify(s3.pending));
+    if (await isOpen('offline')) await tapSel('.offline-collect');
+    await frames(3);
+    // A dockhand takes loot off the rack.
+    await js(`(() => { const g = window.__game; const w = g.state.workers[0]; w.role = 'dockhand'; g.workers.roleChanged(w); return true; })()`);
+    const r0 = (await st()).rack + (await st()).crates;
+    await sleep(15000);
+    const r1 = (await st()).rack + (await st()).crates;
+    check('dockhand carries loot from the rack', r1 < r0, `${r0} → ${r1}`);
+    // The player picks loot up at the rack.
+    await teleport(RACK.x, RACK.z);
+    await sleep(1500);
+    const carried = await js(`window.__game.state.carried.length`);
+    check('loot flies onto the back at the rack', carried > 0 || r1 === 0, `${carried}`);
+    await shot('harbor-rack');
+    // Seal tab in the Penguin Market.
+    await js(`(() => { const s = window.__game.state; s.carried.length = 0; return true; })()`);
+    await teleport(MARKET.x, MARKET.z);
+    for (let k = 0; k < 40 && !(await isOpen('market')); k++) await sleep(25);
+    check('market opens (seal tab test)', await isOpen('market'));
+    await tapSel('.market-panel .panel-tabs button[data-tab="seals"]');
+    await frames(3);
+    const tabInfo = await js(`(() => { const b = document.querySelector('.market-panel .panel-tabs button[data-tab="seals"]'); return { hidden: b.hidden, on: b.classList.contains('on'), offers: window.__game.state.harbor.sealMarket.offers.length }; })()`);
+    await tapSel('.market-panel .mc-buy');
+    await frames(3);
+    check('seal tab: a seal joins the crew', (await st()).seals === 1, JSON.stringify({ ...(await st()), tabInfo }));
+    await teleport(AWAY.x, AWAY.z);
+    await frames(3);
+    await audit('harbor: clean');
+  },
+
   async market() {
     await load();
     const st = () => js(`(() => { const s = window.__game.state; return { n: s.workers.length, roles: s.workers.map((w) => w.role), market: s.unlocked.includes('market'), hut: s.hutLevel, coins: s.coins, offers: s.market.offers.length }; })()`);
@@ -322,11 +409,11 @@ const suites = {
     await modal('orders', '.hud-board', ['.order-close', 'outsideTop', 'escape']);
 
     // Contextual: stand on the pad, close every way; dismissed panels stay shut until the player steps off.
-    const contextual = async (pid, spot, closer) => {
+    const contextual = async (pid, spot, closer, xSel = '.panel-x') => {
       let stuck = 0;
       let reopened = 0;
       const n = Math.max(Math.round(CYCLES / 4), 10);
-      const ways = ['.panel-x', 'outside', 'escape', 'leave', closer];
+      const ways = [xSel, 'outside', 'escape', 'leave', closer];
       for (let i = 0; i < n; i++) {
         await teleport(spot.x, spot.z);
         let opened = false;
@@ -356,6 +443,10 @@ const suites = {
     await contextual('bench', PAD, '.panel-x');
     await contextual('orders', BOARD, '.order-close');
     await contextual('market', MARKET, '.panel-x');
+    // Harbour Pier (GDD §25): the voyage panel on the voyage point ring (a save with the harbour open).
+    await load(HARBOR_SAVE());
+    await contextual('voyage', VOYAGE, '.voyage-panel .panel-x', '.voyage-panel .panel-x');
+    await load();
 
     // Cards.
     let stuck = 0;

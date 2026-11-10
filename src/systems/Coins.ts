@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CampLayout, CaveLayout, IceShore, type Vec2 } from '../content/zones';
+import { CampLayout, CaveLayout, HarborLayout, IceShore, type Vec2 } from '../content/zones';
 import { CoinFeel, CustomerFeel } from '../settings';
 import type { GameState } from '../core/GameState';
 import type { Player } from '../entities/Player';
@@ -16,7 +16,7 @@ const COLUMN_OFFSETS = [
 ] as const;
 
 /** Coin piles: next to the counter, at the camp entrance, outside the Ice Cave (GDD §15). */
-export type PileId = 'counter' | 'camp' | 'cave';
+export type PileId = 'counter' | 'camp' | 'cave' | 'harbor';
 
 /** One coin pile: its value lives in the game state, the flights and the mint tip coins on top are visual. */
 class Pile {
@@ -74,6 +74,7 @@ export class CoinSystem {
       counter: new Pile(IceShore.counter.coinPile, () => s.pile, (v) => (s.pile = v)),
       camp: new Pile(CampLayout.pile, () => s.camp.pile, (v) => (s.camp.pile = v)),
       cave: new Pile(CaveLayout.pile, () => s.cave.pile, (v) => (s.cave.pile = v)),
+      harbor: new Pile(HarborLayout.pile, () => s.harbor.pile, (v) => (s.harbor.pile = v)),
     };
   }
 

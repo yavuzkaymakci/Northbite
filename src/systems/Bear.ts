@@ -3,7 +3,8 @@ import { Stations } from '../content/stations';
 import { t, tf } from '../content/strings';
 import { Threats as T } from '../content/threats';
 import { Camp } from '../content/land';
-import { CampLayout, IceShore, ThreatBuildingSpots, ThreatLayout, type Vec2 } from '../content/zones';
+import { CampLayout, HarborLayout, IceShore, ThreatBuildingSpots, ThreatLayout, type Vec2 } from '../content/zones';
+import { storeLoot } from './VoyageLogic';
 import { HapticsSettings, PlayerFeel, ThreatFeel as F } from '../settings';
 import { damp } from '../core/Time';
 import type { FishItem, GameState } from '../core/GameState';
@@ -297,6 +298,9 @@ export class Bear {
     } else if (this.target === 'smokeOut' && this.d.smoker.isBuilt) {
       list = s.smoker.output;
       takeable = this.d.smoker.takeable();
+    } else if (this.target === 'loot') {
+      list = s.harbor.rack;
+      takeable = s.harbor.rack.length;
     }
     if (this.target === 'plates') {
       this.plateLoot = stealPlates(s.camp.plates, Math.random);
@@ -384,6 +388,8 @@ export class Bear {
     const s = this.d.state;
     if (l.from === 'basket' && s.basket.length < stationValue(s, 'basketCapacity')) s.basket.push(l.item);
     else if (l.from === 'smokeOut' && s.smoker.output.length < Stations.smokehouse.outputCapacity) s.smoker.output.push(l.item);
+    // Harbour loot goes back to the rack (or a crate when the rack filled up meanwhile): never lost.
+    else if (l.from === 'loot') storeLoot(s, [l.item]);
     else s.counter.push(l.item);
   }
 
@@ -520,6 +526,7 @@ export class Bear {
     if (id === 'basket') return out.set(IceShore.net.basket.x, 0.4, IceShore.net.basket.z);
     if (id === 'smokeOut') return out.set(IceShore.smokehouse.output.x, RACK_TOP_Y + 0.1, IceShore.smokehouse.output.z);
     if (id === 'plates') return out.set(CampLayout.kitchen.output.x, 0.5, CampLayout.kitchen.output.z);
+    if (id === 'loot') return out.set(HarborLayout.rack.x, 0.7, HarborLayout.rack.z);
     return out.set(c.x, COUNTER_TOP_Y + 0.1, c.z);
   }
 }

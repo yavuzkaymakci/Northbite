@@ -415,4 +415,31 @@ export const DebugTools = {
   coins: 1000,
   /** Experience given to every penguin by the debug "+XP" button (GDD §24). */
   penguinXp: 60,
+  /** "Voyage time ×" cycles through these duration multipliers (GDD §25); 1 = normal. */
+  voyageMuls: [1, 0.25, 0.05] as readonly number[],
+} as const;
+
+/** Harbour Pier feel (GDD §25). Balance values live in content/harbor.ts and voyages.ts. */
+export const HarborFeel = {
+  /** Stand still in the voyage / lighthouse ring this long for the panel to open. */
+  openDelay: 0.2,
+  /** Seconds the boat takes to sail out of sight (and to come back in); it fades into the fog near the end. */
+  sailTime: 7,
+  fadeFrom: 0.6,
+  /** After setting sail the camera follows the boat this long, then eases back to the player. */
+  followTime: 2,
+  /** An auto voyage leaves this long after the boat is back (online). */
+  autoDelay: 6,
+  /** Loot flies from the rack to the back this often while standing next to it. */
+  rackRadius: 1.6,
+  transferInterval: 0.18,
+  /** Bobbing at the pier. */
+  bob: 0.06,
+  sealPeek: 4.5,
+  gulls: 5,
+  gullSpeed: 0.35,
+  /** Seconds between gull cries (random in range) while near the harbour. */
+  gullCry: [5, 11] as readonly number[],
+  /** Distance from the boat or the repair frame that counts as "at the harbour" for sounds. */
+  near: 14,
 } as const;

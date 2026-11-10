@@ -37,7 +37,16 @@ export type SfxId =
   | 'panelClose'
   | 'banner'
   | 'page'
-  | 'snowStep';
+  | 'snowStep'
+  // Harbour Pier (GDD §25)
+  | 'gull'
+  | 'creak'
+  | 'rope'
+  | 'sailFlap'
+  | 'hammer'
+  | 'boatDepart'
+  | 'boatReturn'
+  | 'lighthouseBell';
 
 export interface SfxLayer {
   kind: 'tone' | 'noise';
@@ -126,6 +135,16 @@ export const Sfx: Record<SfxId, SfxDef> = {
   banner: { layers: [T([1046, 1046], 0.35, 0.05), T([1568, 1568], 0.3, 0.03, { at: 0.05 })], minGap: 0.6 },
   page: { layers: [N([2500, 1500], 0.35, 0.07, 'bandpass', { attack: 0.05 }), N([2200, 1300], 0.3, 0.05, 'bandpass', { at: 0.18, attack: 0.04 })], minGap: 0.5 },
   snowStep: { layers: [N([1800, 800], 0.06, 0.03, 'lowpass')], minGap: 0.22 },
+  // Harbour Pier (GDD §25): gull cries (two falling squeaks), wood creaks, a rope, the sail, a hammer, the horn
+  // when the boat leaves and comes back, a soft bell for the lighthouse.
+  gull: { layers: [T([1500, 1150], 0.22, 0.05, { wave: 'triangle', attack: 0.02 }), T([1400, 1050], 0.3, 0.045, { wave: 'triangle', at: 0.26, attack: 0.02 })], minGap: 1.5, world: true },
+  creak: { layers: [T([180, 230], 0.5, 0.05, { wave: 'sawtooth', attack: 0.12 }), N([500, 700], 0.45, 0.025, 'bandpass', { q: 4, attack: 0.1 })], minGap: 1.5, world: true },
+  rope: { layers: [N([900, 1400], 0.3, 0.04, 'bandpass', { q: 2, attack: 0.05 })], minGap: 0.8, world: true },
+  sailFlap: { layers: [N([400, 900], 0.18, 0.07, 'lowpass', { attack: 0.01 }), N([700, 300], 0.2, 0.05, 'lowpass', { at: 0.16 })], minGap: 1, world: true },
+  hammer: { layers: [0, 0.22, 0.44].map((at) => N([1600, 600], 0.08, 0.12, 'bandpass', { at, q: 1.5 })), minGap: 0.6, world: true },
+  boatDepart: { layers: [T([196, 196], 1.1, 0.12, { wave: 'triangle', attack: 0.08 }), T([294, 294], 0.9, 0.06, { wave: 'triangle', at: 0.05, attack: 0.08 }), N([700, 300], 1.2, 0.06, 'lowpass', { at: 0.3, attack: 0.3 })], minGap: 2 },
+  boatReturn: { layers: [T([196, 196], 0.6, 0.11, { wave: 'triangle', attack: 0.06 }), T([262, 262], 0.9, 0.1, { wave: 'triangle', at: 0.7, attack: 0.06 }), ...[523, 659, 784].map((f, i) => T([f, f], 0.4, 0.06, { at: 1.4 + i * 0.08 }))], minGap: 2 },
+  lighthouseBell: { layers: [T([784, 784], 2.4, 0.07, { attack: 0.005 }), T([1568, 1568], 1.6, 0.025, { attack: 0.005 }), T([2350, 2350], 0.9, 0.012, { attack: 0.005 })], minGap: 1.5 },
 };
 
 /** Default volumes (0..1) and engine limits. */

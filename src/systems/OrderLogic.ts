@@ -230,18 +230,22 @@ export function deliverOrder(state: GameState, orderId: number, visible = state.
   let decorPiece: string | null = null;
   if (order.extra === 'rareBait') state.codex.rareBait += Orders.extras.find((e) => e.id === 'rareBait')?.rareBaitSeconds ?? 0;
   else if (order.extra === 'fur') state.threats.fur++;
-  else if (order.extra === 'decorPiece') {
-    // Pays half of the cheapest decoration frame that is showing and not bought yet.
-    const open = DecorationList.filter((d) => !d.reward && !state.unlocked.includes(d.id) && d.requires.every((r) => isDone(state, r))).sort(
-      (a, b) => a.cost - b.cost,
-    )[0];
-    if (open) {
-      const cost = scaledPrice(Economy.unlocks[open.id]);
-      state.unlockPaid[open.id] = Math.min((state.unlockPaid[open.id] ?? 0) + Math.round(cost * Orders.decorPieceShare), cost - 1);
-      decorPiece = open.id;
-    }
-  }
+  else if (order.extra === 'decorPiece') decorPiece = payDecorPiece(state);
   return { coins: order.reward, extra: order.extra, givenValue, decorPiece };
+}
+
+/**
+ * A decoration piece (order extra, voyage treasure): pays half of the cheapest decoration frame that is showing and
+ * not bought yet. Returns that frame's id, or null when there is none.
+ */
+export function payDecorPiece(state: GameState): string | null {
+  const open = DecorationList.filter((d) => !d.reward && !state.unlocked.includes(d.id) && d.requires.every((r) => isDone(state, r))).sort(
+    (a, b) => a.cost - b.cost,
+  )[0];
+  if (!open) return null;
+  const cost = scaledPrice(Economy.unlocks[open.id]);
+  state.unlockPaid[open.id] = Math.min((state.unlockPaid[open.id] ?? 0) + Math.round(cost * Orders.decorPieceShare), cost - 1);
+  return open.id;
 }
 
 /** Swaps one order for a new one (free, then a cooldown). */

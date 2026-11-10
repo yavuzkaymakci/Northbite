@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { FishingFeel, UnlockFeel, WaterSettings } from '../settings';
-import { CampLayout, CaveLayout, Regions, TeaserWalls, ThreatLayout, IceShore as Z, type RectArea } from '../content/zones';
+import { CampLayout, CaveLayout, HarborLayout, Regions, TeaserWalls, ThreatLayout, IceShore as Z, type RectArea } from '../content/zones';
 import { easeOutBack } from '../core/Ease';
 import { range, seededRandom } from '../core/Random';
 import { bake } from '../models/bake';
@@ -55,7 +55,8 @@ interface HoleVisual {
 export class WorldMap implements Walkable {
   readonly group = new THREE.Group();
   readonly colliders: Collider[] = [];
-  readonly bounds: RectArea = Z.walkBounds;
+  /** Walking limit: the original walk area plus the Harbour Pier strip (its colliders close the rest). */
+  readonly bounds: RectArea = Z.moveBounds;
   private readonly walls = new Map<string, IceWall>();
   private hutBuilt = false;
   private hutLevel = 0;
@@ -373,8 +374,10 @@ export class WorldMap implements Walkable {
     // North edge (z = minZ), then east edge (x = maxX); the camp land joins the east edge between its ends.
     const camp = CampLayout.land;
     for (let x = -26; x < g.maxX; x += range(rand, 0.8, 1.3)) add(x, g.minZ - 0.3 + range(rand, -0.1, 0.15));
+    const deck = HarborLayout.deck;
     for (let z = g.minZ; z < 30; z += range(rand, 0.8, 1.3)) {
       if (z > camp.minZ - 0.4 && z < camp.maxZ + 0.4) continue;
+      if (z > deck.minZ - 0.5 && z < deck.maxZ + 0.5) continue; // the pier runs out to sea here
       add(g.maxX + 0.3 + range(rand, -0.15, 0.1), z);
     }
     // Camp shores: north, east and south.
@@ -404,6 +407,9 @@ export class WorldMap implements Walkable {
       const s = range(rand, 0.5, 1.6);
       const t: InstanceTransform = { x, y: Z.waterLevel, z, scale: s, sy: 0.28, sx: range(rand, 0.8, 1.3), rotY: rand() * 6 };
       if (inside(CampLayout.land, x, z, 1.5 + s)) continue; // no floes on the camp land
+      // Keep the pier, the boat's way out and the island clear.
+      if (inside({ minX: 10, maxX: 42, minZ: 13, maxZ: 27 }, x, z, s)) continue;
+      if (Math.hypot(x - HarborLayout.island.x, z - HarborLayout.island.z) < HarborLayout.island.radius + 2 + s) continue;
       out.push(t);
       this.floes.push({ t, phase: rand() * Math.PI * 2 });
     }

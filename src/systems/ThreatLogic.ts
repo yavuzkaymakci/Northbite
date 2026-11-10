@@ -7,7 +7,7 @@ import { guardWarningBonus } from './PenguinLogic';
 // Visual-free threat rules (GDD §13), shared by the game and the balance sim. No Three.js or DOM here.
 
 export type ThreatKind = 'bear' | 'avalanche';
-export type BearTargetId = 'basket' | 'counter' | 'smokeOut' | 'penguin' | 'plates';
+export type BearTargetId = 'basket' | 'counter' | 'smokeOut' | 'penguin' | 'plates' | 'loot';
 
 export const FIRE_PITS: readonly BuildingId[] = ['firePit1', 'firePit2', 'firePit3'];
 
@@ -53,6 +53,8 @@ export interface BearScents {
   penguins: readonly number[];
   /** Platters on the camp rack; null when there is no kitchen or a fire pit covers the camp. */
   plates: number | null;
+  /** Fish on the Harbour Pier loot rack (GDD §25), lowest of all; null before the harbour opens. */
+  loot?: number | null;
 }
 
 /**
@@ -69,6 +71,7 @@ export function pickBearTarget(s: BearScents): { id: BearTargetId; penguin: numb
   }
   if (best >= 0) return { id: 'penguin', penguin: best };
   if (s.plates) return { id: 'plates', penguin: -1 };
+  if (s.loot) return { id: 'loot', penguin: -1 };
   return { id: 'counter', penguin: -1 };
 }
 

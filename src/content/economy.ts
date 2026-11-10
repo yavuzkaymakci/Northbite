@@ -1,4 +1,5 @@
 import { DecorationCosts } from './decorations';
+import { HarborCosts } from './harbor';
 import { IglooCosts } from './igloo';
 import { LandCosts } from './land';
 import { Orders } from './orders';
@@ -51,6 +52,8 @@ export const Economy = {
     ...DecorationCosts,
     // Lands (GDD §15); the numbers live in land.ts.
     ...LandCosts,
+    // Harbour Pier deed and boat repair (GDD §25); the numbers live in harbor.ts.
+    ...HarborCosts,
     orderBoard: Orders.boardCost,
   },
 } as const;

@@ -10,9 +10,14 @@ import { AudioMix } from '../content/audio';
 import { Hut, PenguinLooks, PenguinNames, TraitById, TraitList, type TraitId } from '../content/penguins';
 import { RoleById, type RoleId } from '../content/roles';
 import { levelForXp, randomLook } from '../systems/PenguinLogic';
+import { BoatUpgradeList, Lighthouse, SealMarket, SealNames, SealRoleById, type SealRoleId } from '../content/harbor';
+import { DestinationById, VoyageEvents, type DestinationId, type VoyageEventId } from '../content/voyages';
 import { seededRandom } from './Random';
 import {
   createMarketState,
+  createHarborState,
+  type HarborState,
+  type OfflinePending,
   createCampState,
   createCaveState,
   createCodexState,
@@ -30,7 +35,7 @@ import {
   type WorkerItem,
 } from './GameState';
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 /** Pure JSON game state. No Three.js objects here. */
 export interface SaveData {
@@ -102,6 +107,9 @@ const migrations: Record<number, (s: AnySave) => AnySave> = {
     g.market = { offers: [], day: 0, refreshIn: 0, nextId: 1, nextPenguin: old.length + 1 };
     return { ...s, saveVersion: 6, game: g };
   },
+  // v6 (Demo 7B): no Harbour Pier (GDD §25). sanitizeGame gives the default harbour (no boat, no voyage, no seals,
+  // lighthouse at 0, auto voyages on). Nothing else changes: the old "coming soon" wall is now the harbour's deed wall.
+  6: (s) => ({ ...s, saveVersion: 7 }),
   // v3 (Demo 2/3): no clock, day totals, buffs, threat gear, igloo level or sleep. sanitizeGame fills them
   // (day 1, mid-morning, igloo level 1, not rested, empty cave and camp, no journal pages). v4 saves from earlier
   // Demo 4 stages get the same defaults.
@@ -295,15 +303,106 @@ function sanitizeGame(raw: unknown): GameState {
       debugTools: prefs.debugTools === true,
     },
     lastSeenAt: num(g.lastSeenAt, 0),
-    offlinePending:
-      pending && typeof pending.coins === 'number' && pending.coins > 0
-        ? { coins: Math.floor(pending.coins), seconds: num(pending.seconds, 0), capped: pending.capped === true }
-        : null,
+    offlinePending: sanitizePending(pending),
     codex: sanitizeCodex(g.codex, seen),
     orders: sanitizeOrders(g.orders),
     hutLevel,
     market,
+    harbor: sanitizeHarbor(g.harbor),
   };
+}
+
+/** "While you were away": coins and / or the boat's returns; anything else (or nothing to show) is dropped. */
+function sanitizePending(p: Partial<Record<string, unknown>> | null): OfflinePending | null {
+  if (!p) return null;
+  const coins = Math.floor(n0(p.coins));
+  const b = (p.boat ?? null) as Partial<Record<string, unknown>> | null;
+  const boat = b && n0(b.voyages) > 0 ? { voyages: Math.floor(n0(b.voyages)), fish: Math.floor(n0(b.fish)), coins: Math.floor(n0(b.coins)), parts: Math.floor(n0(b.parts)) } : undefined;
+  if (coins <= 0 && !boat) return null;
+  return { coins, seconds: n0(p.seconds), capped: p.capped === true, ...(boat ? { boat } : {}) };
+}
+
+const isDest = (v: unknown): v is DestinationId => typeof v === 'string' && v in DestinationById;
+const isEvent = (v: unknown): v is VoyageEventId => typeof v === 'string' && v in VoyageEvents;
+const isSealRole = (v: unknown): v is SealRoleId => typeof v === 'string' && v in SealRoleById;
+const deepOk = (list: FishItem[]) => list.filter((f) => f.variant === undefined || !FishById[f.species].deep);
+
+/**
+ * Harbour Pier (GDD §25). The boat animation is never saved: the game rebuilds the boat from the repair stages and
+ * the voyage. Broken fields fall back one by one; loot is never dropped (fish that fail the check are the only loss).
+ */
+function sanitizeHarbor(raw: unknown): HarborState {
+  const h = createHarborState();
+  const g = (raw ?? {}) as Partial<Record<string, unknown>>;
+  const up = (g.upgrades ?? {}) as Partial<Record<string, unknown>>;
+  for (const u of BoatUpgradeList) h.upgrades[u.id] = Math.min(Math.max(Math.floor(n0(up[u.id]) || 1), 1), UpgradeMaxLevel);
+  const v = (g.voyage ?? null) as Partial<Record<string, unknown>> | null;
+  if (v && isDest(v.dest)) {
+    const total = n0(v.total) || DestinationById[v.dest].duration;
+    h.voyage = {
+      dest: v.dest,
+      left: Math.min(n0(v.left), total),
+      total,
+      crew: Array.isArray(v.crew) ? v.crew.filter((x): x is number => typeof x === 'number') : [],
+      event: isEvent(v.event) ? v.event : null,
+      nightDelay: v.nightDelay === true,
+    };
+  }
+  h.lastDest = isDest(g.lastDest) ? g.lastDest : null;
+  const r = (g.returned ?? null) as Partial<Record<string, unknown>> | null;
+  if (r && isDest(r.dest)) {
+    h.returned = {
+      dest: r.dest,
+      fish: Math.floor(n0(r.fish)),
+      coins: Math.floor(n0(r.coins)),
+      parts: Math.floor(n0(r.parts)),
+      bait: r.bait === true,
+      decor: r.decor === true,
+      page: r.page === true,
+      event: isEvent(r.event) ? r.event : null,
+      value: Math.floor(n0(r.value)),
+    };
+  }
+  h.rack = deepOk(fishList(g.rack));
+  h.crates = deepOk(fishList(g.crates));
+  h.pile = n0(g.pile);
+  const ids = new Set<number>();
+  if (Array.isArray(g.seals)) {
+    (g.seals as Array<Partial<Record<string, unknown>> | null>).forEach((s, i) => {
+      if (!s) return;
+      let id = Math.floor(n0(s.id));
+      if (id <= 0 || ids.has(id)) id = 1000 + i;
+      ids.add(id);
+      h.seals.push({
+        id,
+        name: Math.floor(n0(s.name)) % SealNames.tr.length,
+        role: isSealRole(s.role) ? s.role : 'fisher',
+        scarf: Math.floor(n0(s.scarf)) % SealMarket.scarves,
+        price: Math.floor(n0(s.price)),
+      });
+    });
+  }
+  h.crew = Array.isArray(g.crew) ? g.crew.filter((x): x is number => typeof x === 'number' && ids.has(x)) : h.seals.map((s) => s.id);
+  const m = (g.sealMarket ?? {}) as Partial<Record<string, unknown>>;
+  if (Array.isArray(m.offers)) {
+    for (const o of m.offers as Array<Partial<Record<string, unknown>> | null>) {
+      if (!o || !isSealRole(o.role)) continue;
+      h.sealMarket.offers.push({ id: Math.floor(n0(o.id)), name: Math.floor(n0(o.name)) % SealNames.tr.length, role: o.role, scarf: Math.floor(n0(o.scarf)) % SealMarket.scarves });
+    }
+  }
+  h.sealMarket.offers = h.sealMarket.offers.slice(0, SealMarket.offersMax);
+  h.sealMarket.day = Math.floor(n0(m.day));
+  h.sealMarket.refreshIn = n0(m.refreshIn);
+  h.sealMarket.nextId = Math.max(Math.floor(n0(m.nextId)), ...h.sealMarket.offers.map((o) => o.id + 1), 1);
+  h.sealMarket.nextSeal = Math.max(Math.floor(n0(m.nextSeal)), ...h.seals.map((s) => s.id + 1), 1);
+  h.lighthouse = Math.min(Math.floor(n0(g.lighthouse)), Lighthouse.stageCosts.length);
+  h.parts = Math.floor(n0(g.parts));
+  h.auto = g.auto !== false;
+  h.voyages = Math.floor(n0(g.voyages));
+  h.wreckPage = g.wreckPage === true;
+  h.giant = n0(g.giant);
+  h.seasonShown = g.seasonShown === true;
+  return h;
 }
 
 const isRole = (v: unknown): v is RoleId => typeof v === 'string' && v in RoleById;

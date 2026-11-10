@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(timeout 300 node tools/panel-test.mjs harbor --shots \"C:/Users/PC_4770/AppData/Local/Temp/claude/2dcf1e69fa7c33a5/82f6da02-f9eb-49b9-bc49-e62b8cb80668/scratchpad/shots\")",
+      "Bash(python -c ' *)",
+      "Bash(timeout 300 node tools/panel-test.mjs harbor)",
+      "Bash(timeout 590 node tools/panel-test.mjs cycles --cycles 40)",
+      "Bash(sed -i \"s|    await contextual\\('voyage', VOYAGE, '.voyage-panel .panel-tabs button\\\\[data-tab=\\\\\"boat\\\\\"\\\\]', '.voyage-panel .panel-x'\\);|    await contextual\\('voyage', VOYAGE, '.voyage-panel .panel-x', '.voyage-panel .panel-x'\\);|\" tools/panel-test.mjs)",
+      "Bash(python \"C:/Users/PC_4770/AppData/Local/Temp/claude/2dcf1e69fa7c33a5/82f6da02-f9eb-49b9-bc49-e62b8cb80668/scratchpad/gdd_c1.py\")"
+    ]
+  }
+}

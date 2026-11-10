@@ -1,7 +1,7 @@
 // Fish species (GDD §2.1). All fishing balance numbers live here.
 import type { PaletteKey } from '../render/Palette';
 
-export type FishId = 'capelin' | 'cod' | 'char' | 'halibut' | 'moonCod' | 'nightChar' | 'glowfish';
+export type FishId = 'capelin' | 'cod' | 'char' | 'halibut' | 'moonCod' | 'nightChar' | 'glowfish' | 'atlanticHerring' | 'arcticMullet' | 'greenlandShark';
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic';
 
 export interface FishSpecies {
@@ -32,6 +32,11 @@ export interface FishSpecies {
   when?: 'night' | 'aurora';
   /** Catching one starts the aurora buff (sales +10% for a minute). */
   auroraBuff?: boolean;
+  /**
+   * Deep-sea species (GDD §25): brought back by voyages (and the giant fish sign at the pier), never on an ice-hole
+   * rod or in the net. No gold or rainbow variants.
+   */
+  deep?: boolean;
 }
 
 export const FishSpeciesList: readonly FishSpecies[] = [
@@ -172,6 +177,67 @@ export const FishSpeciesList: readonly FishSpecies[] = [
     length: 0.7,
     when: 'aurora',
     auroraBuff: true,
+  },
+  // Deep-sea species (GDD §25): voyage loot. The fight values are used by the giant fish sign at the pier end.
+  {
+    id: 'atlanticHerring',
+    name: { tr: 'Atlantik ringası', en: 'Atlantic herring' },
+    kgMin: 0.3,
+    kgMax: 1.1,
+    pricePerKg: 8,
+    reelTime: 2.4,
+    tugIntervalMin: 2,
+    tugIntervalMax: 3.2,
+    tugStrength: 0.22,
+    tugIrregularity: 0.1,
+    greenZone: 0.66,
+    rarity: 'uncommon',
+    rarityWeight: 0,
+    baitLevel: 1,
+    color: 'fishHerring',
+    bellyColor: 'fishBellyLight',
+    length: 0.8,
+    deep: true,
+  },
+  {
+    id: 'arcticMullet',
+    name: { tr: 'Kutup kefali', en: 'Arctic mullet' },
+    kgMin: 2,
+    kgMax: 6,
+    pricePerKg: 2.6,
+    reelTime: 4.5,
+    tugIntervalMin: 1.3,
+    tugIntervalMax: 2.3,
+    tugStrength: 0.48,
+    tugIrregularity: 0.2,
+    greenZone: 0.58,
+    rarity: 'rare',
+    rarityWeight: 0,
+    baitLevel: 1,
+    color: 'fishMullet',
+    bellyColor: 'fishBellyWarm',
+    length: 1.15,
+    deep: true,
+  },
+  {
+    id: 'greenlandShark',
+    name: { tr: 'Grönland köpekbalığı', en: 'Greenland shark' },
+    kgMin: 40,
+    kgMax: 110,
+    pricePerKg: 1.1,
+    reelTime: 7,
+    tugIntervalMin: 1.2,
+    tugIntervalMax: 2.4,
+    tugStrength: 0.58,
+    tugIrregularity: 0.45,
+    greenZone: 0.52,
+    rarity: 'epic',
+    rarityWeight: 0,
+    baitLevel: 1,
+    color: 'fishShark',
+    bellyColor: 'fishBellyLight',
+    length: 1.9,
+    deep: true,
   },
 ];
 

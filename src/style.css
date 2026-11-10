@@ -2646,3 +2646,101 @@ body.reduce-motion .hint-hand .hint-ring {
 .reduce-motion .mc-xp-fill {
   transition: none;
 }
+
+/* Harbour Pier (GDD §25): voyage panel, seal chips, the voyage point label, the "boat came back" line */
+.harbor-point {
+  translate: -50% -100%;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  background: color-mix(in srgb, var(--ui-ink) 65%, transparent);
+}
+.vp-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--deep-sea) 18%, transparent);
+}
+.vp-head {
+  font-size: 15px;
+  font-weight: 900;
+}
+.vp-time,
+.vp-hint,
+.vp-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--panel-muted);
+}
+.vp-bar {
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ui-ink) 15%, transparent);
+}
+.vp-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--coin);
+  transition: width 0.3s linear;
+}
+.vp-crew {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.vp-crew .vp-label {
+  width: 100%;
+}
+.vp-seal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 6px;
+}
+.vp-seal .pg-portrait {
+  width: 32px;
+  height: 32px;
+}
+.vp-auto {
+  margin-bottom: 8px;
+}
+.vp-dest.locked {
+  opacity: 0.55;
+}
+.vp-icon {
+  flex: 0 0 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--deep-sea);
+}
+.vp-reef {
+  background: linear-gradient(180deg, var(--deep-sea) 55%, var(--fish-herring) 56%);
+}
+.vp-iceberg {
+  background: linear-gradient(160deg, var(--ice) 0 40%, var(--deep-sea) 41%);
+}
+.vp-wreck {
+  background: linear-gradient(200deg, var(--deep-sea) 0 50%, var(--pier-wood-dark) 51%);
+}
+.vp-farIsland {
+  background: radial-gradient(circle at 50% 70%, var(--island-rock) 0 30%, var(--deep-sea) 31%);
+}
+.vp-upgrades {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.offline-boat {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--panel-muted);
+}

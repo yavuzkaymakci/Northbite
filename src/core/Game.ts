@@ -64,6 +64,10 @@ import { MarketPanel } from '../ui/MarketPanel';
 import { addXp, firstPenguin } from '../systems/PenguinLogic';
 import { Jobs } from '../content/roles';
 import { CharacterCreator, type CreatorMode } from '../ui/CharacterCreator';
+import { Harbor } from '../systems/Harbor';
+import { VoyagePanel } from '../ui/VoyagePanel';
+import { advanceVoyagesOffline } from '../systems/VoyageLogic';
+import type { FishingHole } from '../systems/Fishing';
 import { HUD } from '../ui/HUD';
 import { SettingsPanel } from '../ui/SettingsPanel';
 import { Joystick } from '../ui/Joystick';
@@ -143,6 +147,10 @@ export class Game {
   private readonly codex: Codex;
   private readonly orderPanel: OrderPanel;
   private readonly board: OrderBoard;
+  private readonly harbor: Harbor;
+  /** Ice holes plus the giant fish spot at the pier while its sign is up (GDD §25). */
+  private readonly allHoles: FishingHole[] = [];
+  private voyageMul = 0;
 
   private running = false;
   private rafId = 0;
@@ -245,7 +253,7 @@ export class Game {
     const gauge = new ReelGauge(this.labels);
     this.fishing = new FishingSystem(
       this.scene,
-      () => this.world.openHoles,
+      () => this.holes(),
       s,
       this.player,
       this.stack,
@@ -287,8 +295,11 @@ export class Game {
       onChestOpened: () => this.story.event('avalancheChest'),
       campPlates: () => (this.state.unlocked.includes('kitchen') ? this.state.camp.plates.length : null),
     });
-    // Penguins work in the lands and at the bait trap too (GDD §24): their stores need those systems.
-    this.workers.link({ camp: this.camp, cave: this.cave, buildings: this.threats.buildings });
+    // Harbour Pier (GDD §25): boat, voyages, loot rack, seals; its panel opens through the panel manager.
+    this.harbor = new Harbor(this.scene, s, this.player, this.stack, this.world, this.fx, this.labels, this.coins, this.appear, this.banner, this.rig, new VoyagePanel(overlay));
+    this.harbor.onReturned = () => this.save();
+    // Penguins work in the lands, at the bait trap and at the pier too (GDD §24, §25): their stores need those systems.
+    this.workers.link({ camp: this.camp, cave: this.cave, buildings: this.threats.buildings, harbor: this.harbor });
     this.market = new Market(s, this.player, this.world, this.coins, this.fx, this.banner, this.appear, this.workers, new MarketPanel(overlay));
     this.unlocks = new Unlocks(this.scene, s, this.player, this.coins, this.labels, this.appear, (spot) => this.onUnlock(spot));
     this.regionOpening = new RegionOpening(this.world, this.rig, this.fx, this.player, this.unlocks, () => this.save());
@@ -322,7 +333,7 @@ export class Game {
     // The visual hints are for the first minutes only (GDD §22).
     if (s.stats.playTime >= TutorialFeel.seconds) this.hud.hideHint();
     this.qualityPrompt = new QualityPrompt(overlay);
-    this.debugBar = new DebugBar(overlay, (a) => this.debugAction(a), () => this.jobLines());
+    this.debugBar = new DebugBar(overlay, (a) => this.debugAction(a), () => this.jobLines(), () => [this.harbor.debugLine()]);
     this.debugBar.setVisible(s.prefs.debugTools);
     this.applyQuality();
 
@@ -472,6 +483,7 @@ export class Game {
       pose.lean = 0.1 + Math.sin(elapsed * 9) * 0.1;
     }
     this.camp.update(dt, elapsed);
+    this.harbor.update(dt, elapsed, locked);
     this.story.update(dt, elapsed);
     this.board.update(dt, locked);
     this.updateCodex(dt);
@@ -481,7 +493,11 @@ export class Game {
     this.updateDay(dt);
     this.intro.update(dt);
     if (this.regionOpening.active) this.regionOpening.update(dt);
-    else this.rig.update(dt, this.player.state.x, this.player.state.z);
+    else {
+      // Setting sail: the camera follows the boat for a moment, then eases back to the player (GDD §25).
+      const f = this.harbor.cameraFocus;
+      this.rig.update(dt, f ? f.x : this.player.state.x, f ? f.z : this.player.state.z);
+    }
     this.atmosphere.update(dt, elapsed);
     this.updateLook(dt);
     this.world.update(dt, elapsed);
@@ -494,6 +510,7 @@ export class Game {
     this.stack.render(this.fishRenderer, elapsed, this.goods);
     this.cave.render(this.goods, elapsed);
     this.camp.render(this.fishRenderer, this.goods);
+    this.harbor.render(this.fishRenderer);
     this.selling.render(this.fishRenderer);
     this.customers.render(this.fishRenderer);
     this.fishing.render(this.fishRenderer, elapsed);
@@ -642,7 +659,30 @@ export class Game {
     else if (a === 'day') this.dayEvents(this.day.update(len));
     else if (a === 'bear' || a === 'avalanche') this.threats.debugStart(a, this.day.isNight);
     else if (a === 'xp') for (const w of this.state.workers) addXp(w, DebugTools.penguinXp);
+    else if (a === 'voyage') {
+      // Cycles the voyage time multiplier; it applies to the voyage at sea too (its time left is scaled).
+      const muls = DebugTools.voyageMuls;
+      const old = this.harbor.debugMul;
+      this.voyageMul = (this.voyageMul + 1) % muls.length;
+      this.harbor.debugMul = muls[this.voyageMul] as number;
+      const v = this.state.harbor.voyage;
+      if (v) {
+        const k = this.harbor.debugMul / old;
+        v.left *= k;
+        v.total *= k;
+      }
+      this.banner.show(tf('debugVoyageMul', { m: this.harbor.debugMul }), 'info');
+    } else if (a === 'part') this.state.harbor.parts++;
     this.save();
+  }
+
+  /** Ice holes and, while its sign is up, the giant fish spot at the pier end. */
+  private holes(): readonly FishingHole[] {
+    const extra = this.harbor?.holes ?? [];
+    if (extra.length === 0) return this.world.openHoles;
+    this.allHoles.length = 0;
+    this.allHoles.push(...this.world.openHoles, ...extra);
+    return this.allHoles;
   }
 
   /** Debug view (GDD §24): open job-board listings and what each penguin is doing. */
@@ -721,19 +761,43 @@ export class Game {
     if (!this.saveEnabled) return;
     const now = Date.now();
     const away = (now - s.lastSeenAt) / 1000;
+    // The boat keeps sailing in real time while the game is closed (GDD §25): it comes back and its loot lands on
+    // the rack, the crates and the harbour pile. Runs for any absence (not only past the offline minimum).
+    const back = s.lastSeenAt > 0 && away > 0 ? advanceVoyagesOffline(s, away, Math.random) : [];
     if (s.lastSeenAt > 0 && away >= Economy.offline.minSeconds && !s.offlinePending) {
       const r = applyOffline(s, away);
       if (r.coins > 0) s.offlinePending = { coins: r.coins, seconds: r.seconds, capped: r.capped };
     }
+    if (back.length > 0 && away >= Economy.offline.minSeconds) {
+      // One "boat came back" line in the window (added to a pending window, never counted in its coins).
+      const p = (s.offlinePending ??= { coins: 0, seconds: Math.min(away, offlineCapHours(s) * 3600), capped: false });
+      const b = (p.boat ??= { voyages: 0, fish: 0, coins: 0, parts: 0 });
+      for (const r of back) {
+        b.voyages++;
+        b.fish += r.fish;
+        b.coins += r.coins;
+        b.parts += r.parts;
+      }
+    } else if (back.length > 0) {
+      const r = back[back.length - 1]!;
+      this.banner.show(tf('boatBack', { n: r.fish, c: r.coins }), 'good', 5);
+    }
     s.lastSeenAt = now;
     const p = s.offlinePending;
     if (p && !this.offline.isOpen) {
-      this.offline.show(p.coins, p.seconds, p.capped, offlineCapHours(s), () => {
-        // Straight into the wallet (the HUD counts up); the coin piles are not touched.
-        s.coins += p.coins;
-        s.offlinePending = null;
-        this.save();
-      });
+      this.offline.show(
+        p.coins,
+        p.seconds,
+        p.capped,
+        offlineCapHours(s),
+        () => {
+          // Straight into the wallet (the HUD counts up); the coin piles are not touched.
+          s.coins += p.coins;
+          s.offlinePending = null;
+          this.save();
+        },
+        p.boat,
+      );
     }
     this.save();
   }
@@ -771,6 +835,8 @@ export class Game {
       } else if (e.kind === 'land') {
         if (e.part === 'crystalBench') this.cave.buildBench(true);
         else this.camp.build(e.part, true);
+      } else if (e.kind === 'boat') {
+        this.harbor.repaired(e.part);
       } else if (e.kind === 'decoration') {
         applyComfortUnlock(this.state, e);
         this.decorations.build(e.decoration, true);

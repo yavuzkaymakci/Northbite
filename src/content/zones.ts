@@ -29,7 +29,11 @@ export type UnlockEffect =
   | { kind: 'building'; building: BuildingId }
   | { kind: 'igloo'; level: number }
   | { kind: 'decoration'; decoration: DecorationId }
-  | { kind: 'land'; part: LandPart };
+  | { kind: 'land'; part: LandPart }
+  | { kind: 'boat'; part: BoatPart };
+
+/** The three boat repair stages at the Harbour Pier (GDD §25). */
+export type BoatPart = 'boatHull' | 'boatSail' | 'boatCabin';
 
 /** Things built inside the lands (GDD §15). */
 export type LandPart = 'crystalBench' | 'kitchen' | 'tent1' | 'tent2' | 'tent3' | 'attendant';
@@ -67,6 +71,8 @@ export const IceShore = {
   ground: { minX: -40, maxX: 11, minZ: -12, maxZ: 40 } satisfies RectArea,
   /** Outer limit for walking (includes locked regions; tree belts and walls are colliders inside it). */
   walkBounds: { minX: -33.6, maxX: 23.4, minZ: -11.3, maxZ: 12 } satisfies RectArea,
+  /** Outer limit for walking: `walkBounds` (scenery is scattered outside it) plus the Harbour Pier strip in the south. */
+  moveBounds: { minX: -33.6, maxX: 23.4, minZ: -11.3, maxZ: 21.4 } satisfies RectArea,
   waterLevel: -0.45,
   /** In front of the igloo door (the first-start intro begins here). */
   playerSpawn: { x: -4, z: 0.9 } satisfies Vec2,
@@ -177,6 +183,9 @@ export const IceShore = {
     // Around the slope nook (the yard's west edge is open only between these two)
     { minX: -25.8, maxX: -21.0, minZ: -12, maxZ: -9.0, count: 6 },
     { minX: -25.8, maxX: -21.0, minZ: 1.4, maxZ: 13, count: 16 },
+    // Either side of the harbour pass (its ice wall stands between them).
+    { minX: 0.6, maxX: 3.2, minZ: 12.2, maxZ: 13.8, count: 3 },
+    { minX: 7.2, maxX: 10.6, minZ: 12.2, maxZ: 13.8, count: 4 },
   ],
 
   /** Decorative tree belts outside the walk bounds. `gaps` keep sightlines open (the "coming soon" pass). */
@@ -212,6 +221,8 @@ export const ThreatLayout = {
       smokeOut: { from: { x: -15.6, z: -17 }, stand: { x: -13.4, z: -0.2 } },
       /** Camp platter rack (lowest priority, only when no fire pit covers the camp). */
       plates: { from: { x: 26, z: -6 }, stand: { x: 18.7, z: -1.8 } },
+      /** Harbour loot rack at the pier root (lowest of all); the pier deck itself is safe ground. */
+      loot: { from: { x: 14, z: 13.2 }, stand: { x: 9.6, z: 14.2 } },
     },
     /** Collision radius (smaller than the model so it fits the lane east of the smokehouse racks). */
     radius: 0.6,
@@ -299,6 +310,62 @@ export const CampLayout = {
     { x: 22.8, z: -3.8 },
     { x: 14.8, z: 1.2 },
   ],
+};
+
+/**
+ * Harbour Pier (GDD §25): a strip of land south of the shore behind the southern tree belt, an old wooden pier
+ * running east into the sea, the boat moored on its south side and the lighthouse on a rocky island to the north-east.
+ * The pier deck is safe ground: bears never walk on it.
+ */
+export const HarborLayout = {
+  land: { minX: 2.6, maxX: 11, minZ: 13.4, maxZ: 21.4 } satisfies RectArea,
+  /** Pier deck over the water (walkable). */
+  deck: { minX: 10.4, maxX: 21.4, minZ: 16.3, maxZ: 18.1 } satisfies RectArea,
+  /** Colliders: land west of the strip, open water around the deck (bears may swim). */
+  blockers: [
+    { minX: -34, maxX: 2.6, minZ: 13.8, maxZ: 22, water: false },
+    { minX: 11, maxX: 25, minZ: 13, maxZ: 16.3, water: true },
+    { minX: 11, maxX: 25, minZ: 18.1, maxZ: 22, water: true },
+    { minX: 21.4, maxX: 25, minZ: 16.3, maxZ: 18.1, water: true },
+  ],
+  /** "Voyage point" ring at the pier end (voyage panel) and the "Lighthouse" ring beside it (lighthouse panel). */
+  voyagePoint: { x: 20.3, z: 17.2, radius: 0.85 },
+  lighthousePoint: { x: 17.9, z: 17.2, radius: 0.85 },
+  /** The boat moors on the south side of the pier; the repair frame is on the deck next to it. */
+  boat: { x: 15.2, z: 19.4 },
+  repairFrame: { x: 14.0, z: 17.2 },
+  /** Way out to sea (east, into the fog); the way back is the same in reverse. */
+  route: [
+    { x: 15.2, z: 19.4 },
+    { x: 22, z: 20.2 },
+    { x: 30, z: 22.6 },
+    { x: 40, z: 25 },
+  ],
+  /** Loot rack at the pier root (land), crates for the overflow south of it, the harbour coin pile west of it. */
+  rack: { x: 9.2, z: 15.2, width: 1.6, depth: 0.7 },
+  crates: { x: 9.4, z: 19.8 },
+  pile: { x: 6.8, z: 15.2 },
+  /** Old warehouse and a rotten hull on the beach (scenery). */
+  depot: { x: 4.6, z: 19.2, width: 3.2, depth: 2.4 },
+  wreck: { x: 7.6, z: 20.8 },
+  lamps: [
+    { x: 11.2, z: 16.1 },
+    { x: 15.6, z: 16.1 },
+    { x: 19.6, z: 18.3 },
+    { x: 7.4, z: 14.0 },
+  ],
+  /** Seals waiting at the pier (heads out of the water); seals on a voyage ride the boat. */
+  sealSpots: [
+    { x: 12.6, z: 15.4 },
+    { x: 18.6, z: 15.5 },
+    { x: 12.2, z: 18.9 },
+  ],
+  /** Giant fish sign off the pier end, fished from the deck. */
+  giant: { x: 22.1, z: 17.2 },
+  /** Rocky island with the captain's lighthouse. */
+  island: { x: 29, z: 13.5, radius: 3.2 },
+  /** Gulls circle here. */
+  gulls: { x: 14, z: 17, radius: 6 },
 };
 
 /** Captain's journal: the hidden page behind the rocks west of the penguin hut (no guide arrow there). */
@@ -390,6 +457,17 @@ export const UnlockZones: readonly UnlockZoneDef[] = [
   ),
   { id: 'kitchen', x: CampLayout.kitchen.x, z: CampLayout.kitchen.z, size: 2.2, cost: 'kitchen', requires: [], effects: [{ kind: 'land', part: 'kitchen' }] },
   { id: 'attendant', ...CampLayout.attendant.frame, size: 1.6, cost: 'attendant', requires: ['kitchen'], effects: [{ kind: 'land', part: 'attendant' }] },
+  // Boat repair at the Harbour Pier (GDD §25): hull → sail → cabin, one frame on the deck.
+  ...(['boatHull', 'boatSail', 'boatCabin'] as const).map(
+    (part, i): UnlockZoneDef => ({
+      id: part,
+      ...HarborLayout.repairFrame,
+      size: 1.7,
+      cost: part,
+      requires: i === 0 ? [] : [i === 1 ? 'boatHull' : 'boatSail'],
+      effects: [{ kind: 'boat', part }],
+    }),
+  ),
   // Order board (GDD §20): cheap, once the smokehouse is open.
   { id: 'orderBoard', x: -1.2, z: 2.9, size: 1.6, cost: 'orderBoard', requires: ['smokehouse'], effects: [{ kind: 'station', station: 'orderBoard' }] },
   // Decorations: fixed spots, see content/decorations.ts (reward pieces have no frame).
@@ -438,17 +516,21 @@ export const Regions: readonly RegionDef[] = [
     unlockZones: ['tent1', 'kitchen', 'tent2', 'tent3', 'attendant'],
     tour: { x: 17.2, z: -4 },
   },
+  // The deed needs journal page 3 ("The secret of the lights"), which points to the old pier.
+  {
+    id: 'harbor',
+    name: { tr: 'Liman İskelesi', en: 'Harbour Pier' },
+    cost: 'harbor',
+    requires: ['hotSpring', 'page3'],
+    wall: { minX: 3.2, maxX: 7.2, minZ: 12.4, maxZ: 13.4, height: 2.6 },
+    gate: { x: 5.2, z: 11.0, size: 1.8 },
+    unlockZones: ['boatHull', 'boatSail', 'boatCabin'],
+    tour: { x: 13.5, z: 17.6 },
+  },
 ];
 
-/** Walls that do not open in this demo: a teaser for the pier zone behind the southern tree belt. */
-export const TeaserWalls = [
-  {
-    id: 'pier',
-    wall: { minX: 3.2, maxX: 7.2, minZ: 12.4, maxZ: 13.4, height: 2.6 },
-    sign: { x: 2.4, z: 11.3 },
-    silhouette: { x: 4.6, z: 17.2 },
-  },
-] as const;
+/** Walls that never open (the pier teaser became the Harbour Pier in Demo 7C; none are left). */
+export const TeaserWalls: ReadonlyArray<{ id: string; wall: RectArea & { height: number }; sign: Vec2; silhouette: Vec2 }> = [];
 
 /**
  * Waypoint graph for penguins (A*). Edges are straight lines kept clear of colliders; an edge with `gate`
@@ -482,6 +564,10 @@ export const PathGraph = {
     kitchenIn: { x: 13.6, z: -1.5 },
     plates: { x: 17.4, z: -1.5 },
     serve: { x: 18.6, z: -0.3 },
+    // Southern pass → Harbour Pier loot rack (GDD §25).
+    harborGate: { x: 5.2, z: 11.0 },
+    harborIn: { x: 5.4, z: 14.6 },
+    loot: { x: 9.2, z: 14.3 },
   },
   edges: [
     { a: 'hut', b: 'plaza' },
@@ -508,6 +594,9 @@ export const PathGraph = {
     { a: 'campGate', b: 'kitchenIn' },
     { a: 'kitchenIn', b: 'plates' },
     { a: 'plates', b: 'serve' },
+    { a: 'plaza', b: 'harborGate' },
+    { a: 'harborGate', b: 'harborIn', gate: 'harbor' },
+    { a: 'harborIn', b: 'loot' },
   ],
 } as const;
 

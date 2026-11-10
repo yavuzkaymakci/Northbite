@@ -15,6 +15,8 @@ import type { Appear } from './Appear';
 import type { CoinSystem } from './Coins';
 import { buyOffer, changeRole, penguinName, rerollOffers, updateMarket, upgradeHut } from './PenguinLogic';
 import type { Workers } from './Workers';
+import { SealRoleById } from '../content/harbor';
+import { buySeal, rerollSeals, sealName, updateSealMarket } from './VoyageLogic';
 
 const PAD = IceShore.market.pad;
 
@@ -50,6 +52,11 @@ export class Market {
       reroll: () => this.reroll(),
       role: (penguin, role) => this.setRole(penguin, role),
       hut: () => this.upgradeHut(),
+      buySeal: (id) => this.buySeal(id),
+      rerollSeals: () => {
+        sfx(rerollSeals(this.state, Math.random) ? 'tap' : 'deny');
+        this.panel.refresh(this.state, true);
+      },
     };
     if (state.unlocked.includes('market')) this.build(false);
   }
@@ -73,6 +80,7 @@ export class Market {
     // The catalog keeps its day and refresh timer even before the stall exists (it fills once the stall is built).
     if (!this.built) return;
     updateMarket(this.state, dt, Math.random);
+    updateSealMarket(this.state, dt, Math.random);
     const still = this.player.state.speed01 < FishingFeel.stillSpeed;
     if (this.playerOnPad) {
       if (still) this.stand += dt;
@@ -96,6 +104,21 @@ export class Market {
     vibrate(HapticsSettings.upgrade);
     sfx('buy');
     this.banner.show(tf('penguinJoined', { name: penguinName(r.penguin, getLang()), role: RoleById[r.penguin.role].name[getLang()] }), 'good');
+    this.panel.refresh(this.state, true);
+  }
+
+  /** A seal joins the boat's crew (GDD §25 C4); it shows up at the pier with a splash. */
+  private buySeal(offerId: number): void {
+    const r = buySeal(this.state, offerId);
+    if (!r.ok) {
+      this.panel.denySeal(offerId);
+      sfx('deny');
+      return;
+    }
+    for (let i = 0; i < 6; i++) this.coins.spendTo(this.target);
+    vibrate(HapticsSettings.upgrade);
+    sfx('buy');
+    this.banner.show(tf('sealJoined', { name: sealName(r.seal, getLang()), role: SealRoleById[r.seal.role].name[getLang()] }), 'good');
     this.panel.refresh(this.state, true);
   }
 

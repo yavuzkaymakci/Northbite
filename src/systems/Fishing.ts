@@ -30,6 +30,9 @@ export interface FishingHole {
   id: string;
   x: number;
   z: number;
+  /** Special spot (the giant fish sign at the pier, GDD §25): its own fish roll, a callback when landed. */
+  roll?: () => HookedFish;
+  onCatch?: (item: FishItem) => void;
 }
 
 type Phase = 'idle' | 'casting' | 'waiting' | 'bite' | 'reeling' | 'escaped';
@@ -263,7 +266,7 @@ export class FishingSystem implements TouchClaimer {
     sfx('bite', this.bobberPos);
     this.phase = 'bite';
     this.timer = F.hookWindow;
-    this.hooked = rollFish(Math.random, fishingMods(this.state, this.env()));
+    this.hooked = this.hole?.roll?.() ?? rollFish(Math.random, fishingMods(this.state, this.env()));
     this.fx.splash(this.bobberPos.x, WATER_Y, this.bobberPos.z, 10, 1.7);
     this.fx.ripple(this.bobberPos.x, WATER_Y + 0.01, this.bobberPos.z, 0.7);
     // The first catches show a tapping hand (GDD §22).
@@ -331,6 +334,7 @@ export class FishingSystem implements TouchClaimer {
 
     // State changes now; the fish is hidden on the stack until its flight lands.
     this.state.carried.push(hooked.item);
+    this.hole?.onCatch?.(hooked.item);
     this.state.stats.caught++;
     this.state.today.caught++;
     if (hooked.species.auroraBuff) {

@@ -199,6 +199,8 @@ export class Threats {
       penguins: out.map((b) => b.carried.length),
       // The camp's platter rack counts only when no fire pit covers it.
       plates: d.campPlates() !== null && pitsNear(d.state, ThreatLayout.bear.approaches.plates.stand) === 0 ? d.campPlates() : null,
+      // The pier deck is safe ground; only the loot rack at its root may smell (GDD §25).
+      loot: d.state.regions.includes('harbor') ? d.state.harbor.rack.length : null,
     });
     const penguin = out[target.penguin] ?? null;
     const stand = bearApproach(target.id, penguin ? { x: penguin.x, z: penguin.z } : null).stand;

@@ -5,16 +5,34 @@ import { MarketFeel } from '../settings';
 import type { GameState, PenguinLook, WorkerData } from '../core/GameState';
 import { HeadwearColors, ScarfColors, toCss } from '../render/Palette';
 import { availableRoles, hutCapacity, hutUpgradeCost, levelProgress, offerPrice, penguinName, roleChangeFee } from '../systems/PenguinLogic';
+import { SealRoleById } from '../content/harbor';
+import { crewSlots, sealName, sealPrice, sealRoom, sealsOpen } from '../systems/VoyageLogic';
 import { onTap } from './tap';
 import { panels, type CloseReason } from './PanelManager';
 
-type Tab = 'catalog' | 'mine' | 'hut';
+type Tab = 'catalog' | 'mine' | 'hut' | 'seals';
 
 export interface MarketActions {
   buy: (offerId: number) => void;
   reroll: () => void;
   role: (penguinId: number, role: RoleId) => void;
   hut: () => void;
+  /** Seal tab (GDD §25 C4): buy a seal, refresh the seal offers. */
+  buySeal: (offerId: number) => void;
+  rerollSeals: () => void;
+}
+
+/** Small seal portrait (SVG): round grey head, whiskers, scarf in its colour. */
+export function sealPortrait(scarf: number): string {
+  const c = toCss(ScarfColors[scarf % ScarfColors.length] as number);
+  return `<svg class="pg-portrait seal" viewBox="0 0 48 48" aria-hidden="true">
+    <ellipse cx="24" cy="34" rx="15" ry="11" fill="var(--seal)"/>
+    <circle cx="24" cy="20" r="11" fill="var(--seal)"/>
+    <ellipse cx="24" cy="24" rx="6.5" ry="4.5" fill="var(--seal-belly)"/>
+    <circle cx="20" cy="18" r="1.4" fill="var(--eye)"/><circle cx="28" cy="18" r="1.4" fill="var(--eye)"/>
+    <circle cx="24" cy="22" r="1.5" fill="var(--eye)"/>
+    <path d="M17 24 h-6 M17 26 h-5 M31 24 h6 M31 26 h5" stroke="var(--seal-belly)" stroke-width="0.8"/>
+    <rect x="14" y="29" width="20" height="4" rx="2" fill="${c}"/></svg>`;
 }
 
 const mmss = (sec: number) => {
@@ -74,12 +92,12 @@ export class MarketPanel {
     this.root = document.createElement('div');
     this.root.className = 'upgrade-panel market-panel';
     this.root.innerHTML = `<div class="panel-grip"></div><div class="panel-head"><div class="panel-title">${t('marketTitle')}</div><button class="panel-x" aria-label="${t('creatorClose')}">×</button></div>
-      <div class="panel-tabs"><button data-tab="catalog">${t('tabCatalog')}</button><button data-tab="mine">${t('tabMyPenguins')}</button><button data-tab="hut">${t('tabHut')}</button></div>
+      <div class="panel-tabs"><button data-tab="catalog">${t('tabCatalog')}</button><button data-tab="mine">${t('tabMyPenguins')}</button><button data-tab="hut">${t('tabHut')}</button><button data-tab="seals" hidden>${t('tabSeals')}</button></div>
       <div class="market-body"></div>`;
     const q = <T extends HTMLElement>(sel: string) => this.root.querySelector(sel) as T;
     this.body = q('.market-body');
-    this.tabButtons = { catalog: q('button[data-tab="catalog"]'), mine: q('button[data-tab="mine"]'), hut: q('button[data-tab="hut"]') };
-    for (const tab of ['catalog', 'mine', 'hut'] as const) {
+    this.tabButtons = { catalog: q('button[data-tab="catalog"]'), mine: q('button[data-tab="mine"]'), hut: q('button[data-tab="hut"]'), seals: q('button[data-tab="seals"]') };
+    for (const tab of ['catalog', 'mine', 'hut', 'seals'] as const) {
       onTap(this.tabButtons[tab], () => {
         this.tab = tab;
         this.roleOpen = -1;
@@ -127,10 +145,17 @@ export class MarketPanel {
       state.hutLevel,
       availableRoles(state).length,
       getLang(),
+      sealsOpen(state),
+      state.harbor.sealMarket.offers.map((o) => o.id),
+      state.harbor.seals.map((s) => s.id),
+      crewSlots(state),
     ]);
     if (force || key !== this.structureKey) {
       this.structureKey = key;
-      for (const k of ['catalog', 'mine', 'hut'] as const) this.tabButtons[k].classList.toggle('on', k === this.tab);
+      // The seal tab shows once the boat is repaired (GDD §25).
+      this.tabButtons.seals.hidden = !sealsOpen(state);
+      if (this.tab === 'seals' && !sealsOpen(state)) this.tab = 'catalog';
+      for (const k of ['catalog', 'mine', 'hut', 'seals'] as const) this.tabButtons[k].classList.toggle('on', k === this.tab);
       this.build(state);
     }
     this.updateLive(state);
@@ -143,9 +168,53 @@ export class MarketPanel {
     this.roleChips = [];
     this.refreshBtn = null;
     this.hutBtn = null;
+    this.sealRefs = [];
     if (this.tab === 'catalog') this.buildCatalog(state);
     else if (this.tab === 'mine') this.buildMine(state);
+    else if (this.tab === 'seals') this.buildSeals(state);
     else this.buildHut(state);
+  }
+
+  /** Seal tab: today's seals (same catalog idea as penguins) and the crew; seals need crew places, not hut room. */
+  private buildSeals(state: GameState): void {
+    const lang = getLang();
+    const h = state.harbor;
+    const head = document.createElement('div');
+    head.className = 'market-head';
+    head.innerHTML = `<span class="market-cap seal-cap"></span><button class="market-refresh"></button>`;
+    this.refreshBtn = head.querySelector('.market-refresh') as HTMLButtonElement;
+    onTap(this.refreshBtn, () => this.actions?.rerollSeals());
+    this.body.appendChild(head);
+    const list = document.createElement('div');
+    list.className = 'market-list';
+    if (h.sealMarket.offers.length === 0) list.innerHTML = `<div class="market-empty">${t('marketEmpty')}</div>`;
+    for (const o of h.sealMarket.offers) {
+      const role = SealRoleById[o.role];
+      const card = document.createElement('div');
+      card.className = 'market-card';
+      card.innerHTML = `${sealPortrait(o.scarf)}
+        <div class="mc-text"><b class="mc-name">${sealName(o, lang)}</b><span class="mc-role">${role.name[lang]}</span><span class="mc-info">${role.info[lang]}</span></div>
+        <button class="mc-buy"><span class="mc-price"><span class="coin-icon small"></span><span class="mc-cost"></span></span><span class="mc-label"></span></button>`;
+      const button = card.querySelector('.mc-buy') as HTMLButtonElement;
+      onTap(button, () => this.actions?.buySeal(o.id));
+      this.sealRefs.push({ id: o.id, card, button, price: card.querySelector('.mc-cost') as HTMLElement, cost: sealPrice(state, o.role) });
+      list.appendChild(card);
+    }
+    for (const s of h.seals) {
+      const row = document.createElement('div');
+      row.className = 'market-card mine';
+      row.innerHTML = `${sealPortrait(s.scarf)}<div class="mc-text"><b class="mc-name">${sealName(s, lang)}</b><span class="mc-role">${SealRoleById[s.role].name[lang]}</span><span class="mc-info">${SealRoleById[s.role].info[lang]}</span></div>`;
+      list.appendChild(row);
+    }
+    this.body.appendChild(list);
+  }
+
+  private sealRefs: OfferRefs[] = [];
+
+  /** Shakes a seal offer the player cannot buy now. */
+  denySeal(offerId: number): void {
+    const r = this.sealRefs.find((o) => o.id === offerId);
+    if (r) shake(r.card);
   }
 
   private buildCatalog(state: GameState): void {
@@ -240,8 +309,20 @@ export class MarketPanel {
     const full = state.workers.length >= hutCapacity(state);
     const cap = this.body.querySelector('.market-cap');
     if (cap) cap.textContent = tf('hutCapacity', { n: state.workers.length, max: hutCapacity(state) });
+    const sealCap = this.body.querySelector('.seal-cap');
+    if (sealCap) sealCap.textContent = tf('sealCapacity', { n: state.harbor.seals.length, max: crewSlots(state) });
+    const sealFull = sealRoom(state) <= 0;
+    for (const r of this.sealRefs) {
+      const offer = state.harbor.sealMarket.offers.find((o) => o.id === r.id);
+      if (!offer) continue;
+      r.cost = sealPrice(state, offer.role);
+      r.price.textContent = String(r.cost);
+      r.button.classList.toggle('affordable', !sealFull && state.coins >= r.cost);
+      r.button.classList.toggle('full', sealFull);
+      (r.button.querySelector('.mc-label') as HTMLElement).textContent = sealFull ? t('sealCrewFull') : t('marketBuy');
+    }
     if (this.refreshBtn) {
-      const wait = state.market.refreshIn;
+      const wait = this.tab === 'seals' ? state.harbor.sealMarket.refreshIn : state.market.refreshIn;
       this.refreshBtn.textContent = wait > 0 ? tf('marketRefreshWait', { t: mmss(wait) }) : t('marketRefresh');
       this.refreshBtn.disabled = wait > 0;
     }

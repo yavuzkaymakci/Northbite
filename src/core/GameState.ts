@@ -7,6 +7,8 @@ import type { UpgradeId } from '../content/upgrades';
 import type { StationUpgradeId } from '../content/stationUpgrades';
 import type { RoleId } from '../content/roles';
 import type { TraitId } from '../content/penguins';
+import type { BoatUpgradeId, SealRoleId } from '../content/harbor';
+import type { DestinationId, VoyageEventId } from '../content/voyages';
 
 export type ItemKind = 'raw' | 'smoked';
 
@@ -140,7 +142,7 @@ export interface GameState {
   /** Wall-clock time (ms) of the last save while playing; offline earnings count from here (GDD §18). */
   lastSeenAt: number;
   /** Offline coins worked out but not collected yet (the window shows again until "Collect"). */
-  offlinePending: { coins: number; seconds: number; capped: boolean } | null;
+  offlinePending: OfflinePending | null;
   /** Fish encyclopedia (GDD §19). Discovered species are `seen`. */
   codex: CodexState;
   /** Order board (GDD §20). */
@@ -149,10 +151,113 @@ export interface GameState {
   hutLevel: number;
   /** Penguin Market catalog (GDD §24). */
   market: MarketState;
+  /** Harbour Pier: boat, voyages, loot, seals, lighthouse (GDD §25). The boat repair stages are unlock ids. */
+  harbor: HarborState;
 }
 
 export function createMarketState(): MarketState {
   return { offers: [], day: 0, refreshIn: 0, nextId: 1, nextPenguin: 1 };
+}
+
+/** A seal of the boat's crew (GDD §25). `name` indexes content/harbor.ts → SealNames, `scarf` Palette.ScarfColors. */
+export interface SealData {
+  id: number;
+  name: number;
+  role: SealRoleId;
+  scarf: number;
+  price: number;
+}
+
+export type SealOffer = Omit<SealData, 'price'>;
+
+/** The voyage at sea. Times are real seconds; they run on while the game is closed. */
+export interface Voyage {
+  dest: DestinationId;
+  left: number;
+  /** Full length after the speed upgrade and the event. */
+  total: number;
+  /** Seal ids aboard. */
+  crew: number[];
+  event: VoyageEventId | null;
+  /** Left at night without a lantern and got held up. */
+  nightDelay: boolean;
+}
+
+/** What the last voyage brought back (shown on the panel, the banner and the "while away" window). */
+export interface VoyageReturn {
+  dest: DestinationId;
+  fish: number;
+  coins: number;
+  parts: number;
+  bait: boolean;
+  decor: boolean;
+  page: boolean;
+  event: VoyageEventId | null;
+  /** Sale value of the fish (raw) plus the treasure coins. */
+  value: number;
+}
+
+export interface HarborState {
+  /** Boat upgrade levels 1..5. */
+  upgrades: Record<BoatUpgradeId, number>;
+  voyage: Voyage | null;
+  /** Auto voyages repeat this one. */
+  lastDest: DestinationId | null;
+  /** The boat came back and the player has not collected yet ("returned"); null = ready or at sea. */
+  returned: VoyageReturn | null;
+  /** Loot rack (deep-sea fish) and the crates for what does not fit; nothing is ever dropped. */
+  rack: FishItem[];
+  crates: FishItem[];
+  /** Coins on the harbour pile (treasure). */
+  pile: number;
+  seals: SealData[];
+  /** Seals picked for the next voyage. */
+  crew: number[];
+  sealMarket: { offers: SealOffer[]; day: number; refreshIn: number; nextId: number; nextSeal: number };
+  /** Lighthouse repair stages done (0..5) and lantern parts in hand. */
+  lighthouse: number;
+  parts: number;
+  /** Auto voyages on/off (settings; they need boat level 3). */
+  auto: boolean;
+  /** Voyages completed. */
+  voyages: number;
+  /** The sunken ship's journal page was found (page 9). */
+  wreckPage: boolean;
+  /** Seconds left on the giant fish sign at the pier end (0 = none). */
+  giant: number;
+  /** "Season 1 complete" card shown. */
+  seasonShown: boolean;
+}
+
+export function createHarborState(): HarborState {
+  return {
+    upgrades: { boatSpeed: 1, boatCargo: 1, boatCrew: 1, boatLantern: 1 },
+    voyage: null,
+    lastDest: null,
+    returned: null,
+    rack: [],
+    crates: [],
+    pile: 0,
+    seals: [],
+    crew: [],
+    sealMarket: { offers: [], day: 0, refreshIn: 0, nextId: 1, nextSeal: 1 },
+    lighthouse: 0,
+    parts: 0,
+    auto: true,
+    voyages: 0,
+    wreckPage: false,
+    giant: 0,
+    seasonShown: false,
+  };
+}
+
+/** "While you were away" (GDD §18): coins to collect, and the boat's return(s) while away (GDD §25). */
+export interface OfflinePending {
+  coins: number;
+  seconds: number;
+  capped: boolean;
+  /** Voyages that came back while away: fish on the rack / in crates and treasure coins on the harbour pile. */
+  boat?: { voyages: number; fish: number; coins: number; parts: number };
 }
 
 export interface SpeciesRecord {
@@ -332,6 +437,7 @@ export function createGameState(): GameState {
     orders: createOrdersState(),
     hutLevel: 1,
     market: createMarketState(),
+    harbor: createHarborState(),
   };
 }
 

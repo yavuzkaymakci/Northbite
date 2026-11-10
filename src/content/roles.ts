@@ -12,7 +12,8 @@ export type StoreId =
   | 'serve' // the next guest in the camp queue
   | 'vein' // a ready crystal vein in the Ice Cave (mined on the spot)
   | 'crystalIn' // crystal bench input rack
-  | 'bait'; // bait trap (one raw fish)
+  | 'bait' // bait trap (one raw fish)
+  | 'lootRack'; // Harbour Pier loot rack (deep-sea fish from voyages, GDD §25)
 
 export type JobId =
   | 'smokedToCounter'
@@ -21,7 +22,9 @@ export type JobId =
   | 'smokedToKitchen'
   | 'platesToGuests'
   | 'crystalsToBench'
-  | 'baitTrap';
+  | 'baitTrap'
+  | 'lootToSmoker'
+  | 'lootToCounter';
 
 export interface JobDef {
   from: StoreId;
@@ -43,9 +46,12 @@ export const Jobs: Record<JobId, JobDef> = {
   // Penguins mine slower than the player (Cave.mineTime 2 s).
   crystalsToBench: { from: 'vein', to: 'crystalIn', workTime: 4, legs: ['caveMid', 'crystalIn'] },
   baitTrap: { from: 'basket', to: 'bait', max: 1, legs: ['basket', 'bait'] },
+  // Dockhand (GDD §25): voyage loot from the pier to the smokehouse, or straight to the counter.
+  lootToSmoker: { from: 'lootRack', to: 'smokerIn', legs: ['loot', 'smokeIn'] },
+  lootToCounter: { from: 'lootRack', to: 'counter', legs: ['loot', 'counter'] },
 };
 
-export type RoleId = 'carrier' | 'smoker' | 'miner' | 'cook' | 'sweeper' | 'guard';
+export type RoleId = 'carrier' | 'smoker' | 'miner' | 'cook' | 'sweeper' | 'guard' | 'dockhand';
 
 export interface RoleJob {
   job: JobId;
@@ -119,6 +125,14 @@ export const RoleList: readonly RoleDef[] = [
     requires: 'smokehouse',
     jobs: [{ job: 'baitTrap' }],
     price: 160,
+  },
+  {
+    id: 'dockhand',
+    name: { tr: 'Rıhtımcı', en: 'Dockhand' },
+    info: { tr: 'İskele ganimetini tütsühaneye ya da tezgâha', en: 'Pier loot to the smokehouse or counter' },
+    requires: 'harbor',
+    jobs: [{ job: 'lootToSmoker' }, { job: 'lootToCounter' }],
+    price: 240,
   },
 ];
 

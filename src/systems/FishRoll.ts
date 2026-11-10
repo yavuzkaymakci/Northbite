@@ -28,9 +28,10 @@ function pickWeighted(pool: readonly FishSpecies[], weight: (f: FishSpecies) => 
   return pool[pool.length - 1] as FishSpecies;
 }
 
-/** A raw fish of a species with kg skewed toward small fish. */
-export function makeFish(species: FishSpecies, rand: () => number = Math.random): HookedFish {
-  const size01 = Math.pow(rand(), KG_SKEW);
+/** A raw fish of a species with kg skewed toward small fish (`sizeBonus` 0..1 leans toward the heavy end). */
+export function makeFish(species: FishSpecies, rand: () => number = Math.random, sizeBonus = 0): HookedFish {
+  const r = Math.pow(rand(), KG_SKEW);
+  const size01 = r + (1 - r) * sizeBonus;
   const kg = Math.round((species.kgMin + (species.kgMax - species.kgMin) * size01) * 100) / 100;
   return {
     item: { species: species.id, kg, kind: 'raw', price: fishPrice(species, kg) },
@@ -46,7 +47,7 @@ export function makeFish(species: FishSpecies, rand: () => number = Math.random)
  */
 export function rollFish(rand: () => number = Math.random, mods: FishingMods = NO_MODS): HookedFish {
   const pool = FishSpeciesList.filter(
-    (f) => f.baitLevel <= mods.baitLevel && (!f.when || (f.when === 'night' && mods.night) || (f.when === 'aurora' && mods.aurora)),
+    (f) => !f.deep && f.baitLevel <= mods.baitLevel && (!f.when || (f.when === 'night' && mods.night) || (f.when === 'aurora' && mods.aurora)),
   );
   const species = pickWeighted(pool, (f) => f.rarityWeight * (f.rarity === 'common' ? 1 : mods.bigFishWeight), rand);
   const fish = makeFish(species, rand);
@@ -60,4 +61,15 @@ export function rollFish(rand: () => number = Math.random, mods: FishingMods = N
 export function rollFrom(ids: readonly FishId[], rand: () => number = Math.random): FishItem {
   const pool = ids.map((id) => FishById[id]);
   return makeFish(pickWeighted(pool, (f) => f.rarityWeight, rand), rand).item;
+}
+
+/**
+ * A fish from a weighted species table (voyage loot, the giant fish at the pier, GDD §25). No colour variants.
+ * `rareBonus` raises the weight of rare and epic species (explorer seals).
+ */
+export function rollWeighted(weights: Partial<Record<FishId, number>>, rand: () => number = Math.random, rareBonus = 0, sizeBonus = 0): HookedFish {
+  const ids = Object.keys(weights) as FishId[];
+  const pool = ids.map((id) => FishById[id]);
+  const w = (f: FishSpecies) => (weights[f.id] ?? 0) * (f.rarity === 'rare' || f.rarity === 'epic' ? 1 + rareBonus : 1);
+  return makeFish(pickWeighted(pool, w, rand), rand, sizeBonus);
 }

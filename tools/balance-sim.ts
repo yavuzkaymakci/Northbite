@@ -66,6 +66,7 @@ import {
 import { PenguinLevels } from '../src/content/penguins';
 import { RoleList, type RoleId } from '../src/content/roles';
 import { isFish } from '../src/core/GameState';
+import { refillRack } from '../src/systems/VoyageLogic';
 
 declare const process: { argv: string[] };
 
@@ -377,6 +378,16 @@ class Sim {
       }),
       // Threat buildings are optional and the bot never builds them.
       bait: store('bait', { enabled: () => false }),
+      // Harbour Pier loot rack (GDD §25): the dockhand takes deep-sea fish from it (crates refill it).
+      lootRack: store('loot', {
+        enabled: () => s.regions.includes('harbor'),
+        takeable: () => s.harbor.rack.length,
+        take: () => {
+          const f = s.harbor.rack.pop() ?? null;
+          refillRack(s);
+          return f;
+        },
+      }),
     };
     const home = IceShore.hut.slots;
     this.ctx = {

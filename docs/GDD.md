@@ -466,13 +466,15 @@ Her demo **telefondan açılabilen bir link** ile biter.
 
 - **Simülasyon** (`npm run sim`, 8 saat yokluk, aşamanın açıldığı anki durum, medyan):
 
-| Aşama | Taban (2 sa, %50) | Aktif oyuna oranı | Zaman yükseltmeleri tam (8 sa, %65) | Oranı |
+| Aşama | Taban (2 sa, %50) | Aktif oyuna oranı | Zaman yükseltmeleri tam (8 sa, %60) | Oranı |
 |---|---|---|---|---|
-| Ağ + 1. penguen | 1323 | %20 | 6861 | %25 |
-| + tütsühane | 2323 | %21 | 12089 | %27 |
-| + kamp (görevli) | 6280 | %29 | 32555 | %37 |
+| Ağ + 1. penguen | 1323 | %20 | 6334 | %24 |
+| + tütsühane | 2491 | %25 | 11961 | %30 |
+| + 3. penguen (Taşıyıcı) | 3317 | %18 | 15846 | %22 |
+| + kamp (görevli, madenci) | 10115 | %32 | 48427 | %39 |
+| + 5. penguen (Mutfakçı) | 10205 | %31 | 48692 | %38 |
 
-  Formül, sim'deki boşta kalma testiyle örtüşüyor (tütsühane aşamasında saatte ~2300 değer). Çevrimdışı gelir aktif oyunu hiçbir durumda geçmiyor. Yalnızca en uç durumda (kamp yeni açılmışken bütün Zaman yükseltmeleri alınmış) ~%35 hedefinin biraz üstüne çıkıyor; bu durumda dengeyi çadır kirası belirliyor (çadırlar çevrimiçi de aynı darboğaz).
+  (Demo 7C ön işi, 12 koşu.) Çevrimdışı gelir aktif oyunu hiçbir durumda geçmiyor. En uç durum (kamp + madenci, bütün Zaman yükseltmeleri) %39: hedef ~%40'ın altında. Bunu sağlayan, verim yükseltmesinin üst değerinin %65'ten %60'a inmesi; 7B sonrası denenen `offlineMinerFactor` sonuç vermediği için (mağaranın çevrimdışı darboğazı Koleksiyoncu) kaldırıldı.
 
 ## 18.1 İstasyon ve zaman yükseltmeleri (Demo 5A)
 - Olta tezgâhındaki panel sekmelidir: **Olta | İstasyonlar | Zaman** (`content/stationUpgrades.ts`). Her yükseltmenin 5 seviyesi var; Sv1 içerikteki varsayılan değerdir. Sonraki seviye taban × 1.6^(seviye − 1) × `priceScale`.
@@ -486,7 +488,7 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - Tabak süresi 5 → 3 sn (120, mutfak açıksa)
   - Çadır kirası 14 → 24 coin/dk (150, çadır açıksa)
   - Heykelcik 16 → 26 coin (140, kristal tezgâhı açıksa)
-- **Zaman:** Çevrimdışı süre 2 → 3 → 4 → 6 → 8 saat (100), çevrimdışı verim %50 → %65 (120; Demo 6'da %70'ten indirildi, kamp aşamasında çevrimdışı oran ~%35'e insin diye).
+- **Zaman:** Çevrimdışı süre 2 → 3 → 4 → 6 → 8 saat (100), çevrimdışı verim %50 → %53 → %55 → %58 → %60 (120; Demo 6'da %70 → %65, Demo 7C öncesi %65 → %60: kamp + madenci aşamasında çevrimdışı oran ~%40'ın altında kalsın diye).
 - Kartlar ilgili istasyon açılana kadar gizlidir. Kartta ikon, ad, seviye, "şimdi → sonraki" etki ve fiyat vardır. Satın alınca kart zıplar ve konfeti çıkar; para yetmezse kart sallanır.
 - Değerler tek kaynaktan okunur (`systems/StationUpgrades.ts` → `stationValue`). Oyun, çevrimdışı formül ve simülasyon aynı değerleri kullanır.
 
@@ -687,28 +689,17 @@ Rıhtımcı (iskele ganimet rafı → tezgâh / tütsühane) 7C'de aynı tabloya
 - Rol etkisi (gelir/dk, önceki 10 dk → sonraki 10 dk; o arada açılan her şey dahil): Tütsücü 70 → 134 (+%91), Madenci 158 → 247 (+%56), Mutfakçı 215 → 271 (+%26).
 - Gelir kolları: 60 dk balık %59 / kamp %15 / mağara %27; 90 dk %39 / %30 / %31. Hiçbiri %70'i geçmiyor, %10'un altına düşmüyor.
 - 3 dk hareketsiz coin: ağ + 1. penguen 76, tütsühane 91, 2. penguen (Tütsücü) 199, 3. penguen 211.
-- Çevrimdışı (8 sa yokluk, aynı süre aktif oyuna oran): taban (2 sa, %50) %19–%32; Zaman yükseltmeleri tam (8 sa, %65) %23–%42. En uç durum kamp + madenci aşamasında %42 (hedef ~%40).
+- Çevrimdışı (8 sa yokluk, aynı süre aktif oyuna oran): taban (2 sa, %50) %19–%32; Zaman yükseltmeleri tam (8 sa, %65) %23–%42. En uç durum kamp + madenci aşamasında %42 (hedef ~%40). Demo 7C ön işinde verim üst değeri %60'a indi: uç durum %39 (§18).
 
 ## 25. İskele ve seferler (Demo 7C)
 (7C'de doldurulacak. Sayılar `content/voyages.ts` ve `content/harbor.ts` içinde olacak.)
 
-## Şu anki durum (2026-11-05, Demo 7C başlamadan önce)
+## Şu anki durum (2026-11-10, Demo 7C başlıyor)
 **Bitti**
-- Demo 7A (panel yöneticisi) ve 7B (Penguen Pazarı, roller, iş panosu, kulübe kapasitesi, save v6) commit'lendi ve main'e pushlandı (`69ff307`); GitHub Pages yayını çalıştı.
-- 7B sonrası küçük ayar: çevrimdışı hesapta Madenci'nin kristal üretimi `Economy.offline.offlineMinerFactor` (0.5) ile yarı hızda sayılıyor (`systems/Offline.ts`). typecheck ve build geçiyor.
-
-**Bilinen sorun / sonuç**
-- Bu çarpan, hedeflenen uç durumu değiştirmedi: sim (12 koşu) kamp + madenci + bütün Zaman yükseltmeleri (8 sa, %65) için hâlâ **%42** veriyor (5 penguenli aşamada %41; taban 2 sa/%50'de %31–32). Sebep: çevrimdışında mağaranın darboğazı Koleksiyoncu (130 sn'de bir en fazla 6 heykelcik). Yarı hızdaki madenci bile Koleksiyoncu'nun alabileceğinden fazla kristal getiriyor, yani madenci hızı sonucu belirlemiyor. ~%40'a inmek için seçenekler: (a) çevrimdışı Koleksiyoncu ziyaretlerini ya da heykelcik gelirini bir çarpanla kısmak, (b) çevrimdışı kristali "yalnızca giriş rafını doldurur" diye dar yorumlamak, (c) kamp çadır kirasına çevrimdışı çarpan (bu aşamada gelirin büyük kısmı kira). Karar verilmedi.
-- Diğer açık konular §17'de (3. penguen ~34 dk, uyku buff'ı %12.9).
-
-**Yarım / başlanmadı**
-- Demo 7C (İskele, seferler, fener; §25) **hiç başlanmadı**: kod yok, `voyages.ts` / `harbor.ts` yok. Kullanıcının 7C görev metni (C1–C11) sohbette.
+- Demo 7A ve 7B main'de. Demo 7C ön işi: çevrimdışı verim üst değeri %65 → %60, `offlineMinerFactor` kaldırıldı; sim'de uç durum %39 (§18).
 
 **Sıradaki adım**
-1. Çevrimdışı uç durum için yukarıdaki seçeneklerden birini seç, sim'i koş, ~%40'ı doğrula, commit'le.
-2. Sonra Demo 7C'ye başla: önce GDD §25'i yaz, sonra C1 (iskele arazisi) → C2 (tekne onarımı) → C3 (sefer sistemi) sırasıyla.
-
-**Nerede kaldık:** `69ff307` pushlandı; bu WIP commit'i yalnızca çarpanı ve bu bölümü ekliyor.
+- Demo 7C (§25): C-I (C1–C5) → C-II (C6–C11).
 
 ## 17. Açık sorular
 - Test için kullanılacak telefon: iPhone mu, Android mi? (Web demolarında fark yok, native aşamada önemli)
@@ -717,7 +708,6 @@ Rıhtımcı (iskele ganimet rafı → tezgâh / tütsühane) 7C'de aynı tabloya
 - Kalite otomatik seçilmeli mi? Şimdilik varsayılan Orta, yavaş cihaza yalnızca bir kerelik öneri var.
 - Gerçek müzik parçası gerekecek mi? Şimdilik her şey sentez; `MusicDirector.loadTrack(url)` kancası hazır.
 - **3. penguen zamanı (Demo 7B):** Sim'de ~34 dk (hedef ~40). Bot "en ucuz karşılanabilir hedef" kuralıyla alıyor; kulübe 2. seviye fiyatı 360'ın altındayken kamp tapusundan önce (~34 dk), 380 ve üstündeyken kamp çadırlarından sonra (~46–50 dk) alınıyor, arası yok. 300 seçildi (hedefe daha yakın). Gerçek oyuncu farklı sıralayabilir; telefonda bakılmalı.
-- **Çevrimdışı uç durum:** Kamp + madenci aşamasında bütün Zaman yükseltmeleri alınmışken oran %42 (hedef ~%40). Madenci çevrimdışında Koleksiyoncu darboğazına kadar kristal getiriyor; "raf kapasitesine kadar" daha dar yorumlanırsa (yalnızca giriş rafını doldurur) oran düşer.
 - Uyku buff'ının etkisi 8 koşulu sim'de %12.9 çıktı (hedef ≤ ~%12, önceki ölçüm %10); koşu sayısına bağlı oynuyor, 7B ona dokunmadı.
 - Temizlikçi ve Bekçi sim'de kullanılmıyor (bot tehdit yapılarını da almıyor); etkileri yalnızca oyunda ve panel testinde ölçüldü.
 

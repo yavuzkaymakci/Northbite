@@ -21,8 +21,6 @@ export const Economy = {
     capHours: 2,
     /** Shorter absences give nothing (no "while you were away" window). */
     minSeconds: 60,
-    /** Miners' crystals count at this share of their online rate while away (GDD §24, Demo 7C tuning). */
-    offlineMinerFactor: 0.5,
   },
   customers: {
     spawnIntervalMin: 3,

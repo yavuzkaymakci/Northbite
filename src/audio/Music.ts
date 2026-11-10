@@ -62,7 +62,7 @@ export class MusicDirector {
       this.chord = (this.chord + 1) % M.chords[this.mood.time].length;
       this.glideToChord();
     }
-    this.bellTimer -= dt * (this.mood.place === 'cave' ? 1.4 : this.mood.time === 'night' ? 0.8 : 1);
+    this.bellTimer -= dt * (this.mood.place === 'cave' ? 1.4 : this.mood.place === 'harbor' ? M.harbor.every : this.mood.time === 'night' ? 0.8 : 1);
     if (this.bellTimer <= 0) {
       this.bellTimer = M.bellEvery[0] + Math.random() * (M.bellEvery[1] - M.bellEvery[0]);
       if (!this.mood.sleeping) this.bell();
@@ -181,11 +181,12 @@ export class MusicDirector {
     const note = scale[Math.floor(Math.random() * scale.length)] as number;
     const t = ctx.currentTime;
     const osc = ctx.createOscillator();
-    osc.type = this.mood.place === 'camp' ? 'triangle' : 'sine';
-    osc.frequency.value = hz(note + (this.mood.place === 'cave' ? 12 : this.mood.place === 'camp' ? -12 : 0));
+    const place = this.mood.place;
+    osc.type = place === 'camp' || place === 'harbor' ? 'triangle' : 'sine';
+    osc.frequency.value = hz(note + (place === 'cave' ? 12 : place === 'camp' ? -12 : place === 'harbor' ? M.harbor.octave : 0));
     const env = ctx.createGain();
-    const decay = this.mood.place === 'camp' ? M.bellDecay * 0.6 : M.bellDecay;
-    const level = M.bellGain * (this.mood.tension ? M.tensionDuck : 1);
+    const decay = place === 'camp' ? M.bellDecay * 0.6 : place === 'harbor' ? M.bellDecay * M.harbor.decay : M.bellDecay;
+    const level = M.bellGain * (place === 'harbor' ? M.harbor.gain : 1) * (this.mood.tension ? M.tensionDuck : 1);
     env.gain.setValueAtTime(0.0001, t);
     env.gain.exponentialRampToValueAtTime(level, t + 0.02);
     env.gain.exponentialRampToValueAtTime(0.0001, t + decay);

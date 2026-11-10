@@ -125,7 +125,8 @@ function isFishItem(v: unknown): v is FishItem {
     (f.kind === 'raw' || f.kind === 'smoked') &&
     typeof f.kg === 'number' &&
     typeof f.price === 'number' &&
-    (f.variant === undefined || f.variant === 'gold' || f.variant === 'rainbow')
+    (f.variant === undefined || f.variant === 'gold' || f.variant === 'rainbow') &&
+    (f.fromSea === undefined || typeof f.fromSea === 'boolean')
   );
 }
 
@@ -172,6 +173,7 @@ function sanitizeOrders(raw: unknown): OrdersState {
         kind: a.kind as Order['kind'],
         amount: a.amount,
         ...(a.species ? { species: a.species } : {}),
+        ...(typeof a.base === 'number' && a.base >= 0 ? { base: Math.floor(a.base) } : {}),
         timeLeft: n0(a.timeLeft),
         reward: Math.floor(n0(a.reward)),
         extra: a.extra === 'rareBait' || a.extra === 'fur' || a.extra === 'decorPiece' || a.extra === 'pageHint' ? a.extra : null,
@@ -399,6 +401,7 @@ function sanitizeHarbor(raw: unknown): HarborState {
   h.parts = Math.floor(n0(g.parts));
   h.auto = g.auto !== false;
   h.voyages = Math.floor(n0(g.voyages));
+  h.wrecks = Math.min(Math.floor(n0(g.wrecks)), h.voyages);
   h.wreckPage = g.wreckPage === true;
   h.giant = n0(g.giant);
   h.seasonShown = g.seasonShown === true;

@@ -1,7 +1,7 @@
 // Order board (GDD §20). Orders reward 1.5–2× the normal sale value, never punish, and only ask for what the
 // player can make right now. Coin rewards go through priceScale.
 
-export type OrderKind = 'raw' | 'smoked' | 'kg' | 'species' | 'plates' | 'statuettes' | 'golden' | 'night';
+export type OrderKind = 'raw' | 'smoked' | 'kg' | 'species' | 'plates' | 'statuettes' | 'golden' | 'night' | 'deep' | 'treasure' | 'voyage';
 export type OrderExtra = 'rareBait' | 'fur' | 'decorPiece' | 'pageHint';
 
 export interface OrderTemplate {
@@ -30,6 +30,11 @@ export const OrderTemplates: readonly OrderTemplate[] = [
   { kind: 'plates', weight: 2, min: 2, max: 4, requires: ['kitchen'], rewardMul: 1.7, extraChance: 0.15, durationMin: 600, durationMax: 1200 },
   { kind: 'statuettes', weight: 2, min: 2, max: 3, requires: ['crystalBench'], rewardMul: 1.8, extraChance: 0.2, durationMin: 600, durationMax: 1200 },
   { kind: 'night', weight: 1, min: 1, max: 1, requires: ['smokehouse'], rewardMul: 2, extraChance: 0.4, durationMin: 1500, durationMax: 1800 },
+  // Harbour Pier (GDD §25): deep-sea fish on the back; voyages / a sunken ship trip completed after the order came.
+  // Only once the boat is seaworthy (never an order that cannot be done).
+  { kind: 'deep', weight: 2, min: 2, max: 4, requires: ['harbor', 'boatCabin'], rewardMul: 1.7, extraChance: 0.15, durationMin: 900, durationMax: 1500 },
+  { kind: 'voyage', weight: 1.5, min: 1, max: 2, requires: ['harbor', 'boatCabin'], rewardMul: 1.6, extraChance: 0.2, durationMin: 1500, durationMax: 2100 },
+  { kind: 'treasure', weight: 1, min: 1, max: 1, requires: ['harbor', 'boatCabin'], rewardMul: 1.5, extraChance: 0.4, durationMin: 1800, durationMax: 2400 },
   { kind: 'golden', weight: 0.5, min: 1, max: 1, requires: ['hole3'], rewardMul: 2, extraChance: 0.6, durationMin: 1800, durationMax: 2400 },
 ];
 
@@ -51,6 +56,8 @@ export const Orders = {
   ],
   /** Share of the decoration frame paid by a decoration piece. */
   decorPieceShare: 0.5,
+  /** Coins a 'voyage' order counts per trip (about a reef trip's catch at the counter); a 'treasure' order is 2 trips. */
+  voyageValue: 45,
   /** Price of the board's unlock frame. */
   boardCost: 30,
 } as const;

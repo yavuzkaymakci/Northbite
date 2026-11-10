@@ -18,6 +18,7 @@ import { createLightPool, NightLights } from '../render/NightLights';
 import { Palette } from '../render/Palette';
 import type { Banner } from '../ui/Banner';
 import type { VoyagePanel } from '../ui/VoyagePanel';
+import type { LighthousePanel, SeasonCard } from '../ui/LighthousePanel';
 import type { WorldLabel, WorldLabels } from '../ui/WorldLabels';
 import type { WorldMap } from '../world/Map';
 import { sfx } from '../audio/AudioEngine';
@@ -32,6 +33,8 @@ import {
   collectReturn,
   departVoyage,
   giantBonus,
+  lighthouseDone,
+  repairLighthouse,
   refillRack,
   rollGiant,
   tickVoyage,
@@ -67,8 +70,14 @@ export class Harbor {
   private readonly buoy: THREE.Mesh;
   private readonly ringMat = new THREE.MeshBasicMaterial({ color: Palette.benchPad, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide });
   private readonly voyageRing: THREE.Mesh;
+  private readonly lighthouseRing: THREE.Mesh;
+  private lhStand = 0;
+  private lhDismissed = false;
+  /** The lighthouse shines (the game strengthens the northern lights). */
+  onLit: (() => void) | null = null;
   private readonly rackLabel: WorldLabel;
   private readonly pointLabel: WorldLabel;
+  private readonly lhLabel: WorldLabel;
   private stand = 0;
   private dismissed = false;
   private rackTimer = 0;
@@ -105,6 +114,8 @@ export class Harbor {
     private readonly banner: Banner,
     private readonly rig: CameraRig,
     private readonly panel: VoyagePanel,
+    private readonly lhPanel: LighthousePanel,
+    private readonly season: SeasonCard,
   ) {
     scene.add(this.group);
     this.group.add(createPierScene(), this.boatGroup);
@@ -131,7 +142,10 @@ export class Harbor {
     const vp = L.voyagePoint;
     this.voyageRing = new THREE.Mesh(createFlatRingGeometry(vp.radius, vp.radius - 0.16, 32), this.ringMat);
     this.voyageRing.position.set(vp.x, HARBOR_DECK_Y + 0.03, vp.z);
-    this.group.add(this.voyageRing);
+    const lp = L.lighthousePoint;
+    this.lighthouseRing = new THREE.Mesh(createFlatRingGeometry(lp.radius, lp.radius - 0.16, 32), this.ringMat);
+    this.lighthouseRing.position.set(lp.x, HARBOR_DECK_Y + 0.03, lp.z);
+    this.group.add(this.voyageRing, this.lighthouseRing);
     // Gulls circling, crates for the overflow, the giant fish buoy.
     this.gulls = new THREE.InstancedMesh(createGullGeometry(), flat(Palette.gull), HarborFeel.gulls);
     this.gulls.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -147,6 +161,12 @@ export class Harbor {
     this.rackLabel.anchor.set(r.x, 1.3, r.z);
     this.pointLabel = labels.create('harbor-point');
     this.pointLabel.anchor.set(vp.x, 1.7, vp.z);
+    this.lhLabel = labels.create('harbor-point', t('lighthousePoint'));
+    this.lhLabel.anchor.set(lp.x, 1.7, lp.z);
+    lhPanel.onClosed = (reason) => {
+      this.lhDismissed = reason !== 'left';
+    };
+    lhPanel.onRepair = () => this.repairLighthouse();
 
     panel.onClosed = (reason) => {
       this.dismissed = reason !== 'left';
@@ -299,7 +319,14 @@ export class Harbor {
     if (this.open) {
       this.updateRack(dt);
       this.updatePoint(dt);
+      this.updateLighthousePoint(dt);
     }
+    // Season goal reached (also after loading a finished save): the card shows once.
+    if (lighthouseDone(this.state) && !h.seasonShown) {
+      h.seasonShown = true;
+      this.season.show();
+    }
+    if (this.lhPanel.opened) this.lhPanel.refresh(this.state);
     this.updateBoat(dt, time);
     this.updateSeals(dt, time);
     this.updateGulls(dt, time);
@@ -357,6 +384,48 @@ export class Harbor {
     }
   }
 
+  // ---------- lighthouse (season goal, GDD §25 C6) ----------
+
+  private get onLighthousePoint(): boolean {
+    const p = this.player.state;
+    const lp = L.lighthousePoint;
+    return Math.hypot(p.x - lp.x, p.z - lp.z) <= lp.radius;
+  }
+
+  private updateLighthousePoint(dt: number): void {
+    const still = this.player.state.speed01 < FishingFeel.stillSpeed;
+    if (this.onLighthousePoint) {
+      if (still) this.lhStand += dt;
+      if (this.lhStand >= HarborFeel.openDelay && !this.lhDismissed && !this.lhPanel.opened) this.lhPanel.open(this.state, () => this.onLighthousePoint);
+    } else {
+      this.lhStand = 0;
+      this.lhDismissed = false;
+    }
+  }
+
+  private repairLighthouse(): void {
+    const r = repairLighthouse(this.state);
+    if (!r.ok) {
+      this.lhPanel.deny();
+      sfx('deny');
+      return;
+    }
+    const i = L.island;
+    for (let k = 0; k < 5; k++) this.coins.spendTo(this.v.set(L.lighthousePoint.x, 1, L.lighthousePoint.z));
+    this.syncLighthouse(true);
+    this.fx.sparkle(i.x, 3, i.z);
+    for (let k = 0; k < 3; k++) this.fx.snowPuff(i.x - 1 + k, 1, i.z, 0.8, 0.5);
+    vibrate(HapticsSettings.unlock);
+    sfx('lighthouseBell');
+    sfx('hammer', i);
+    if (r.stage >= 5) {
+      this.banner.show(t('lighthouseLit'), 'good', 6);
+      this.rig.shake(0.15);
+      this.onLit?.();
+    } else this.banner.show(tf('lighthouseStageDone', { n: r.stage }), 'good');
+    this.lhPanel.refresh(this.state, true);
+  }
+
   // ---------- visuals ----------
 
   /** Boat position from the voyage: at the pier, sailing out (first `sailTime` s), away, sailing in (last `sailTime` s). */
@@ -403,7 +472,7 @@ export class Harbor {
     this.creakTimer -= dt;
     if (!v && this.creakTimer <= 0 && this.playerNear) {
       this.creakTimer = 5 + Math.random() * 6;
-      sfx(this.stage >= 2 && Math.random() < 0.4 ? 'sailFlap' : 'creak', L.boat);
+      sfx(this.stage >= 2 && Math.random() < 0.4 ? 'sailFlap' : Math.random() < 0.5 ? 'rope' : 'creak', L.boat);
     }
   }
 
@@ -517,6 +586,7 @@ export class Harbor {
     const nearRack = this.open && Math.hypot(p.x - L.rack.x, p.z - L.rack.z) < 7 && (h.rack.length > 0 || h.crates.length > 0);
     this.labels.show(this.rackLabel, nearRack);
     if (nearRack) this.rackLabel.el.innerHTML = `<span class="fish-icon"></span>${h.rack.length}${h.crates.length > 0 ? ` +${h.crates.length}` : ''}`;
+    this.labels.show(this.lhLabel, this.open && Math.hypot(p.x - L.lighthousePoint.x, p.z - L.lighthousePoint.z) < 6 && !this.lhPanel.opened);
     const vp = L.voyagePoint;
     const nearPoint = this.open && this.stage >= 0 && Math.hypot(p.x - vp.x, p.z - vp.z) < 9;
     this.labels.show(this.pointLabel, nearPoint);

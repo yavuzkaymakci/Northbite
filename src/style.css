@@ -2744,3 +2744,28 @@ body.reduce-motion .hint-hand .hint-ring {
   font-weight: 800;
   color: var(--panel-muted);
 }
+
+/* Lighthouse panel and the "Season 1 complete" card (GDD §25 C6) */
+.lh-pips {
+  justify-content: flex-start;
+}
+.lh-card {
+  margin-top: 8px;
+  text-align: center;
+}
+.season-card .season-text {
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.season-card .season-teaser {
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--coin);
+}
+.season-card .season-tap {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.7;
+}

@@ -1,6 +1,5 @@
 import { Boat, BoatUpgradeById, BoatUpgradeList, GiantFish, Lighthouse, SealMarket, SealNames, SealRoleById, SealRoleList, type BoatUpgradeId, type SealRoleId } from '../content/harbor';
 import { DestinationById, Destinations, VoyageEvents, VoyageRules, type DestinationDef, type DestinationId, type VoyageEventId } from '../content/voyages';
-import type { FishId } from '../content/fish';
 import { scaledPrice } from '../content/tuning';
 import { UpgradeMaxLevel } from '../content/upgrades';
 import type { FishItem, GameState, SealData, Voyage, VoyageReturn } from '../core/GameState';
@@ -166,7 +165,7 @@ export function rollLoot(state: GameState, d: DestinationDef, crew: readonly num
   const ev = event ? VoyageEvents[event] : null;
   const count = Math.max(1, Math.round(pickInt(d.fish, rand) * (1 + bonus.fish) * (ev?.lootMul ?? 1)) + (ev?.extraFish ?? 0));
   const fish: FishItem[] = [];
-  for (let i = 0; i < count; i++) fish.push(rollWeighted(d.pool, rand, bonus.rare, VoyageRules.deepSizeBonus).item);
+  for (let i = 0; i < count; i++) fish.push({ ...rollWeighted(d.pool, rand, bonus.rare, VoyageRules.deepSizeBonus).item, fromSea: true });
   const chance = (p: number) => p >= 1 || rand() < Math.min(p * (1 + bonus.rare), 1);
   const treasure = chance(d.treasure);
   const coins = treasure ? Math.round(pickInt(d.treasureCoins, rand) * (ev?.lootMul ?? 1)) : 0;
@@ -224,6 +223,7 @@ export function finishVoyage(state: GameState, rand: () => number): VoyageReturn
   if (loot.decor) payDecorPiece(state);
   if (loot.page) h.wreckPage = true;
   h.voyages++;
+  if (v.dest === 'wreck') h.wrecks++;
   const ret: VoyageReturn = {
     dest: v.dest,
     fish: loot.fish.length,
@@ -292,7 +292,7 @@ export function advanceVoyagesOffline(state: GameState, seconds: number, rand: (
 
 /** A giant deep-sea fish for the sign at the pier end: heavy end of the range, a harder fight (GDD §25). */
 export function rollGiant(rand: () => number): HookedFish {
-  const f = rollWeighted(GiantFish.pool as Partial<Record<FishId, number>>, rand, 0, 0.5);
+  const f = rollWeighted(GiantFish.pool, rand, 0, 0.5);
   return { ...f, difficulty: f.difficulty * GiantFish.difficulty };
 }
 

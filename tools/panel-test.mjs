@@ -159,12 +159,14 @@ const MARKET = { x: -8.6, z: 8.1 };
 const AWAY = { x: 2, z: 1.5 };
 const VOYAGE = { x: 20.3, z: 17.2 };
 const RACK = { x: 9.2, z: 14.2 };
+const LIGHTHOUSE = { x: 17.9, z: 17.2 };
 /** A late save with the Harbour Pier open and the boat repaired (GDD §25), one penguin a dockhand later. */
 const HARBOR_SAVE = (harbor = {}) => ({
   coins: 20000,
   unlocked: ['hole2', 'net', 'hut', 'smokehouse', 'hole3', 'penguin2', 'orderBoard', 'igloo2', 'crystalBench', 'tent1', 'kitchen', 'boatHull', 'boatSail', 'boatCabin'],
   regions: ['smokeYard', 'iceCave', 'hotSpring', 'harbor'],
-  story: { pages: ['page1', 'page2', 'page3'] },
+  // Harbour pages 7–9 already found, so no page card covers the panels (page 10 is checked at the end).
+  story: { pages: ['page1', 'page2', 'page3', 'page7', 'page8', 'page9'] },
   workers: [{ carried: [] }, { carried: [] }],
   harbor,
 });
@@ -337,6 +339,28 @@ const suites = {
     check('seal tab: a seal joins the crew', (await st()).seals === 1, JSON.stringify({ ...(await st()), tabInfo }));
     await teleport(AWAY.x, AWAY.z);
     await frames(3);
+    // Lighthouse (GDD §25 C6): five stages from the panel on the pier; then the season card and page 10.
+    await js(`(() => { const s = window.__game.state; s.harbor.parts = 5; s.coins = 50000; return true; })()`);
+    await teleport(LIGHTHOUSE.x, LIGHTHOUSE.z);
+    for (let k = 0; k < 40 && !(await isOpen('lighthouse')); k++) await sleep(25);
+    check('lighthouse panel opens on its ring', await isOpen('lighthouse'));
+    for (let i = 0; i < 5; i++) {
+      await tapSel('.lighthouse-panel .lh-card');
+      await frames(4);
+    }
+    const lh = await js(`(() => { const s = window.__game.state; return { stage: s.harbor.lighthouse, parts: s.harbor.parts, page10: s.story.pages.includes('page10'), season: s.harbor.seasonShown }; })()`);
+    check('lighthouse: 5 stages repaired with 5 parts', lh.stage === 5 && lh.parts === 0, JSON.stringify(lh));
+    await shot('harbor-lighthouse');
+    await teleport(AWAY.x, AWAY.z);
+    await frames(3);
+    check('lighthouse panel closes when walking off', !(await isOpen('lighthouse')));
+    await sleep(600);
+    const lh2 = await js(`(() => { const s = window.__game.state; return { page10: s.story.pages.includes('page10'), season: s.harbor.seasonShown, cards: window.__panels.snapshot().cards, open: window.__panels.snapshot().open }; })()`);
+    check('season card and the last journal page come', lh2.season && lh2.page10, JSON.stringify(lh2));
+    for (let i = 0; i < 6 && ((await isOpen('season')) || (await isOpen('page')) || (await js('window.__panels.snapshot().cards.length'))); i++) {
+      await key('Escape');
+      await sleep(700);
+    }
     await audit('harbor: clean');
   },
 
@@ -446,6 +470,7 @@ const suites = {
     // Harbour Pier (GDD §25): the voyage panel on the voyage point ring (a save with the harbour open).
     await load(HARBOR_SAVE());
     await contextual('voyage', VOYAGE, '.voyage-panel .panel-x', '.voyage-panel .panel-x');
+    await contextual('lighthouse', LIGHTHOUSE, '.lighthouse-panel .panel-x', '.lighthouse-panel .panel-x');
     await load();
 
     // Cards.

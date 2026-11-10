@@ -9,7 +9,7 @@ import { Atmosphere } from '../render/Atmosphere';
 import { DayCycle, type DayEvents } from '../systems/DayCycle';
 import { Decorations } from '../systems/Decorations';
 import { Igloo } from '../systems/Igloo';
-import { applyComfortUnlock, canSleepAt, peaceScore, restedLeft, wakeRested } from '../systems/Rest';
+import { applyComfortUnlock, canSleepAt, lighthouseLit, peaceScore, restedLeft, wakeRested } from '../systems/Rest';
 import { SleepSequence } from '../systems/SleepSequence';
 import { Banner } from '../ui/Banner';
 import { DaySummary } from '../ui/DaySummary';
@@ -20,7 +20,7 @@ import { setVibration } from './Haptics';
 import { audio, sfx } from '../audio/AudioEngine';
 import { AmbienceDirector, MusicDirector } from '../audio/Music';
 import { CampLayout } from '../content/zones';
-import { CaveLayout, IceShore, TeaserWalls, type Vec2 } from '../content/zones';
+import { CaveLayout, HarborLayout, IceShore, TeaserWalls, type Vec2 } from '../content/zones';
 import { Cave } from '../systems/Cave';
 import { Camp } from '../systems/Camp';
 import { Story } from '../systems/Story';
@@ -66,6 +66,8 @@ import { Jobs } from '../content/roles';
 import { CharacterCreator, type CreatorMode } from '../ui/CharacterCreator';
 import { Harbor } from '../systems/Harbor';
 import { VoyagePanel } from '../ui/VoyagePanel';
+import { LighthousePanel, SeasonCard } from '../ui/LighthousePanel';
+import { Lighthouse } from '../content/harbor';
 import { advanceVoyagesOffline } from '../systems/VoyageLogic';
 import type { FishingHole } from '../systems/Fishing';
 import { HUD } from '../ui/HUD';
@@ -296,8 +298,14 @@ export class Game {
       campPlates: () => (this.state.unlocked.includes('kitchen') ? this.state.camp.plates.length : null),
     });
     // Harbour Pier (GDD §25): boat, voyages, loot rack, seals; its panel opens through the panel manager.
-    this.harbor = new Harbor(this.scene, s, this.player, this.stack, this.world, this.fx, this.labels, this.coins, this.appear, this.banner, this.rig, new VoyagePanel(overlay));
+    this.harbor = new Harbor(this.scene, s, this.player, this.stack, this.world, this.fx, this.labels, this.coins, this.appear, this.banner, this.rig, new VoyagePanel(overlay), new LighthousePanel(overlay), new SeasonCard(overlay));
     this.harbor.onReturned = () => this.save();
+    // The lit lighthouse makes the northern lights stronger for good (GDD §25).
+    this.harbor.onLit = () => {
+      this.atmosphere.auroraBoost = Lighthouse.auroraBoost;
+      this.save();
+    };
+    if (lighthouseLit(s)) this.atmosphere.auroraBoost = Lighthouse.auroraBoost;
     // Penguins work in the lands, at the bait trap and at the pier too (GDD §24, §25): their stores need those systems.
     this.workers.link({ camp: this.camp, cave: this.cave, buildings: this.threats.buildings, harbor: this.harbor });
     this.market = new Market(s, this.player, this.world, this.coins, this.fx, this.banner, this.appear, this.workers, new MarketPanel(overlay));
@@ -701,7 +709,7 @@ export class Game {
     const p = this.player.state;
     const inside = (a: { minX: number; maxX: number; minZ: number; maxZ: number }) => p.x > a.minX && p.x < a.maxX && p.z > a.minZ && p.z < a.maxZ;
     const part = this.day.part;
-    const place = inside(CaveLayout.area) ? 'cave' : inside(CampLayout.land) ? 'camp' : 'shore';
+    const place = inside(CaveLayout.area) ? 'cave' : inside(CampLayout.land) ? 'camp' : this.harbor.playerNear ? 'harbor' : 'shore';
     this.music.setMood({
       time: part === 'night' ? 'night' : part === 'evening' ? 'evening' : 'day',
       aurora: this.day.auroraActive,
@@ -713,7 +721,8 @@ export class Game {
     // Waves: distance to the open water (north and east of the shore, around the camp; none in the cave).
     const g = IceShore.ground;
     const c = CampLayout.land;
-    const sea = place === 'cave' ? 99 : place === 'camp' ? Math.min(p.z - c.minZ, c.maxX - p.x, c.maxZ - p.z) : Math.min(p.z - g.minZ, g.maxX - p.x);
+    // At the pier the sea is east of the strip (and all around the deck).
+    const sea = place === 'harbor' ? Math.max(HarborLayout.land.maxX - p.x, 0) : place === 'cave' ? 99 : place === 'camp' ? Math.min(p.z - c.minZ, c.maxX - p.x, c.maxZ - p.z) : Math.min(p.z - g.minZ, g.maxX - p.x);
     this.ambience.update(dt, { storm: this.day.stormActive, night: this.day.isNight, seaDistance: sea });
   }
 

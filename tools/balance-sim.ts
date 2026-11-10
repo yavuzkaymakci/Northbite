@@ -66,7 +66,33 @@ import {
 import { PenguinLevels } from '../src/content/penguins';
 import { RoleList, type RoleId } from '../src/content/roles';
 import { isFish } from '../src/core/GameState';
-import { refillRack } from '../src/systems/VoyageLogic';
+import {
+  advanceVoyagesOffline,
+  autoVoyageDue,
+  boatLevel,
+  boatReady,
+  boatUpgradeCost,
+  buySeal,
+  departVoyage,
+  destinationOpen,
+  lighthouseCost,
+  lighthouseDone,
+  lootWaiting,
+  rollGiant,
+  giantBonus,
+  refillRack,
+  repairLighthouse,
+  sealPrice,
+  sealRoom,
+  sealsOpen,
+  tickVoyage,
+  updateSealMarket,
+  voyageCost,
+} from '../src/systems/VoyageLogic';
+import { BoatUpgradeList, GiantFish, Lighthouse, type BoatUpgradeId } from '../src/content/harbor';
+import { DestinationById, type DestinationId } from '../src/content/voyages';
+import { HarborLayout } from '../src/content/zones';
+import { HarborFeel } from '../src/settings';
 
 declare const process: { argv: string[] };
 
@@ -76,6 +102,7 @@ const DETOUR = 1.2; // real paths are longer than straight lines (obstacles, imp
 const DAWDLE = 1.0; // seconds lost per decision (looking around, small corrections)
 const PASS: Vec2 = { x: -11.6, z: -1.2 };
 const BRIDGE: Vec2 = { x: 10.9, z: -1.1 };
+const SOUTH_PASS: Vec2 = { x: 5.2, z: 12.9 };
 const THREAT_REACTION = 1.0; // seconds before the bot drops what it does after a threat warning
 const C = IceShore.counter;
 
@@ -140,8 +167,9 @@ interface Customer {
   want: number;
   got: number;
   bill: number;
-  /** Part of the bill that was smoked fish. */
+  /** Part of the bill that was smoked fish, and deep-sea fish from voyages (GDD §25). */
   smoked: number;
+  deep: number;
   takeTimer: number;
 }
 
@@ -191,18 +219,21 @@ interface Result {
   extra: Extras;
   /** `extra` at 60 minutes. */
   extra60?: Extras;
-  /** `income` at 60 minutes. */
+  /** `income` at 60 and 90 minutes. */
   income60?: Income;
+  income90?: Income;
   nightsSlept: number;
   threat: ThreatStats;
   /** Total income at every full minute (role effect report). */
   timeline: number[];
   /** When each penguin role was first bought (GDD §24). */
   roles: Partial<Record<RoleId, number>>;
+  /** Every voyage: destination, supplies paid, value brought back (fish at raw price + treasure). */
+  voyages: Array<{ dest: DestinationId; cost: number; value: number }>;
 }
 
-type OfflineStage = 'hut' | 'smokehouse' | 'penguin3' | 'attendant' | 'penguin5';
-const OFFLINE_STAGES: OfflineStage[] = ['hut', 'smokehouse', 'penguin3', 'attendant', 'penguin5'];
+type OfflineStage = 'hut' | 'smokehouse' | 'penguin3' | 'attendant' | 'penguin5' | 'boatCabin' | 'boatL3';
+const OFFLINE_STAGES: OfflineStage[] = ['hut', 'smokehouse', 'penguin3', 'attendant', 'penguin5', 'boatCabin', 'boatL3'];
 
 interface Snapshot {
   state: GameState;
@@ -230,6 +261,8 @@ interface Income {
   smoked: number;
   camp: number;
   cave: number;
+  /** Voyages (GDD §25): deep-sea fish sold, treasure coins. */
+  voyage: number;
 }
 
 /** A bear or avalanche in progress (sim view: just the times that matter). */
@@ -251,7 +284,7 @@ interface Target {
   at: Vec2;
   cost: number;
   region: boolean;
-  kind?: 'penguin' | 'hut';
+  kind?: 'penguin' | 'hut' | 'seal' | 'lighthouse';
   offer?: number;
 }
 
@@ -273,7 +306,8 @@ class Sim {
     upgradesBought: [],
     earned: 0,
     tips: 0,
-    income: { raw: 0, smoked: 0, camp: 0, cave: 0 },
+    income: { raw: 0, smoked: 0, camp: 0, cave: 0, voyage: 0 },
+    voyages: [],
     snapshots: {},
     extra: { orderCoins: 0, codexCoins: 0, orderGiven: 0, rodValue: 0, variantExtra: 0, orders: {} },
     nightsSlept: 0,
@@ -427,6 +461,7 @@ class Sim {
       this.updateLands(dt);
       this.updateBoard(dt);
       if (this.state.unlocked.includes('market')) updateMarket(this.state, dt, this.rand);
+      this.updateHarbor(dt);
       for (const w of this.workers) w.update(dt, this.ctx, this.workers);
       const minute = Math.floor(this.t / 60);
       while (this.result.timeline.length <= minute) this.result.timeline.push(this.totalEarned);
@@ -447,6 +482,7 @@ class Sim {
           got: 0,
           bill: 0,
           smoked: 0,
+          deep: 0,
           takeTimer: 0,
         });
       }
@@ -459,9 +495,12 @@ class Sim {
       this.state.pile += value;
       this.result.earned += value;
       this.result.tips += pay.tip;
+      // Deep-sea fish (raw or smoked) count for the voyage line; the rest splits into raw and smoked.
+      const deepShare = c.bill > 0 ? c.deep / c.bill : 0;
       const smokedShare = c.bill > 0 ? c.smoked / c.bill : 0;
+      this.result.income.voyage += value * deepShare;
       this.result.income.smoked += value * smokedShare;
-      this.result.income.raw += value * (1 - smokedShare);
+      this.result.income.raw += value * Math.max(1 - smokedShare - deepShare, 0);
       if (threatsUnlocked(this.state)) this.result.threat.earned += value;
       this.customers.shift();
       for (const n of this.customers) n.arriveAt = Math.max(n.arriveAt, this.t + C.queueSpacing / CustomerFeel.walkSpeed);
@@ -477,7 +516,8 @@ class Sim {
     c.takeTimer = CustomerFeel.takeInterval;
     c.got++;
     c.bill += item.price;
-    if (item.kind === 'smoked') c.smoked += item.price;
+    if (item.fromSea || FishById[item.species].deep) c.deep += item.price;
+    else if (item.kind === 'smoked') c.smoked += item.price;
     this.state.stats.sold++;
     if (item.kind === 'smoked') this.smokedSold++;
     if (this.result.firstSale < 0) this.result.firstSale = this.t + CustomerFeel.flightTime;
@@ -651,12 +691,13 @@ class Sim {
   walkTo(p: Vec2): void {
     // Through the yard pass and the camp bridge when going between areas.
     const stops: Vec2[] = [this.pos];
-    const area = (q: Vec2) => (inYard(q) ? 0 : q.x > 11 ? 2 : 1);
+    const area = (q: Vec2) => (inYard(q) ? 0 : q.z > 12.4 ? 3 : q.x > 11 ? 2 : 1);
     const a = area(this.pos);
     const b = area(p);
     if (a !== b) {
       if (a === 0 || b === 0) stops.push(PASS);
       if (a === 2 || b === 2) stops.push(BRIDGE);
+      if (a === 3 || b === 3) stops.push(SOUTH_PASS);
       if (a === 2) stops.splice(1, stops.length - 1, ...stops.slice(1).reverse());
     }
     stops.push(p);
@@ -684,6 +725,10 @@ class Sim {
     }
     const buy = this.penguinTarget();
     if (buy) out.push(buy);
+    const seal = this.sealTarget();
+    if (seal) out.push(seal);
+    const lh = this.lighthouseTarget();
+    if (lh) out.push(lh);
     return out.sort((a, b) => a.cost - b.cost);
   }
 
@@ -723,6 +768,20 @@ class Sim {
       if (upgradeHut(this.state)) this.result.unlocks[u.id] = this.t;
       return;
     }
+    if (u.kind === 'seal') {
+      this.advance(1.5);
+      if (buySeal(this.state, u.offer ?? -1).ok) this.result.unlocks[u.id] = this.t;
+      return;
+    }
+    if (u.kind === 'lighthouse') {
+      this.advance(1.5);
+      if (repairLighthouse(this.state).ok) {
+        this.result.unlocks[u.id] = this.t;
+        if (lighthouseDone(this.state)) this.result.unlocks.lighthouse = this.t;
+      }
+      this.boughtSinceUnlock = 0;
+      return;
+    }
     if (u.kind === 'penguin') {
       this.advance(1.5);
       const r = buyOffer(this.state, u.offer ?? -1);
@@ -739,6 +798,7 @@ class Sim {
     this.result.unlocks[u.id] = this.t;
     if ((OFFLINE_STAGES as string[]).includes(u.id)) this.pendingSnapshot = u.id as OfflineStage;
     this.boughtSinceUnlock = 0;
+    if (u.region && u.id === 'harbor') this.state.harbor.auto = true;
     if (u.region) {
       this.state.regions.push(u.id);
       this.advance(RegionFeel.crackTime + RegionFeel.pause + RegionFeel.panTime + RegionFeel.holdTime + RegionFeel.returnTime);
@@ -779,16 +839,17 @@ class Sim {
   /** Total income so far (counter sales, camp, cave). */
   get totalEarned(): number {
     const x = this.result.extra;
-    return this.result.earned + this.result.income.camp + this.result.income.cave + x.orderCoins + x.codexCoins;
+    return this.result.earned + this.result.income.camp + this.result.income.cave + this.treasure + x.orderCoins + x.codexCoins;
   }
 
   /** Cheapest upgrade worth buying now (rod, and station/time upgrades when enabled): affordable and small next to the next unlock goal. */
-  upgradeToBuy(): { kind: 'rod' | 'station'; id: string; cost: number } | null {
-    if (this.boughtSinceUnlock >= 1) return null;
+  upgradeToBuy(): { kind: 'rod' | 'station' | 'boat'; id: string; cost: number } | null {
+    // Boat upgrades (GDD §25) are bought whenever they are cheap next to the goal (the boat has few unlocks to wait for).
+    if (this.boughtSinceUnlock >= 1) return this.opts.stationUpgrades ? this.boatUpgradeToBuy() : null;
     const next = this.available()[0];
     const goal = next ? next.cost : Infinity;
-    let best: { kind: 'rod' | 'station'; id: string; cost: number } | null = null;
-    const consider = (kind: 'rod' | 'station', id: string, cost: number | null) => {
+    let best: { kind: 'rod' | 'station' | 'boat'; id: string; cost: number } | null = null;
+    const consider = (kind: 'rod' | 'station' | 'boat', id: string, cost: number | null) => {
       if (cost === null || cost > this.state.coins || cost > goal * 0.3) return;
       if (!best || cost < best.cost) best = { kind, id, cost };
     };
@@ -797,6 +858,21 @@ class Sim {
       for (const u of StationUpgradeList) {
         if (stationUpgradeVisible(this.state, u)) consider('station', u.id, stationUpgradeCost(u.id, this.state.stationUpgrades[u.id]));
       }
+      // Boat upgrades (GDD §25), bought at the voyage point with the same rule.
+      if (boatReady(this.state)) for (const u of BoatUpgradeList) consider('boat', u.id, boatUpgradeCost(u.id, this.state.harbor.upgrades[u.id]));
+    }
+    return best;
+  }
+
+  private boatUpgradeToBuy(): { kind: 'boat'; id: string; cost: number } | null {
+    if (!boatReady(this.state)) return null;
+    const next = this.available()[0];
+    const goal = next ? next.cost : Infinity;
+    let best: { kind: 'boat'; id: string; cost: number } | null = null;
+    for (const u of BoatUpgradeList) {
+      const cost = boatUpgradeCost(u.id, this.state.harbor.upgrades[u.id]);
+      if (cost === null || cost > this.state.coins || cost > goal * 0.3) continue;
+      if (!best || cost < best.cost) best = { kind: 'boat', id: u.id, cost };
     }
     return best;
   }
@@ -807,7 +883,13 @@ class Sim {
       this.state.coins -= pick.cost;
       let level: number;
       if (pick.kind === 'rod') level = ++this.state.upgrades[pick.id as UpgradeId];
-      else level = ++this.state.stationUpgrades[pick.id as StationUpgradeId];
+      else if (pick.kind === 'boat') {
+        level = ++this.state.harbor.upgrades[pick.id as BoatUpgradeId];
+        if (boatLevel(this.state) >= 3 && this.result.unlocks.boatL3 === undefined) {
+          this.result.unlocks.boatL3 = this.t;
+          this.pendingSnapshot = 'boatL3';
+        }
+      } else level = ++this.state.stationUpgrades[pick.id as StationUpgradeId];
       this.result.upgradesBought.push({ id: pick.id, level, t: this.t });
       this.boughtSinceUnlock++;
       this.advance(0.6);
@@ -905,6 +987,12 @@ class Sim {
       s.coins += s.camp.pile;
       s.camp.pile = 0;
     }
+    if (s.harbor.pile > 0) {
+      this.walkTo(HarborLayout.pile);
+      this.advance(0.6);
+      s.coins += s.harbor.pile;
+      s.harbor.pile = 0;
+    }
   }
 
   // ---------- lands (GDD §15) ----------
@@ -994,6 +1082,157 @@ class Sim {
     }
   }
 
+  // ---------- Harbour Pier (GDD §25) ----------
+
+  /** Treasure coins brought back (they land on the harbour pile; counted as voyage income). */
+  treasure = 0;
+  private autoTimer = 0;
+  private dockhandDone = false;
+
+  private updateHarbor(dt: number): void {
+    const s = this.state;
+    if (!s.regions.includes('harbor')) return;
+    updateSealMarket(s, dt, this.rand);
+    const ret = tickVoyage(s, dt, this.rand);
+    if (ret) this.voyageBack(ret.value, ret.coins);
+    if (autoVoyageDue(s)) {
+      this.autoTimer += dt;
+      if (this.autoTimer >= HarborFeel.autoDelay) {
+        this.autoTimer = 0;
+        this.sail(s.harbor.lastDest as DestinationId);
+      }
+    } else this.autoTimer = 0;
+  }
+
+  /** Giant fish sign at the pier end (GDD §25): when it disappears. */
+  private giantUntil = -1;
+
+  private voyageBack(value: number, coins: number): void {
+    if (this.rand() < GiantFish.chance) this.giantUntil = this.t + GiantFish.stay;
+    this.treasure += coins;
+    this.result.income.voyage += coins;
+    const last = this.result.voyages[this.result.voyages.length - 1];
+    if (last) last.value = value;
+  }
+
+  private sail(dest: DestinationId): boolean {
+    const cost = voyageCost(DestinationById[dest]);
+    const r = departVoyage(this.state, dest, this.day.isNight, this.rand);
+    if (!r.ok) return false;
+    this.result.voyages.push({ dest, cost, value: 0 });
+    this.result.unlocks.firstVoyage ??= this.t;
+    return true;
+  }
+
+  /** Where the bot sends the boat: the sunken ship while the lighthouse needs parts, else the longest open trip. */
+  private pickDest(): DestinationId {
+    const s = this.state;
+    const open = (id: DestinationId) => destinationOpen(s, DestinationById[id]);
+    const partsNeeded = Lighthouse.stageCosts.length - s.harbor.lighthouse - s.harbor.parts;
+    if (open('wreck') && partsNeeded > 0) return 'wreck';
+    return open('iceberg') ? 'iceberg' : 'reef';
+  }
+
+  /** The boat is idle and the bot sends it itself (before auto voyages, or with them off). */
+  voyageDue(): boolean {
+    const s = this.state;
+    if (!boatReady(s) || s.harbor.voyage || autoVoyageDue(s)) return false;
+    return s.coins >= voyageCost(DestinationById[this.pickDest()]);
+  }
+
+  voyageRun(): void {
+    this.walkTo(HarborLayout.voyagePoint);
+    this.advance(HarborFeel.openDelay + 1.5);
+    this.sail(this.pickDest());
+    this.state.harbor.returned = null;
+  }
+
+  /** The giant fish sign is up and the back has room: go and fish it (the heavier fight takes longer). */
+  giantDue(): boolean {
+    return this.t < this.giantUntil && this.state.carried.length < this.capacity;
+  }
+
+  giantRun(): void {
+    this.walkTo({ x: HarborLayout.giant.x - 1.2, z: HarborLayout.giant.z });
+    this.giantUntil = -1;
+    const f = rollGiant(this.rand);
+    // The real mini-game with the giant's heavier fight (difficulty already in the hooked fish).
+    const g = new ReelGame(f, this.rand, this.mods);
+    const bot = carefulBot(REACTION);
+    let time = 0;
+    let res = 'reeling';
+    while (res === 'reeling' && time < 60) {
+      res = g.update(1 / 60, bot(g, time));
+      time += 1 / 60;
+    }
+    this.advance(F.dwellToCast + F.castSwingTime + F.castFlightTime + (F.biteDelayMin + F.biteDelayMax) / 2 + time);
+    if (res !== 'caught') return;
+    this.state.carried.push({ ...f.item, fromSea: true });
+    const bonus = giantBonus(this.rand);
+    this.state.harbor.pile += bonus;
+    this.treasure += bonus;
+    this.result.income.voyage += bonus;
+  }
+
+  /** Loot worth a trip: the rack is half full or crates wait. */
+  lootRunDue(): boolean {
+    const h = this.state.harbor;
+    if (!this.state.regions.includes('harbor') || this.state.carried.length > 0) return false;
+    return h.rack.length >= 4 || h.crates.length > 0;
+  }
+
+  lootRun(): void {
+    const s = this.state;
+    this.walkTo({ x: HarborLayout.rack.x, z: HarborLayout.rack.z - 1 });
+    refillRack(s);
+    let n = 0;
+    while (s.harbor.rack.length > 0 && s.carried.length < this.capacity) {
+      s.carried.push(s.harbor.rack.pop() as FishItem);
+      refillRack(s);
+      n++;
+    }
+    s.harbor.returned = null;
+    this.advance(n * HarborFeel.transferInterval);
+    if (s.harbor.pile > 0) {
+      this.walkTo(HarborLayout.pile);
+      this.advance(0.6);
+      s.coins += s.harbor.pile;
+      s.harbor.pile = 0;
+    }
+    this.deliver();
+  }
+
+  /** A carrier becomes the dockhand once the boat sails (the hut is full by then; GDD §25 C5). */
+  private dockhand(): void {
+    const s = this.state;
+    if (this.dockhandDone || !boatReady(s)) return;
+    const carriers = s.workers.filter((w) => w.role === 'carrier');
+    if (carriers.length < 2 || s.coins < 25) return;
+    const w = carriers[carriers.length - 1] as GameState['workers'][number];
+    s.coins -= 25;
+    w.role = 'dockhand';
+    this.workers.find((b) => b.data === w)?.reset(this.ctx);
+    this.dockhandDone = true;
+    this.result.roles.dockhand ??= this.t;
+  }
+
+  /** Next seal (fisher first, then explorers) while there is a crew place. */
+  sealTarget(): Target | null {
+    const s = this.state;
+    if (!sealsOpen(s) || sealRoom(s) <= 0) return null;
+    const want = s.harbor.seals.some((x) => x.role === 'fisher') ? 'explorer' : 'fisher';
+    const offer = s.harbor.sealMarket.offers.find((o) => o.role === want) ?? s.harbor.sealMarket.offers[0];
+    if (!offer) return null;
+    return { id: `seal${s.harbor.seals.length + 1}`, at: IceShore.market.pad, cost: sealPrice(s, offer.role), region: false, kind: 'seal', offer: offer.id };
+  }
+
+  lighthouseTarget(): Target | null {
+    const s = this.state;
+    const cost = lighthouseCost(s);
+    if (!s.regions.includes('harbor') || cost === null || s.harbor.parts <= 0) return null;
+    return { id: `lighthouse${s.harbor.lighthouse + 1}`, at: HarborLayout.lighthousePoint, cost, region: false, kind: 'lighthouse' };
+  }
+
   // ---------- player actions (each advances time) ----------
 
   run(): Result {
@@ -1005,6 +1244,7 @@ class Sim {
         this.goSleep();
         continue;
       }
+      if (!this.result.income90 && this.t >= 90 * 60) this.result.income90 = { ...this.result.income };
       if (!this.result.income60 && this.t >= 60 * 60) {
         this.result.income60 = { ...this.result.income };
         this.result.extra60 = { ...this.result.extra, orders: {} };
@@ -1036,13 +1276,28 @@ class Sim {
       }
       const next = this.available()[0];
       const s = this.state;
-      const piles = s.pile + s.cave.pile + s.camp.pile;
+      const piles = s.pile + s.cave.pile + s.camp.pile + s.harbor.pile;
       if (next && piles > 0 && s.coins + piles >= next.cost) {
         this.collectAll();
         continue;
       }
       if (this.mineRunDue()) {
         this.mineRun();
+        continue;
+      }
+      this.dockhand();
+      if (this.giantDue()) {
+        this.giantRun();
+        this.deliver();
+        continue;
+      }
+      if (this.voyageDue()) {
+        this.voyageRun();
+        continue;
+      }
+      // The bot also collects at the rack when loot piles up beside the dockhand (players do).
+      if (this.lootRunDue() && (!this.workers.some((w) => w.data.role === 'dockhand') || lootWaiting(this.state) >= 8)) {
+        this.lootRun();
         continue;
       }
       // Grab the basket on the way when no penguin does it.
@@ -1072,7 +1327,7 @@ const median = (xs: number[]) => {
 };
 
 const RUNS = Number(process.argv[2] ?? 12);
-const ORDER = ['hole2', 'net', 'hut', 'smokeYard', 'smokehouse', 'market', 'hole3', 'penguin2', 'igloo2', 'igloo3', 'igloo4', 'iceCave', 'crystalBench', 'hutL2', 'penguin3', 'hotSpring', 'tent1', 'kitchen', 'tent2', 'tent3', 'hutL3', 'penguin4', 'attendant', 'hutL4', 'penguin5'];
+const ORDER = ['hole2', 'net', 'hut', 'smokeYard', 'smokehouse', 'market', 'hole3', 'penguin2', 'igloo2', 'igloo3', 'igloo4', 'iceCave', 'crystalBench', 'hutL2', 'penguin3', 'hotSpring', 'tent1', 'kitchen', 'tent2', 'tent3', 'hutL3', 'penguin4', 'attendant', 'hutL4', 'penguin5', 'harbor', 'boatHull', 'boatSail', 'boatCabin', 'firstVoyage', 'seal1', 'boatL3', 'seal2', 'lighthouse1', 'lighthouse'];
 const DECOR = ['flagpole', 'doormat', 'snowman', 'sled', 'lanterns', 'dryingRack', 'iceSculpture'];
 const TARGET: Record<string, string> = {
   hole2: '~2 dk',
@@ -1100,11 +1355,22 @@ const TARGET: Record<string, string> = {
   tent2: '—',
   tent3: '—',
   attendant: '~45 dk',
+  harbor: '~50 dk (tapu)',
+  boatHull: '—',
+  boatSail: '—',
+  boatCabin: '~58 dk',
+  firstVoyage: '~60 dk (çıkış)',
+  seal1: '—',
+  boatL3: '~85 dk',
+  seal2: '—',
+  lighthouse1: '—',
+  lighthouse: '~120 dk',
 };
 
 function unlockTable(upgrades: boolean): void {
   const results: Result[] = [];
-  for (let i = 0; i < RUNS; i++) results.push(new Sim({ seed: 1000 + i, upgrades, endAt: 60 * 60, threats: 'active' }).run());
+  // 140 minutes: long enough for the Harbour Pier and the lighthouse (GDD §25).
+  for (let i = 0; i < RUNS; i++) results.push(new Sim({ seed: 1000 + i, upgrades, stationUpgrades: upgrades, endAt: 140 * 60, threats: 'active' }).run());
   console.log(`\n## Açılış süreleri — ${upgrades ? 'yükseltme alan bot' : 'yükseltme almayan bot'} (${RUNS} koşu, medyan [min–maks], oyun içi süre)`);
   console.log('| Açılış | Hedef | Medyan | Aralık |');
   console.log('|---|---|---|---|');
@@ -1137,42 +1403,76 @@ function idleTest(after: string, label: string): void {
   );
 }
 
-/** Income lines (GDD §16): where the coins come from at 60 and 90 minutes; no line above 70% or below 10%. */
+/**
+ * Income lines (GDD §16, §25): where the coins come from at 60, 90 and 120 minutes. Demo 7C target at 90 and 120 min:
+ * no line above 65% or below 8% (fish, camp, cave, voyages).
+ */
 function incomeTable(): void {
   const runs: Result[] = [];
-  for (let i = 0; i < RUNS; i++) runs.push(new Sim({ seed: 5000 + i, upgrades: true, stationUpgrades: true, endAt: 90 * 60, threats: 'active' }).run());
-  console.log(`\n## Gelir kolları (${RUNS} koşu, olta + istasyon yükseltmesi alan bot, tehditler aktif)`);
-  console.log('| Süre | Toplam | Balık (çiğ + tütsü) | – çiğ | – tütsü | Kamp (tabak + kira) | Mağara (heykelcik) | Kontrol |');
-  console.log('|---|---|---|---|---|---|---|---|');
-  for (const [label, pick] of [
-    ['60 dk', (r: Result) => r.income60 ?? r.income],
-    ['90 dk', (r: Result) => r.income],
+  for (let i = 0; i < RUNS; i++) runs.push(new Sim({ seed: 5000 + i, upgrades: true, stationUpgrades: true, endAt: 120 * 60, threats: 'active' }).run());
+  console.log(`\n## Gelir kolları (${RUNS} koşu, olta + istasyon + tekne yükseltmesi alan bot, tehditler aktif)`);
+  console.log('| Süre | Toplam | Balık (çiğ + tütsü) | – çiğ | – tütsü | Kamp (tabak + kira) | Mağara (heykelcik) | Sefer (derin balık + hazine) | Kontrol |');
+  console.log('|---|---|---|---|---|---|---|---|---|');
+  for (const [label, pick, check] of [
+    ['60 dk', (r: Result) => r.income60 ?? r.income, false],
+    ['90 dk', (r: Result) => r.income90 ?? r.income, true],
+    ['120 dk', (r: Result) => r.income, true],
   ] as const) {
-    const sum = { raw: 0, smoked: 0, camp: 0, cave: 0 };
+    const sum = { raw: 0, smoked: 0, camp: 0, cave: 0, voyage: 0 };
     for (const r of runs) {
       const inc = pick(r);
       sum.raw += inc.raw;
       sum.smoked += inc.smoked;
       sum.camp += inc.camp;
       sum.cave += inc.cave;
+      sum.voyage += inc.voyage;
     }
-    const total = sum.raw + sum.smoked + sum.camp + sum.cave;
+    const total = sum.raw + sum.smoked + sum.camp + sum.cave + sum.voyage;
     const pct = (v: number) => (v / total) * 100;
-    const lines = [pct(sum.raw + sum.smoked), pct(sum.camp), pct(sum.cave)];
-    const ok = lines.every((p) => p <= 70) && lines.every((p) => p >= 10);
+    const lines = [pct(sum.raw + sum.smoked), pct(sum.camp), pct(sum.cave), pct(sum.voyage)];
+    const f1 = (v: number) => v.toFixed(1);
+    const ok = lines.every((p) => p <= 65) && lines.every((p) => p >= 8);
     console.log(
-      `| ${label} | ${Math.round(total / RUNS)} | %${lines[0]?.toFixed(0)} | %${pct(sum.raw).toFixed(0)} | %${pct(sum.smoked).toFixed(0)} | %${lines[1]?.toFixed(0)} | %${lines[2]?.toFixed(0)} | ${ok ? 'tamam (%10–70)' : 'SINIR DIŞI'} |`,
+      `| ${label} | ${Math.round(total / RUNS)} | %${lines[0]?.toFixed(0)} | %${pct(sum.raw).toFixed(0)} | %${pct(sum.smoked).toFixed(0)} | %${lines[1]?.toFixed(0)} | %${lines[2]?.toFixed(0)} | %${f1(lines[3] ?? 0)} | ${check ? (ok ? 'tamam (%8–65)' : 'SINIR DIŞI') : 'bilgi'} |`,
     );
   }
-  console.log('Üç kol: balık (tezgâh), kamp (tabak, çadır kirası, bahşiş), mağara (heykelcik + bahşiş). Kontrol 90 dk için bağlayıcı; 60. dakikada kamp yeni açılmış olur.');
+  console.log('Dört kol: balık (tezgâh), kamp (tabak, çadır kirası, bahşiş), mağara (heykelcik + bahşiş), sefer (tezgâhta satılan derin deniz balığı, çiğ ya da tütsü, ve hazine coin\'i). Kontrol 90 ve 120 dk için.');
+}
+
+/** Voyages (GDD §25): how many, and the return on the supplies paid per voyage (value brought back − supplies) / supplies. */
+function voyageTable(): void {
+  const runs: Result[] = [];
+  for (let i = 0; i < RUNS; i++) runs.push(new Sim({ seed: 5000 + i, upgrades: true, stationUpgrades: true, endAt: 120 * 60, threats: 'active' }).run());
+  console.log(`\n## Seferler (${RUNS} koşu, 120 dk)`);
+  console.log('| Hedef | Sefer sayısı (toplam) | Ort. erzak | Ort. getirdiği değer | Ort. ROI | Değer / dk |');
+  console.log('|---|---|---|---|---|---|');
+  for (const dest of ['reef', 'iceberg', 'wreck'] as const) {
+    const list = runs.flatMap((r) => r.voyages.filter((v) => v.dest === dest && v.value > 0));
+    if (list.length === 0) continue;
+    const cost = list.reduce((a, v) => a + v.cost, 0) / list.length;
+    const value = list.reduce((a, v) => a + v.value, 0) / list.length;
+    const roi = list.reduce((a, v) => a + (v.value - v.cost) / v.cost, 0) / list.length;
+    console.log(`| ${dest} | ${list.length} | ${cost.toFixed(0)} | ${value.toFixed(0)} | ×${roi.toFixed(1)} | ${(value / (DestinationById[dest].duration / 60)).toFixed(0)} |`);
+  }
+  const all = runs.flatMap((r) => r.voyages.filter((v) => v.value > 0));
+  const roi = all.reduce((a, v) => a + (v.value - v.cost) / v.cost, 0) / Math.max(all.length, 1);
+  console.log(`Sefer başına ortalama ROI: ×${roi.toFixed(1)} (${(all.length / RUNS).toFixed(1)} sefer / koşu). Değer = getirilen balığın çiğ satış değeri + hazine coin'i; tütsülenirse ×2.5 olur.`);
 }
 
 /** Offline earnings (GDD §18): 8 hours away at each automation stage, against active play over the same time. */
 function offlineTable(): void {
   const runs: Result[] = [];
-  for (let i = 0; i < RUNS; i++) runs.push(new Sim({ seed: 6000 + i, upgrades: true, stationUpgrades: true, endAt: 90 * 60, threats: 'active' }).run());
+  for (let i = 0; i < RUNS; i++) runs.push(new Sim({ seed: 6000 + i, upgrades: true, stationUpgrades: true, endAt: 125 * 60, threats: 'active' }).run());
   const away = 8 * 3600;
-  const labels: Record<OfflineStage, string> = { hut: 'Ağ + 1. penguen', smokehouse: '+ tütsühane', penguin3: '+ 3. penguen (taşıyıcı)', attendant: '+ kamp (görevli)', penguin5: '+ 5. penguen (mutfakçı)' };
+  const labels: Record<OfflineStage, string> = {
+    hut: 'Ağ + 1. penguen',
+    smokehouse: '+ tütsühane',
+    penguin3: '+ 3. penguen (taşıyıcı)',
+    attendant: '+ kamp (görevli)',
+    penguin5: '+ 5. penguen (mutfakçı)',
+    boatCabin: '+ tekne (sefer, elle)',
+    boatL3: '+ tekne Sv3 (otomatik sefer)',
+  };
   console.log(`\n## Çevrimdışı gelir — 8 saat yokluk (${RUNS} koşu, medyan; aşama açıldığı anki durum)`);
   console.log(`| Aşama | Sayılan süre | Çevrimdışı coin | Aktif coin/sa (sonraki 20 dk) | Oran (aynı süre aktif oyuna) | Maks. Zaman yükseltmesi (8 sa, %${Math.round(stationUpgradeValue('offlineRate', 5) * 100)}) | Oran |`);
   console.log('|---|---|---|---|---|---|---|');
@@ -1184,15 +1484,20 @@ function offlineTable(): void {
     for (const r of runs) {
       const snap = r.snapshots[stage];
       if (!snap || snap.perHour === undefined) continue;
+      // Voyages (GDD §25) run on while away: the one at sea finishes, an auto voyage may leave again; their value
+      // (fish at raw price + treasure) counts in full next to the offline coins.
+      const voyages = (st: GameState) => advanceVoyagesOffline(st, away, seededRandom(2)).reduce((v, r) => v + r.value, 0);
       const a = structuredClone(snap.state);
+      const va = voyages(a);
       const resA = applyOffline(a, away, seededRandom(1));
       const b = structuredClone(snap.state);
       b.stationUpgrades.offlineCap = 5;
       b.stationUpgrades.offlineRate = 5;
+      const vb = voyages(b);
       const resB = applyOffline(b, away, seededRandom(1));
-      base.push(resA.coins);
+      base.push(resA.coins + va);
       counted.push(resA.seconds);
-      maxed.push(resB.coins);
+      maxed.push(resB.coins + vb);
       perHour.push(snap.perHour);
     }
     if (base.length === 0) continue;
@@ -1203,7 +1508,7 @@ function offlineTable(): void {
       `| ${labels[stage]} | ${h} sa | ${median(base)} | ${Math.round(rate)} | ${ratio(median(base), h)} | ${median(maxed)} | ${ratio(median(maxed), 8)} |`,
     );
   }
-  console.log('Hedef (Demo 7B): üst sınırdaki bir çevrimdışı oturum, aynı süre aktif oyunun en fazla ~%40\'ı.');
+  console.log('Hedef (Demo 7B/7C): üst sınırdaki bir çevrimdışı oturum, aynı süre aktif oyunun en fazla ~%40\'ı. Tekne aşamalarında seferin çevrimdışı getirdiği değer de sayılır.');
 }
 
 /** Station upgrades and the Demo 4 unlock targets: the same bot with and without them. */
@@ -1490,6 +1795,7 @@ if (process.argv[3] !== 'reel') {
   threatTable();
   sleepTable();
   incomeTable();
+  voyageTable();
   stationUpgradeTimings();
   offlineTable();
   codexOrderTable();

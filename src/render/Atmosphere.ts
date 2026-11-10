@@ -123,6 +123,9 @@ export class Atmosphere {
     scene.add(camera);
   }
 
+  /** Northern lights strength (the lit lighthouse makes them stronger for good, GDD §25). */
+  auroraBoost = 1;
+
   /** Low quality: a single aurora curtain. */
   setSimple(simple: boolean): void {
     this.auroraSecond.visible = !simple;
@@ -173,7 +176,7 @@ export class Atmosphere {
 
     const auroraLevel = Math.max(0, (L.night - 0.5) * 2) * (1 - s);
     this.aurora.visible = auroraLevel > 0.01;
-    this.auroraUniforms.uOpacity.value = auroraLevel * F.auroraOpacity;
+    this.auroraUniforms.uOpacity.value = Math.min(auroraLevel * F.auroraOpacity * this.auroraBoost, 1);
     this.auroraUniforms.uTime.value = time;
     NightLights.set(Math.max(0, (L.night - 0.25) / 0.75));
   }

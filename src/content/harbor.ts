@@ -1,13 +1,14 @@
 // Harbour Pier (GDD §25): the deed, the boat repair, the boat upgrades, the loot rack, seals and the lighthouse.
 // Balance values only; positions live in zones.ts (HarborLayout), feel values in settings.ts (HarborFeel).
 // Voyage destinations, loot tables and events are in voyages.ts.
+import type { FishId } from './fish';
 
 /** Prices of the deed (region wall) and the three boat repair frames. All go through priceScale. */
 export const HarborCosts = {
-  harbor: 520,
-  boatHull: 260,
-  boatSail: 320,
-  boatCabin: 420,
+  harbor: 230,
+  boatHull: 180,
+  boatSail: 220,
+  boatCabin: 300,
 } as const;
 
 export type BoatUpgradeId = 'boatSpeed' | 'boatCargo' | 'boatCrew' | 'boatLantern';
@@ -31,7 +32,7 @@ export const BoatUpgradeList: readonly BoatUpgradeDef[] = [
     name: { tr: 'Yeni yelken bezi', en: 'Fresh sailcloth' },
     label: { tr: 'Sefer süresi', en: 'Voyage time' },
     format: 'percentTime',
-    baseCost: 160,
+    baseCost: 390,
     growth: 1.6,
     // Duration multiplier: at most −35%.
     values: [1, 0.92, 0.84, 0.75, 0.65],
@@ -41,7 +42,7 @@ export const BoatUpgradeList: readonly BoatUpgradeDef[] = [
     name: { tr: 'Geniş ambar', en: 'Roomy hold' },
     label: { tr: 'Ganimet rafı', en: 'Loot rack' },
     format: 'count',
-    baseCost: 140,
+    baseCost: 330,
     growth: 1.6,
     values: [8, 10, 12, 15, 18],
   },
@@ -50,7 +51,7 @@ export const BoatUpgradeList: readonly BoatUpgradeDef[] = [
     name: { tr: 'Ek ranza', en: 'Extra bunks' },
     label: { tr: 'Mürettebat yeri', en: 'Crew places' },
     format: 'count',
-    baseCost: 200,
+    baseCost: 480,
     growth: 1.6,
     values: [1, 1, 2, 2, 3],
   },
@@ -59,7 +60,7 @@ export const BoatUpgradeList: readonly BoatUpgradeDef[] = [
     name: { tr: 'Gemi feneri', en: 'Ship lantern' },
     label: { tr: 'Gece gecikme riski', en: 'Night delay risk' },
     format: 'risk',
-    baseCost: 120,
+    baseCost: 280,
     growth: 1.6,
     // Chance that a voyage leaving at night is held up a little (no lantern → small risk; Sv2+ is safe enough).
     values: [0.4, 0, 0, 0, 0],
@@ -93,7 +94,7 @@ export const GiantFish = {
   /** Reel time and tug strength multiplier on top of the species' own. */
   difficulty: 1.45,
   /** Species and weights for the giant catch (kg skewed to the top of the range). */
-  pool: { mullet: 70, greenlandShark: 30 } as Record<string, number>,
+  pool: { arcticMullet: 70, greenlandShark: 30 } as Partial<Record<FishId, number>>,
   /** Bonus coins on the harbour pile when it is landed. */
   bonusCoins: [30, 60] as const,
 } as const;
@@ -141,8 +142,10 @@ export const SealMarket = {
 
 export const Lighthouse = {
   /** Repair stages; each needs one lantern part and coins (× priceScale). */
-  stageCosts: [150, 260, 400, 600, 850],
+  stageCosts: [260, 440, 700, 1000, 1400],
   /** Full repair: permanent sale bonus and peace. */
   saleBonus: 0.03,
   peace: 10,
+  /** Northern lights opacity multiplier once it shines (permanent). */
+  auroraBoost: 1.6,
 } as const;

@@ -1,4 +1,5 @@
 import { DecorationList } from '../content/decorations';
+import { Lighthouse } from '../content/harbor';
 import { IglooLevels, Peace, RestedBuffs, Sleep } from '../content/igloo';
 import { TimeOfDay } from '../content/time';
 import { Tuning } from '../content/tuning';
@@ -51,8 +52,8 @@ export function wakeRested(state: GameState): void {
 export function peaceScore(state: GameState): number {
   let p = iglooDef(state.iglooLevel).peace;
   for (const d of DecorationList) if (state.decorations.includes(d.id)) p += d.peace;
-  // Cute penguins add peace too (GDD §24).
-  return p + penguinPeace(state);
+  // Cute penguins add peace too (GDD §24); the lit lighthouse adds its own (GDD §25).
+  return p + penguinPeace(state) + (lighthouseLit(state) ? Lighthouse.peace : 0);
 }
 
 /**
@@ -62,9 +63,15 @@ export function peaceScore(state: GameState): number {
 export function saleBonuses(state: GameState): { buff: number; tip: number } {
   const cap = Tuning.saleBonusCap;
   const aurora = state.buffs.aurora > 0 ? TimeOfDay.aurora.saleBonus : 0;
-  const buff = Math.min(aurora + restedBuff(state).sale, cap);
+  // The lit lighthouse is a small permanent sale bonus (GDD §25).
+  const buff = Math.min(aurora + restedBuff(state).sale + (lighthouseLit(state) ? Lighthouse.saleBonus : 0), cap);
   const tip = Math.min(peaceScore(state) * Peace.tipPerPoint, Peace.maxTip, cap - buff);
   return { buff, tip };
+}
+
+/** The captain's lighthouse is fully repaired (GDD §25). */
+export function lighthouseLit(state: GameState): boolean {
+  return state.harbor.lighthouse >= Lighthouse.stageCosts.length;
 }
 
 /** What a customer pays for `bill` worth of fish; `tipCarry` keeps the fractions of tips between sales. */

@@ -335,12 +335,12 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - Splash ve ikonlar düzgündür; ana ekrana eklenince uygulama gibi açılır.
   - Telefonda 60 fps hedefi müzik açıkken de korunur; ~150 draw call bütçesi korunur. typecheck, build ve sim hatasızdır.
 
-### Demo 7 — Panel yöneticisi, Penguen Pazarı, İskele (§23–§25)
+### Demo 7 — Panel yöneticisi, Penguen Pazarı, İskele (§23–§25) — BİTTİ
 Üç alt aşama, her biri ayrı commit (typecheck, build ve sim her aşamada). Sayılar `src/content/` altında (yeni: `roles.ts`, `penguins.ts`, `voyages.ts`, `harbor.ts`), his ayarları `settings.ts` içinde. `priceScale` yeni fiyatlara da uygulanır. Save v5 → v6 göçü yazılır. ~150 draw call ve 60 fps bütçesi korunur.
 - **7A — Panel yöneticisi (§23) — BİTTİ:** Takılı kalan panel hatasının kök nedeni bulundu ve düzeltildi. Bütün paneller tek bir yöneticiden (`ui/PanelManager.ts`) geçiyor. Headless Chrome panel stres testleri var (`npm run test:panels`). Save hâlâ v5 (yeni ayar `debugTools` varsayılanla okunuyor); v5 → v6 göçü 7B'de yazılacak.
 - **7B — Penguen Pazarı ve roller (§24) — BİTTİ:** Penguenler artık karakter: ad, rol, özellik, seviye/deneyim, bere-atkı görünümü. Altı rol (Taşıyıcı, Tütsücü, Madenci, Mutfakçı, Temizlikçi, Bekçi) veri odaklı; istasyonlar iş panosuna ilan verir, penguenler rollerine göre ilan alır, rezervasyon çift taşımayı önler. Yol grafiği mağara, kamp ve yem tuzağına uzatıldı. Kulübe 2 → 5 yer ve her seviyede büyüyor. Kulübenin yanındaki Penguen Pazarı (bağlamsal panel: Katalog | Penguenlerim | Kulübe). Çevrimdışı formül rol hızlarından. Save v6 (v5 → v6 göçü).
   - **Kabul (7B):** Roller çalışıyor; çakışma ve çift taşıma yok (`npm run test:panels -- roles`: madenci, mutfakçı, bekçi, temizlikçi gerçek oyunda işini yapıyor, takılan penguen yok). Pazar paneli yöneticiden açılıp kapanıyor (`-- market` ve `cycles` içinde 50 tur). Eski kayıtlar bozulmuyor (v5 test kaydı: 2 penguen Taşıyıcı + Tütsücü, eski 2. penguen yerine Pazar). typecheck, build ve sim hatasız. Sim hedefleri: 2. penguen ✓, ilk Madenci ✓, gelir kolları ✓, çevrimdışı ✓ (uç durum %42); 3. penguen ~6 dk erken (§17).
-- **7C — İskele, seferler ve fener (§25):** Yeni fiil: SEFER. İki alt aşama, her biri ayrı commit:
+- **7C — İskele, seferler ve fener (§25) — BİTTİ:** Yeni fiil: SEFER. İki alt aşama, her biri ayrı commit:
   - **C-I (C1–C5):** Liman İskelesi arazisi (güneydeki "Yakında" duvarının arkası, tapu: günlük sayfası 3), 3 aşamalı tekne onarımı ve 4 tekne yükseltmesi, sefer sistemi (durum makinesi, sefer paneli, gerçek zamanlı ve çevrimdışı tamamlanma, ganimet rafı ve kasalar, olaylar, dev balık, otomatik sefer), 3 derin deniz türü, fok mürettebat (Pazar'da "Fok" sekmesi), Rıhtımcı rolü, save v7.
   - **C-II (C6–C11):** Kaptanın feneri (5 aşama, fener paneli, sezon kartı), günlük sayfaları 7–10, ansiklopedi ve sipariş türleri, iskele sesleri ve "iskele" müzik modu, sim'de seferler / foklar / Rıhtımcı ve denge.
   - **Kabul:** İskele tapusu ve tekne onarımı akıcı; sefer çıkış, dönüş ve çevrimdışı tamamlama doğru, ganimet çift sayılmıyor, kayıp yok. Sefer, fener ve fok panelleri PanelManager'dan geçiyor ve panel testleri geçiyor. Tehditler iskeleyi rahatsız etmiyor; fok ve Rıhtımcı çalışıyor. Fener tamamlanınca sezon kartı geliyor; eski kayıtlar bozulmuyor. Sim hedefleri tutuyor, çevrimdışı oran ~%40'ı geçmiyor. typecheck, build ve sim hatasız; 60 fps hedefi korunuyor.
@@ -497,7 +497,7 @@ Her demo **telefondan açılabilen bir link** ile biter.
 
 ## 19. Balık ansiklopedisi (Demo 5B)
 - HUD'daki balık ikonu (günlüğün kitap ikonundan ayrı) alttan kayan, tam ekran bir sayfa açar. Oyun zamanı akmaya devam eder; sayfa açıkken yeni tehdit başlamaz. Sayfa açıkken oyun sahnesi yerine ansiklopedinin kendi küçük sahnesi çizilir.
-- **Izgara:** Mevcut 7 tür kart olarak dizilir: kapelin, morina, alabalık, kalkan, ay morinası, gece alabalığı, ışık balığı. Keşfedilmemiş türler gri siluet ve "???" olarak görünür; keşfedilenler renklidir. Kartın köşesinde altın ve gökkuşağı rozetleri yer alır.
+- **Izgara:** Türler kart olarak dizilir: kapelin, morina, alabalık, kalkan, ay morinası, gece alabalığı, ışık balığı ve Demo 7C'den itibaren 3 derin deniz türü (Atlantik ringası, Kutup kefali, Grönland köpekbalığı; §25). Keşfedilmemiş türler gri siluet ve "???" olarak görünür; keşfedilenler renklidir. Kartın köşesinde altın ve gökkuşağı rozetleri yer alır.
 - **Ayrıntı:** Oyundaki aynı low-poly model döner. Altında ad, kg rekoru, toplam yakalama, ilk yakalama günü, nadirlik, ne zaman çıktığı (her zaman / gece / kuzey ışığı) ve kısa bir açıklama (tr/en) yer alır.
 - **Varyantlar** (`content/codex.ts`): Mini oyunun zorluğu değişmez; yalnızca görünüm ve değer farklıdır.
   - **Altın:** Olta yakalamalarının %0.5'i; satış ×5, altın renk ve parıltı. İlk altında "Altın!" kartı çıkar.
@@ -524,6 +524,7 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - N balık tabağı (mutfak açıksa)
   - N heykelcik (kristal tezgâhı açıksa)
   - Nadir görev, uzun süreli: bir altın balık ya da bir gece balığı
+  - Demo 7C (§25): N derin deniz balığı, N sefer tamamla, Batık Gemi'den hazine (yalnızca tekne denize hazırsa)
 - **Teslim:** Kartta "Teslim et" düğmesi vardır. Eşyalar teslim anında sırttan (balık) ya da raftan (tabak, heykelcik) düşer; hiçbir şey önceden ayrılmaz. Eksik eşya varsa düğme pasiftir ve eksik miktar yazar. Ödül, coin yığınına değil doğrudan cüzdana gider.
 - **Ödüller:** Coin, normal satış değerinin 1.5–2 katıdır (zor siparişte daha fazla) × `priceScale`. Bazen ek ödül gelir: nadir yem, ayı tüyü, dekorasyon parçası (en ucuz açık dekorasyon çerçevesinin yarısını öder) ya da eksik bir günlük sayfasının ipucu.
 - **Süre:** 10–20 dk gerçek zaman (nadir görevler daha uzun). Süre dolarsa ceza yoktur, sipariş yalnızca silinir. Boşalan yere 60–120 sn içinde yenisi gelir. Süreler yalnızca oyun açıkken akar; çevrimdışıyken durur.
@@ -551,7 +552,7 @@ Her demo **telefondan açılabilen bir link** ile biter.
   - Coin toplarken perde zincirleme yükselir; makara tıkırtısının perdesi misina gerilimiyle artar.
 - **Müzik** (`MusicDirector`):
   - Temposuz, üretken ve sakin. Pad, çok yavaş geçen akorlar çalar; üstünde seyrek pentatonik çan notaları, hepsi hafif bir yankıyla.
-  - Ruh hali `setMood(...)` ile verilir: gündüz açık ve sıcak, akşam yumuşak, gece daha düşük ve parlak. Kuzey ışığında camsı bir üst katman gelir. Ayı uyarısında müzik kısılır ve gerilim katmanı girer. Mağarada daha yankılı ve kristal tınılı, kampta daha sıcak, uykuda solar.
+  - Ruh hali `setMood(...)` ile verilir: gündüz açık ve sıcak, akşam yumuşak, gece daha düşük ve parlak. Kuzey ışığında camsı bir üst katman gelir. Ayı uyarısında müzik kısılır ve gerilim katmanı girer. Mağarada daha yankılı ve kristal tınılı, kampta daha sıcak, iskelede ahşap tınılı (Demo 7C), uykuda solar.
   - Geçişler yumuşak çapraz solmadır.
   - Gerçek parçalar için `loadTrack(url)` kancası var (kullanılmıyor).
 - **Ambiyans:** Rüzgâr her zaman hafiftir, fırtınada güçlenir. Dalgalar denize yakınken duyulur. Gece daha sessizdir; yürürken kar çıtırtısı gelir.
@@ -701,29 +702,29 @@ Rıhtımcı veri olarak eklendi (`roles.ts`: iki iş, `lootRack` mağazası); ye
 Sayılar `content/harbor.ts` (tapu ve onarım fiyatları, tekne yükseltmeleri, ganimet rafı, dev balık, foklar, fener) ve `content/voyages.ts` (hedefler, ganimet tabloları, olaylar, çevrimdışı kural); his ayarları `settings.ts` → `HarborFeel`. Saf kurallar `systems/VoyageLogic.ts` (oyun, çevrimdışı hesap ve sim ortak; Three.js ve DOM yok). Bütün fiyatlar `priceScale`'den geçer.
 
 **Arazi: Liman İskelesi (C1)**
-- Güneydeki ağaç kuşağındaki geçit; eski "Yakında" duvarı artık tapu duvarı. Tapu 520, ön koşul Kaplıca Kampı ve günlük sayfası 3 ("Işıkların sırrı", güneydeki iskeleyi ima eder). Duvar kırılır, kamera turu iskeleye gider.
+- Güneydeki ağaç kuşağındaki geçit; eski "Yakında" duvarı artık tapu duvarı. Tapu 230, ön koşul Kaplıca Kampı ve günlük sayfası 3 ("Işıkların sırrı", güneydeki iskeleyi ima eder). Duvar kırılır, kamera turu iskeleye gider.
 - Yerleşim (`zones.ts` → `HarborLayout`): geçidin güneyinde bir kara şeridi; doğuya denize uzanan ahşap iskele (yürünebilir güverte), güney yanında bağlı tekne, iskele kökünde ganimet rafı ve kasalar, batısında iskele coin yığını, eski depo, kumsalda çürümüş tekne iskeleti, 4 fener direği (gece yanar), halat korkuluk. Kuzeydoğuda kayalık adada kaptanın feneri. Ambiyans: daireler çizen martılar (instanced).
 - Hareket sınırı güneye genişledi (`moveBounds`); şeridin batısı ve iskelenin çevresi çarpışmalı (su olanlar ayının yüzebildiği su).
 - **Güvenli bölge:** Ayı iskele güvertesine çıkmaz. Ayının hedef listesinde ganimet rafı en sondadır (tabak rafından da sonra); korkutulursa aldığı balıklar rafa (raf doluysa kasaya) geri döner.
 
 **Tekne onarımı ve yükseltmeleri (C2)**
-- Güvertedeki tek kilit alanı üç aşama: gövde 260 → yelken 320 → kamara 420. Tekne her aşamada yeniden kurulur ve zıplayarak belirir: 0 çürük, eğik, delikli gövde; 1 boyalı gövde ve beyaz şerit; 2 direk, bum ve yamalı yelken (hafif dalgalanır); 3 kırmızı çatılı kamara, gece yanan pencere. Talaş/kar tozu, parıltı, küçük kamera sarsıntısı, çekiç sesi, titreşim ve şerit.
-- **Tekne yükseltmeleri** (sefer panelinin Tekne sekmesi; 5 seviye, fiyat taban × 1.6^(seviye − 1)): hız (süre %100 → %92 → %84 → %75 → %65; taban 160), kargo (ganimet rafı 8 → 10 → 12 → 15 → 18; 140), mürettebat yeri (1 → 1 → 2 → 2 → 3; 200), gemi feneri (gece çıkışta gecikme riski %40 → 0; 120). Gecikme süreyi %20 uzatır.
+- Güvertedeki tek kilit alanı üç aşama: gövde 180 → yelken 220 → kamara 300. Tekne her aşamada yeniden kurulur ve zıplayarak belirir: 0 çürük, eğik, delikli gövde; 1 boyalı gövde ve beyaz şerit; 2 direk, bum ve yamalı yelken (hafif dalgalanır); 3 kırmızı çatılı kamara, gece yanan pencere. Talaş/kar tozu, parıltı, küçük kamera sarsıntısı, çekiç sesi, titreşim ve şerit.
+- **Tekne yükseltmeleri** (sefer panelinin Tekne sekmesi; 5 seviye, fiyat taban × 1.6^(seviye − 1)): hız (süre %100 → %92 → %84 → %75 → %65; taban 390), kargo (ganimet rafı 8 → 10 → 12 → 15 → 18; 330), mürettebat yeri (1 → 1 → 2 → 2 → 3; 480), gemi feneri (gece çıkışta gecikme riski %40 → 0; 280). Gecikme süreyi %20 uzatır.
 - **Tekne seviyesi** = 1 + alınan yükseltme seviyeleri / 2. Seviye 3'te otomatik sefer açılır.
 - Kalıcı kayıp yoktur; tekne batmaz.
 
 **Sefer sistemi (C3)**
 - Durum: hazır → yolda (kalan süre) → döndü (ganimet rafta) → toplandı (oyuncu paneli açınca ya da raftan ilk eşyayı alınca). Aynı anda tek sefer. Çıkışta erzak ücreti ödenir (Sığ Resif 20, Buzdağı 35, Batık Gemi 50).
 - **Sefer noktası:** İskele ucundaki halkada 0.2 sn durunca sefer paneli açılır (PanelManager, bağlamsal). Seferler sekmesi: durum (yolda iken kalan süre çubuğu ve olay), mürettebat çipleri (fok seç / bırak, yer sayısı kadar), otomatik sefer anahtarı (seviye 3'ten sonra), hedef kartları (ad, süre, beklenen ganimet, ücret, kilit durumu, "Çık").
-- **Hedefler:** Sığ Resif 4 dk (Atlantik ringası, morina, alabalık; 5–7 balık), Buzdağı Kenarı 6 dk (Kutup kefali, alabalık, kalkan şansı; 1 seferden sonra), Batık Gemi 8 dk (garantili hazine kasası ve fener parçası, %30 dekorasyon parçası, günlük sayfası bir kez; 2 seferden sonra), Uzak Ada 10 dk (kilitli, "Fener onarılınca… Yakında").
+- **Hedefler:** Sığ Resif 4 dk (Atlantik ringası, morina, alabalık; 8–11 balık, %60 hazine 60–90), Buzdağı Kenarı 6 dk (Kutup kefali, alabalık, kalkan şansı; 9–12 balık, %70 hazine 90–140; 1 seferden sonra), Batık Gemi 8 dk (6–8 balık, garantili hazine 160–240 ve fener parçası, %30 dekorasyon parçası, günlük sayfası bir kez; 2 seferden sonra), Uzak Ada 10 dk (kilitli, "Fener onarılınca… Yakında"). Parça şansı Resif %10, Buzdağı %15.
 - **Ganimet:** derin balıklar (rafa; dolarsa iskele kasalarına, kasalar raf boşaldıkça rafı doldurur, hiçbir şey kaybolmaz), hazine coin'i (iskele coin yığınına), fener parçası, nadir yem (120 sn), dekorasyon parçası (en ucuz açık dekorasyon çerçevesinin yarısını öder). Derin balıklar dönüşte ansiklopediye kaydedilir.
 - **Olaylar** (%35 şans, cezasız): fırtına (süre +%25), buzdağı sürtmesi (ganimet −%15), şanslı akıntı (süre −%20), martı sürüsü (+2 balık). Olay çıkışta belli olur, panelde ve şeritte görünür.
 - **Tekne görseli:** Kaydedilmez; her karede seferin kalan süresinden kurulur. İlk 7 sn iskeleden ayrılıp rota boyunca açılır, son %40'ta sise karışıp kaybolur; son 7 sn aynı yoldan geri gelir, yanaşırken burnunu döndürür. Kamera çıkışta ~2 sn tekneyi izler, sonra oyuncuya döner. Dönüşte boru sesi, sıçrama, hazine coin'leri yığına uçar, "Tekne döndü!" şeridi.
 - **Süre gerçek zamanlıdır** ve oyun kapalıyken de akar: açılışta / arka plandan dönüşte geçen süre kadar ilerler (kısa yokluklar dahil). Biten sefer ganimetini rafa koyar ve "Sen yokken" penceresine tek satır ekler ("Tekne döndü: N balık rafta, X coin kasada"; birden fazlaysa "N kez döndü"). Bu coin'ler pencerenin coin'ine eklenmez (yığında durur), böylece çift sayım olmaz. Bir sefer yalnızca bir kez biter (`finishVoyage` seferi siler). Çevrimdışında otomatik sefer en fazla 1 kez yeniden çıkar (`VoyageRules.offlineAutoVoyages`), saat akmadığı için gece gecikmesi olmaz.
-- **Dev balık fırsatı:** Dönüşte %25 şansla iskele ucunda şamandıralı "dev balık işareti" çıkar (3 dk). Güvertenin ucunda durunca mevcut mini oyun başlar; balık Kutup kefali ya da Grönland köpekbalığıdır, ağırlığın üst ucunda ve dövüşü ×1.45 zor. Tutulursa balık sırta, 30–60 coin iskele yığınına. Atlanırsa ceza yok.
+- **Dev balık fırsatı:** Dönüşte %25 şansla iskele ucunda şamandıralı "dev balık işareti" çıkar (3 dk). Güvertenin ucunda durunca mevcut mini oyun başlar; balık Kutup kefali ya da Grönland köpekbalığıdır, ağırlığın üst ucunda ve dövüşü ×1.45 zor. Tutulursa balık sırta, 30–60 coin iskele yığınına. Atlanırsa ceza yok. (C-II'de sim bu yakalamayı yaptırınca havuzda yanlış bir tür id'si bulundu ve düzeltildi.)
 - **Otomatik sefer:** Tekne seviye 3'te açılır, ayarı sefer panelindedir (varsayılan açık). Tekne döndükten 6 sn sonra son hedefi tekrarlar (erzak parası yetiyorsa).
 
-**Derin deniz türleri:** Atlantik ringası (0.3–1.1 kg, 8 coin/kg), Kutup kefali (2–6 kg, 2.6 coin/kg), Grönland köpekbalığı (40–110 kg, 1.1 coin/kg, çok nadir). Yalnızca sefer ganimeti ve dev balık; oltaya ve ağa çıkmaz, altın/gökkuşağı varyantı yok. Tütsülenebilir (×2.5), tezgâhta satılır.
+**Derin deniz türleri:** Atlantik ringası (0.4–1.4 kg, 10 coin/kg), Kutup kefali (2–6 kg, 3 coin/kg), Grönland köpekbalığı (40–110 kg, 1.1 coin/kg, çok nadir). Yalnızca sefer ganimeti ve dev balık; oltaya ve ağa çıkmaz, altın/gökkuşağı varyantı yok. Tütsülenebilir (×2.5), tezgâhta satılır.
 
 **Foklar (C4)**
 - Penguen Pazarı paneline "Fok" sekmesi (tekne onarılınca görünür). Her oyun günü 2–3 aday, ücretsiz yenileme (3 dk bekleme). Balıkçı fok (ganimet miktarı +%25, 240), Kaşif fok (nadir tür, hazine, parça ve yem şansı +%40, 280); her fok bir öncekinden ×1.35 pahalı. Foklar kulübe yeri tüketmez; sayıları teknenin mürettebat yeri kadardır. Alınan fok mürettebata seçili gelir.
@@ -733,15 +734,47 @@ Sayılar `content/harbor.ts` (tapu ve onarım fiyatları, tekne yükseltmeleri, 
 
 **Kayıt (v7):** `harbor` nesnesi: tekne yükseltmeleri, denizdeki sefer (hedef, kalan ve toplam süre, mürettebat, olay, gece gecikmesi), son hedef, son dönüş özeti, raf ve kasalar, iskele coin yığını, foklar ve fok kataloğu, seçili mürettebat, fener aşaması ve parçalar, otomatik sefer ayarı, sefer sayısı, batık sayfası, dev balık süresi, sezon kartı. Onarım aşamaları kilit id'leridir (`boatHull/Sail/Cabin`). Tekne animasyonu kaydedilmez. v6 → v7 göçü varsayılan iskeleyi verir; bozuk alanlar tek tek varsayılana döner.
 
-**Testler:** `npm run test:panels -- harbor` (gerçek oyunda: panel halkada açılıyor, "Çık" sefere gönderiyor, tekne yükseltmesi, yürüyünce kapanma, dönüşte raf doluyor, 10 dk çevrimdışında 2 dk kalan sefer bir kez bitiyor ve tekrar kontrolde çift sayılmıyor, Rıhtımcı raftan taşıyor, rafın yanında ganimet sırta uçuyor, Fok sekmesinden fok alınıyor). `cycles` sefer panelini de her yoldan kapatıyor.
+**Fener (C6)**
+- Kayalık adadaki "Kaptanın feneri" 5 aşamada onarılır; her aşama 1 fener parçası ve coin ister: 260 / 440 / 700 / 1000 / 1400. Parçalar Batık Gemi'den kesin, Resif ve Buzdağı'ndan şansla gelir (Kaşif fok şansı artırır).
+- İskele güvertesindeki "Fener" halkasında 0.2 sn durunca **fener paneli** açılır (PanelManager, bağlamsal; adaya yürümek gerekmez): onarım noktaları, eldeki parçalar, sıradaki aşama ("Kuleyi yeniden ör", "Kırmızı şeritleri boya", "Balkonu ve korkuluğu tak", "Fener odasını kur", "Lambayı yak") ve "Onar" kartı. Parça ya da para yoksa kart sallanır.
+- Fener modeli her aşamada yeniden kurulur ve zıplayarak belirir: kırık kaide → kule → kırmızı şeritler → balkon ve korkuluk → fener odası (camı gece parlar) → lamba yanar, gece okyanusa dönen iki ışık huzmesi. Onarımda çan ve çekiç sesi, parıltı, kar tozu, titreşim.
+- **Tam onarım:** kalıcı satış bonusu +%3 (satış bonusları tavanına dahil), +10 Huzur, kuzey ışıkları kalıcı olarak ×1.6 parlak. "Sezon 1 tamam!" kartı (kart türü, dokununca kapanır; Uzak Ada teaser'ı "Yakında…"), ardından kaptanın son günlük sayfası (10). Kart bir kez gösterilir (`seasonShown`), bitmiş bir kayıt açılınca da.
 
-## Şu anki durum (2026-11-10, Demo 7C)
+**Hikâye (C7):** Günlük 10 sayfa. 7 "Eski iskele" (tapu alınınca), 8 "İlk dönüş" (ilk sefer dönünce), 9 "Batığın sandığı" (Batık Gemi hazinesinden, bir kez), 10 "Işığı sana bırakıyorum" (fener tamam). Hepsi durumdan okunur (`StoryLogic.mainPagesDue`), böylece çevrimdışı biten bir seferden sonra da gelir. Ton önceki sayfalarla aynı; kaptan ölmez, yeni kıyılara yelken açar.
+
+**Ansiklopedi ve siparişler (C8)**
+- Ansiklopedi 10 tür gösterir; derin deniz türlerinin "ne zaman" satırı "Sefer ganimeti". Koleksiyon ödülleri değişmedi (7 tür ödülü sefersiz de alınabilir).
+- Yeni sipariş türleri (yalnızca tekne denize hazırsa): "N derin deniz balığı" (sırttan), "N sefer tamamla" (sipariş geldikten sonra dönen seferler), "Batık Gemi'den hazine getir" (Batık Gemi açıksa; sipariş geldikten sonraki bir Batık Gemi dönüşü). Sefer siparişleri sayacı siparişte saklar (`base`), teslimde eşya düşmez. Ödül hesabındaki sefer değeri `orders.ts` → `voyageValue`.
+
+**Ses ve müzik (C9):** Martı çığlığı, halat, tahta gıcırtısı, yelken çırpınması, çekiç, teknenin çıkış ve dönüş boru sesi, fener çanı (hepsi sentez, `content/audio.ts`). Müzikte yeni "iskele" yer modu: çanlar üçgen dalga, bir oktav aşağı, kısa sönümlü (ahşap, marimba benzeri), biraz daha sık; pad biraz daha parlak. Oyuncu iskele şeridindeyken dalga ambiyansı yakın.
+
+**Denge ve sim (C11)** (`npm run sim`, 12 koşu, medyan; bot sırası ve kuralları §17.1). Bot tapu ve onarımı "en ucuz karşılanabilir hedef" kuralıyla alır, tekne boşken sefere çıkar (fener parça istedikçe Batık Gemi, yoksa Buzdağı), raf dolunca ganimeti toplar, dev balık işaretini tutar, tekne yükseltmelerini (sonraki hedefin %30'undan ucuzsa) ve fokları (önce balıkçı) alır, tekne hazır olunca bir Taşıyıcıyı Rıhtımcı yapar, fener aşamalarını parça geldikçe onarır.
+
+| Açılış | Hedef | Yükseltme almayan bot | Alan bot |
+|---|---|---|---|
+| İskele tapusu | ~50 dk | 53:32 | 53:41 |
+| Tekne onarımı tamam | ~58 dk | 57:22 | 57:32 |
+| İlk sefer (çıkış) | ~60 dk | 57:43 | 59:01 |
+| 1. fok | — | 59:11 | 58:13 |
+| Tekne seviye 3 | ~85 dk | — (yükseltme yok) | 77:47 |
+| Fener tamam | ~120 dk | 116:30 | 110:13 |
+
+- Gelir kolları (alan bot): 90 dk balık %34 / kamp %30 / mağara %28 / sefer %8.0; 120 dk %25 / %34 / %28 / %12.7. Hiçbiri %65'i geçmiyor, %8'in altında kalmıyor. (60 dk'da sefer yok.)
+- Sefer başına ROI ((getirilen değer − erzak) / erzak; değer = balığın çiğ satış değeri + hazine): Resif ×5.2 (124 değer), Buzdağı ×7.2 (288), Batık Gemi ×6.3 (363); ortalama ×6.3, koşu başına ~8 sefer (120 dk'ya kadar). Tütsülenen ganimet ×2.5 eder.
+- Çevrimdışı (8 sa yokluk; seferin çevrimdışı getirdiği değer de sayılır): tekne aşaması %20 (taban) / %24 (Zaman yükseltmeleri tam), tekne Sv3 (otomatik sefer) %29 / %33. Hedef ~%40'ın altında; sefer çevrimdışı katkısı ayrıca kısılmadı (zaten 1 ek otomatik seferle sınırlı).
+- Rıhtımcı: ilk ~61 dk, gelir/dk önceki 10 dk 186 → sonraki 218.
+- Ganimet tezgâhtaki müşteri talebini paylaşır: daha çok balık tek başına sefer payını büyütmüyor (raf ve kasalarda bekliyor), bu yüzden sefer gelirinin bir kısmı tezgâhı atlayan hazine coin'i.
+
+**Testler:** `npm run test:panels -- harbor` (gerçek oyunda: panel halkada açılıyor, "Çık" sefere gönderiyor, tekne yükseltmesi, yürüyünce kapanma, dönüşte raf doluyor, 10 dk çevrimdışında 2 dk kalan sefer bir kez bitiyor ve tekrar kontrolde çift sayılmıyor, Rıhtımcı raftan taşıyor, rafın yanında ganimet sırta uçuyor, Fok sekmesinden fok alınıyor). `harbor` ayrıca fener panelini açıp 5 aşamayı onarıyor, sezon kartını ve sayfa 10'u doğruluyor. `cycles` sefer ve fener panellerini de her yoldan kapatıyor. Tam koşu (`--cycles 40`): 97/97, sayfa hatası yok.
+
+## Şu anki durum (2026-11-10, Demo 7C bitti)
 **Bitti**
-- Demo 7A ve 7B main'de. Demo 7C ön işi: çevrimdışı verim üst değeri %65 → %60, `offlineMinerFactor` kaldırıldı; sim'de uç durum %39 (§18).
-- Demo 7C **C-I (C1–C5)**: Liman İskelesi, tekne onarımı ve yükseltmeleri, sefer sistemi (çevrimdışı dahil), derin deniz türleri, foklar, Rıhtımcı, save v7 (§25). `test:panels -- harbor` 15/15, `cycles` sefer paneliyle 25/25.
+- Demo 7C ön işi: çevrimdışı verim üst değeri %65 → %60, `offlineMinerFactor` kaldırıldı (§18).
+- Demo 7C C-I (C1–C5) ve C-II (C6–C11): Liman İskelesi, tekne, seferler, foklar, Rıhtımcı, fener ve sezon kartı, günlük 7–10, ansiklopedi ve sipariş türleri, iskele sesleri ve müziği, sim'de seferler; save v7 (§25). typecheck, build, sim ve panel testleri (97/97) geçiyor; main'e pushlandı.
 
 **Sıradaki adım**
-- C-II (C6–C11): fener ve fener paneli, sezon kartı, günlük 7–10, ansiklopedi ve siparişler, iskele müziği, sim ve denge.
+- Demo 8: yayın hazırlığı (Capacitor, Android APK, iOS).
+- Telefonda bakılacaklar §17'de (tapu zamanı, fener ışığı, 60 fps).
 
 ## 17. Açık sorular
 - Test için kullanılacak telefon: iPhone mu, Android mi? (Web demolarında fark yok, native aşamada önemli)
@@ -751,6 +784,10 @@ Sayılar `content/harbor.ts` (tapu ve onarım fiyatları, tekne yükseltmeleri, 
 - Gerçek müzik parçası gerekecek mi? Şimdilik her şey sentez; `MusicDirector.loadTrack(url)` kancası hazır.
 - **3. penguen zamanı (Demo 7B):** Sim'de ~34 dk (hedef ~40). Bot "en ucuz karşılanabilir hedef" kuralıyla alıyor; kulübe 2. seviye fiyatı 360'ın altındayken kamp tapusundan önce (~34 dk), 380 ve üstündeyken kamp çadırlarından sonra (~46–50 dk) alınıyor, arası yok. 300 seçildi (hedefe daha yakın). Gerçek oyuncu farklı sıralayabilir; telefonda bakılmalı.
 - Uyku buff'ının etkisi 8 koşulu sim'de %12.9 çıktı (hedef ≤ ~%12, önceki ölçüm %10); koşu sayısına bağlı oynuyor, 7B ona dokunmadı.
+- **İskele tapusu zamanı (Demo 7C):** Sim'de ~54 dk (hedef ~50). Tapunun fiyatı değil, ön koşulu olan günlük sayfası 3'ün (kampta ilk tabak servisi) ~53 dk'da gelmesi belirliyor; tapu 230'a indirilince de değişmedi. Sayfa 3'ün koşulu ya da kamp sırası değiştirilirse öne çekilebilir. Tekne ve ilk sefer hedefte.
+- **Fener ve tekne Sv3 biraz erken:** sim'de fener ~110–116 dk (hedef ~120), Sv3 ~78 dk (hedef ~85). Gerçek oyuncu Batık Gemi'yi bot kadar ısrarla seçmeyebilir; telefonda bakılmalı.
+- **Rıhtımcı için kulübe yeri:** Kulübe en fazla 5 penguen alıyor; Rıhtımcı için bir penguenin rolünü değiştirmek gerekiyor (sim botu ikinci Taşıyıcıyı Rıhtımcı yapıyor). 6. kulübe seviyesi düşünülebilir.
+- **Uzak Ada:** Bu demoda yalnızca kilitli kart ve sezon kartındaki teaser.
 - Temizlikçi ve Bekçi sim'de kullanılmıyor (bot tehdit yapılarını da almıyor); etkileri yalnızca oyunda ve panel testinde ölçüldü.
 
 **Demo 6C'de kapananlar:** PWA PNG ikonları eklendi. Ses kaynakları sorusu kapandı (dosya yok, WebAudio sentezi). Diller Türkçe + İngilizce olarak kaldı. Ayarlarda "Sessiz" düğmeleri dil seçimini bozuyordu (seçici hatası), düzeltildi. Ayarlar kartı artık HUD düğmelerinin üstünde açılıyor.

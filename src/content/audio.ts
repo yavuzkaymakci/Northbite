@@ -163,7 +163,7 @@ export const AudioMix = {
 // ---------- music (GDD §21) ----------
 
 export type TimeMood = 'day' | 'evening' | 'night';
-export type PlaceMood = 'shore' | 'cave' | 'camp';
+export type PlaceMood = 'shore' | 'cave' | 'camp' | 'harbor';
 
 /**
  * Generative music, no tempo: a soft pad slowly gliding between chords, sparse pentatonic bells on top, a light echo.
@@ -203,7 +203,9 @@ export const Music = {
   padGain: 0.11,
   /** Pad brightness (low-pass cutoff in Hz) per time of day, and in the cave / camp. */
   padCutoff: { day: 1500, evening: 950, night: 750 } satisfies Record<TimeMood, number>,
-  placeCutoff: { shore: 1, cave: 0.8, camp: 1.15 } satisfies Record<PlaceMood, number>,
+  placeCutoff: { shore: 1, cave: 0.8, camp: 1.15, harbor: 1.08 } satisfies Record<PlaceMood, number>,
+  /** Harbour Pier (GDD §25): warm, woody bells (a short marimba-like triangle note, an octave down), a bit more often. */
+  harbor: { octave: -12, decay: 0.42, every: 1.2, gain: 1.25 },
   /** Seconds between bell notes (random in range); the cave rings more often, the night less. */
   bellEvery: [2.5, 7],
   bellGain: 0.055,

@@ -20,6 +20,8 @@ export interface FishItem {
   price: number;
   /** Rare colour variant (GDD §19): only the look and the value differ. */
   variant?: VariantId;
+  /** Brought back by a voyage (GDD §25); only used for the income report, kept through smoking. */
+  fromSea?: boolean;
 }
 
 export interface SmokerState {
@@ -219,8 +221,9 @@ export interface HarborState {
   parts: number;
   /** Auto voyages on/off (settings; they need boat level 3). */
   auto: boolean;
-  /** Voyages completed. */
+  /** Voyages completed, and how many of them went to the sunken ship. */
   voyages: number;
+  wrecks: number;
   /** The sunken ship's journal page was found (page 9). */
   wreckPage: boolean;
   /** Seconds left on the giant fish sign at the pier end (0 = none). */
@@ -245,6 +248,7 @@ export function createHarborState(): HarborState {
     parts: 0,
     auto: true,
     voyages: 0,
+    wrecks: 0,
     wreckPage: false,
     giant: 0,
     seasonShown: false,
@@ -289,6 +293,8 @@ export interface Order {
   amount: number;
   /** For 'species' orders. */
   species?: FishId;
+  /** For 'voyage' / 'treasure' orders: the voyage / sunken-ship count when the order came (progress counts from here). */
+  base?: number;
   /** Real seconds left (only counted while playing). */
   timeLeft: number;
   /** Coins on delivery (priceScale already applied). */

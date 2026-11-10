@@ -1,5 +1,6 @@
 import { Pages, type PageId, type PageTrigger } from '../content/story';
 import type { GameState } from '../core/GameState';
+import { Lighthouse } from '../content/harbor';
 
 // Journal page rules (GDD §15), shared by the game and the balance sim.
 
@@ -9,6 +10,11 @@ export function mainPagesDue(state: GameState): PageId[] {
     smokehouse: state.unlocked.includes('smokehouse'),
     firstCrystal: state.cave.mined > 0,
     firstPlatter: state.camp.served > 0,
+    // Harbour Pier (GDD §25): these are state too, so they also come after a voyage finished offline.
+    harborDeed: state.regions.includes('harbor'),
+    firstVoyage: state.harbor.voyages > 0,
+    wreck: state.harbor.wreckPage,
+    lighthouse: state.harbor.lighthouse >= Lighthouse.stageCosts.length,
   };
   return Pages.filter((p) => met[p.trigger] && !state.story.pages.includes(p.id)).map((p) => p.id);
 }

@@ -126,7 +126,7 @@ export class Codex {
     if (!s) return;
     const rec = s.codex.species[f.id];
     const none = t('codexNoValue');
-    const when: StringKey = f.when === 'night' ? 'whenNight' : f.when === 'aurora' ? 'whenAurora' : 'whenAny';
+    const when: StringKey = f.deep ? 'whenDeep' : f.when === 'night' ? 'whenNight' : f.when === 'aurora' ? 'whenAurora' : 'whenAny';
     const variants = (['gold', 'rainbow'] as const).filter((v) => s.codex.variants[v].includes(f.id));
     const row = (label: StringKey, value: string) => `<div class="codex-row"><span>${t(label)}</span><b>${value}</b></div>`;
     this.detail.innerHTML = `

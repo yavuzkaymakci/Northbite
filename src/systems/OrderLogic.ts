@@ -1,4 +1,6 @@
 import { DecorationList } from '../content/decorations';
+import { boatReady, destinationOpen } from './VoyageLogic';
+import { DestinationById } from '../content/voyages';
 import { Economy } from '../content/economy';
 import { FishById, FishSpeciesList, type FishId } from '../content/fish';
 import { Camp } from '../content/land';
@@ -54,6 +56,9 @@ function feasible(state: GameState, t: OrderTemplate): boolean {
   if (t.kind === 'species') return orderableSpecies(state).length > 0;
   if (t.kind === 'plates') return state.regions.includes('hotSpring');
   if (t.kind === 'statuettes') return state.regions.includes('iceCave');
+  if (t.kind === 'deep' || t.kind === 'voyage') return boatReady(state);
+  // The sunken ship opens after two voyages (voyages.ts → wreck.unlockAfter).
+  if (t.kind === 'treasure') return boatReady(state) && destinationOpen(state, DestinationById.wreck);
   return true;
 }
 
@@ -81,6 +86,12 @@ function expectedValue(state: GameState, o: Pick<Order, 'kind' | 'amount' | 'spe
       return raw * 5;
     case 'night':
       return speciesValue('moonCod');
+    case 'deep':
+      return o.amount * speciesValue('atlanticHerring') * 1.5;
+    case 'voyage':
+      return o.amount * Orders.voyageValue;
+    case 'treasure':
+      return Orders.voyageValue * 2;
   }
 }
 
@@ -113,7 +124,8 @@ export function makeOrder(state: GameState, rand: () => number, first = false): 
   }
   if (!t) return null;
   const species = t.kind === 'species' ? (orderableSpecies(state)[Math.floor(rand() * orderableSpecies(state).length)] as FishId) : undefined;
-  const base = { kind: t.kind, amount, ...(species ? { species } : {}) };
+  const counter = t.kind === 'voyage' ? state.harbor.voyages : t.kind === 'treasure' ? state.harbor.wrecks : undefined;
+  const base = { kind: t.kind, amount, ...(species ? { species } : {}), ...(counter !== undefined ? { base: counter } : {}) };
   return {
     id: o.nextId++,
     ...base,
@@ -174,6 +186,8 @@ function matching(state: GameState, order: Order, visible: number): FishItem[] {
       return list.filter((f) => f.variant === 'gold');
     case 'night':
       return list.filter((f) => NIGHT_FISH.includes(f.species));
+    case 'deep':
+      return list.filter((f) => FishById[f.species].deep);
     default:
       return [];
   }
@@ -183,6 +197,8 @@ function matching(state: GameState, order: Order, visible: number): FishItem[] {
 export function orderProgress(state: GameState, order: Order, visible = state.carried.length): { have: number; need: number } {
   if (order.kind === 'plates') return { have: state.camp.plates.length, need: order.amount };
   if (order.kind === 'statuettes') return { have: state.cave.output, need: order.amount };
+  if (order.kind === 'voyage') return { have: Math.min(state.harbor.voyages - (order.base ?? state.harbor.voyages), order.amount), need: order.amount };
+  if (order.kind === 'treasure') return { have: Math.min(state.harbor.wrecks - (order.base ?? state.harbor.wrecks), order.amount), need: order.amount };
   const items = matching(state, order, visible);
   const have = order.kind === 'kg' ? Math.round(items.reduce((s, f) => s + f.kg, 0) * 10) / 10 : items.length;
   return { have, need: order.amount };
@@ -213,6 +229,8 @@ export function deliverOrder(state: GameState, orderId: number, visible = state.
   } else if (order.kind === 'statuettes') {
     state.cave.output -= order.amount;
     givenValue = order.amount * stationValue(state, 'statuetteValue');
+  } else if (order.kind === 'voyage' || order.kind === 'treasure') {
+    // Nothing to hand over: the trips themselves were the job.
   } else {
     const items = matching(state, order, visible);
     items.sort((a, b) => (order.kind === 'kg' ? b.kg - a.kg : a.price - b.price));

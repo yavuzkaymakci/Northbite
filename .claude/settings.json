@@ -6,7 +6,14 @@
       "Bash(timeout 300 node tools/panel-test.mjs harbor)",
       "Bash(timeout 590 node tools/panel-test.mjs cycles --cycles 40)",
       "Bash(sed -i \"s|    await contextual\\('voyage', VOYAGE, '.voyage-panel .panel-tabs button\\\\[data-tab=\\\\\"boat\\\\\"\\\\]', '.voyage-panel .panel-x'\\);|    await contextual\\('voyage', VOYAGE, '.voyage-panel .panel-x', '.voyage-panel .panel-x'\\);|\" tools/panel-test.mjs)",
-      "Bash(python \"C:/Users/PC_4770/AppData/Local/Temp/claude/2dcf1e69fa7c33a5/82f6da02-f9eb-49b9-bc49-e62b8cb80668/scratchpad/gdd_c1.py\")"
+      "Bash(python \"C:/Users/PC_4770/AppData/Local/Temp/claude/2dcf1e69fa7c33a5/82f6da02-f9eb-49b9-bc49-e62b8cb80668/scratchpad/gdd_c1.py\")",
+      "Bash(python \"C:/Users/PC_4770/AppData/Local/Temp/claude/2dcf1e69fa7c33a5/82f6da02-f9eb-49b9-bc49-e62b8cb80668/scratchpad/sim_patch.py\")",
+      "Bash(python \"C:/Users/PC_4770/AppData/Local/Temp/claude/2dcf1e69fa7c33a5/82f6da02-f9eb-49b9-bc49-e62b8cb80668/scratchpad/sim_patch2.py\")",
+      "Bash(sed -i \"s/  firstVoyage: '~60 dk \\(dönüş ~64\\)',/  firstVoyage: '~60 dk \\(çıkış\\)',/\" tools/balance-sim.ts)",
+      "Bash(tee \"C:/Users/PC_4770/AppData/Local/Temp/claude/2dcf1e69fa7c33a5/82f6da02-f9eb-49b9-bc49-e62b8cb80668/scratchpad/sim12.txt\")",
+      "Bash(npm run *)",
+      "Bash(timeout 590 node tools/panel-test.mjs --cycles 40)",
+      "Bash(python \"C:/Users/PC_4770/AppData/Local/Temp/claude/2dcf1e69fa7c33a5/82f6da02-f9eb-49b9-bc49-e62b8cb80668/scratchpad/gdd_c2.py\")"
     ]
   }
 }
